@@ -1,9 +1,28 @@
-import streamlit as st
+[source: 3]import streamlit as st
 from supabase import create_client
 import ast
 from fpdf import FPDF
 import os
 import requests
+
+# --- CONFIGURAZIONE PWA PER SCHERMATA HOME ---
+st.markdown("""
+    <link rel="manifest" href="data:application/manifest+json,{
+        'name': 'SlotGarage',
+        'short_name': 'SlotGarage',
+        'start_url': '/',
+        'display': 'standalone',
+        'background_color': '#ffffff',
+        'theme_color': '#000000',
+        'icons': [
+            {
+                'src': 'https://raw.githubusercontent.com/garganoslotcar-max/SlotGarage/main/logo.png',
+                'sizes': '512x512',
+                'type': 'image/png'
+            }
+        ]
+    }">
+""", unsafe_allow_html=True)
 
 # --- CONFIGURAZIONE SUPABASE ---
 SUPABASE_URL = "https://rmfaphfksvcyynfrrbsy.supabase.co"
