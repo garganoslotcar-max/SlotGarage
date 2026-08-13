@@ -5,25 +5,6 @@ from fpdf import FPDF
 import os
 import requests
 
-# --- CONFIGURAZIONE PWA PER SCHERMATA HOME ---
-st.markdown("""
-    <link rel="manifest" href="data:application/manifest+json,{
-        'name': 'SlotGarage',
-        'short_name': 'SlotGarage',
-        'start_url': '/',
-        'display': 'standalone',
-        'background_color': '#ffffff',
-        'theme_color': '#000000',
-        'icons': [
-            {
-                'src': 'https://raw.githubusercontent.com/garganoslotcar-max/SlotGarage/main/logo.png',
-                'sizes': '512x512',
-                'type': 'image/png'
-            }
-        ]
-    }">
-""", unsafe_allow_html=True)
-
 # --- CONFIGURAZIONE SUPABASE ---
 SUPABASE_URL = "https://rmfaphfksvcyynfrrbsy.supabase.co"
 SUPABASE_KEY = "sb_publishable_vp-3OcwsKymyHEgP8XlbsQ_KVFQh0I6"
@@ -518,6 +499,55 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                                     durezza_molla = st.selectbox("Durezza", ["Molle morbide", "Molle medie", "Molle dure"], key=f"thunder_sosp_{key_base}_durezza_{model_safe_key}")
                                     scelte_utente[f"Durezza_Molla_{tipo_sosp}"] = durezza_molla
 
+                elif selected_prod_name.lower() == "scaleauto":
+                    scaleauto_campi = ["Motore", "Supporto Motore", "Corona", "Giri Motore", "Pignoni", "Telaio", "Assale Anteriore", "Assale Posteriore", "Cerchi Anteriori", "Cerchi Posteriori", "Pickup", "Viti Carrozzeria"]
+                    
+                    cols = st.columns(3)
+                    for idx, campo in enumerate(scaleauto_campi):
+                        with cols[idx % 3]:
+                            if campo == "Giri Motore":
+                                scelte_utente["Giri_Motore"] = st.text_input("Giri Motore", value=str(edit_data.get("Giri_Motore", "")) if edit_data else "", key=f"giri_motore_scaleauto_{model_safe_key}")
+                            else:
+                                if campo == "Motore":
+                                    sub_pezzi = [p for p in pezzi if p.get("Prodotto") and "motore" in p.get("Prodotto").lower() and "supporto" not in p.get("Prodotto").lower()]
+                                elif campo == "Supporto Motore":
+                                    sub_pezzi = [p for p in pezzi if p.get("Prodotto") and "supporto" in p.get("Prodotto").lower()]
+                                elif campo == "Corona":
+                                    sub_pezzi = [p for p in pezzi if p.get("Prodotto") and "corona" in p.get("Prodotto").lower()]
+                                elif campo == "Pignoni":
+                                    sub_pezzi = [p for p in pezzi if p.get("Prodotto") and "pignon" in p.get("Prodotto").lower()]
+                                elif campo == "Telaio":
+                                    sub_pezzi = [p for p in pezzi if p.get("Prodotto") and "telaio" in p.get("Prodotto").lower()]
+                                elif campo in ["Assale Anteriore", "Assale Posteriore"]:
+                                    sub_pezzi = [p for p in pezzi if p.get("Prodotto") and "assale" in p.get("Prodotto").lower()]
+                                elif campo in ["Cerchi Anteriori", "Cerchi Posteriori"]:
+                                    sub_pezzi = [p for p in pezzi if p.get("Prodotto") and "cerch" in p.get("Prodotto").lower()]
+                                elif campo == "Pickup":
+                                    sub_pezzi = [p for p in pezzi if p.get("Prodotto") and "pickup" in p.get("Prodotto").lower()]
+                                elif campo == "Viti Carrozzeria":
+                                    sub_pezzi = [p for p in pezzi if p.get("Prodotto") and ("viti" in p.get("Prodotto").lower() or "carrozzeria" in p.get("Prodotto").lower())]
+                                else:
+                                    sub_pezzi = []
+
+                                opzioni = []
+                                for p in sub_pezzi:
+                                    mat = p.get('Materiale')
+                                    mis = p.get('Misure')
+                                    parte_mat = str(mat).strip() if mat and str(mat).lower() != 'none' else ""
+                                    parte_mis = str(mis).strip() if mis and str(mis).lower() != 'none' else ""
+                                    str_opt = f"{parte_mat} - {parte_mis}" if parte_mat and parte_mis else (parte_mat or parte_mis)
+                                    if str_opt:
+                                        opzioni.append(str_opt)
+
+                                def_idx = find_default_index(opzioni, selected_model_name)
+                                scelte_utente[campo] = st.selectbox(campo, opzioni if opzioni else ["Nessuna opzione"], index=def_idx, key=f"scaleauto_{campo}_{model_safe_key}")
+
+                    st.write("### 🔩 Sospensioni Scaleauto")
+                    sosp_scaleauto_attive = st.selectbox("Sospensioni", ["No", "Sì"], key=f"scaleauto_sosp_sino_{model_safe_key}")
+                    scelte_utente["Sospensioni"] = sosp_scaleauto_attive
+                    if sosp_scaleauto_attive == "Sì":
+                        scelte_utente["Tipo_Molla_Scaleauto"] = st.selectbox("Tipo Molla", ["Molle Hard", "Molle Medium", "Molle Soft"], key=f"scaleauto_tipo_molla_{model_safe_key}")
+
                 else:
                     priorita = ["Motore", "Corona Sidewinder", "Pignone"]
                     altre_tipologie = [
@@ -627,7 +657,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             st.divider()
 
             st.write("### 🔩 Supporto Assale")
-            if selected_prod_name.lower() == "nsr":
+            if selected_prod_name.lower() in ["nsr", "scaleauto"]:
                 scelte_utente["Tipo_Supporto"] = "Bronzine"
                 lista_bronzine = []
                 for p in pezzi:
