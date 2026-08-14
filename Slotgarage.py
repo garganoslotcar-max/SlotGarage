@@ -7,6 +7,15 @@ import requests
 import streamlit as st
 from supabase import create_client
 
+# --- CONFIGURAZIONE STREAMLIT CON STRINGHE PER LOGO E NOME APP ---
+LOGO_PATH = "logo.png"
+
+st.set_page_config(
+    page_title="SlotGarage",
+    page_icon=LOGO_PATH,
+    layout="wide"
+)
+
 # --- CONFIGURAZIONE SUPABASE & SICUREZZA ---
 try:
   SUPABASE_URL = st.secrets["supabase"]["url"]
@@ -26,10 +35,6 @@ def init_connection():
 
 
 supabase = init_connection()
-
-LOGO_PATH = "logo.png"
-
-st.set_page_config(page_title="SlotGarage", page_icon=LOGO_PATH, layout="wide")
 
 # --- INTESTAZIONE CON LOGO E SCRITTA INGRANDITA E ABBASSATA ---
 col_logo, col_titolo = st.columns([2, 10])
