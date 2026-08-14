@@ -1,4 +1,0 @@
-streamlit
-supabase
-fpdf
-requests
