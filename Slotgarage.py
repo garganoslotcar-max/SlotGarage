@@ -31,7 +31,7 @@ LOGO_PATH = "logo.png"
 
 st.set_page_config(page_title="SlotGarage", page_icon=LOGO_PATH, layout="wide")
 
-# --- BLOCCO CSS PER MOBILE (Elimina refresh in alto e sistema il testo del titolo) ---
+# --- BLOCCO CSS & JS PER MOBILE (Blocca definitivamente il refresh e sistema il testo) ---
 st.markdown(
     """
     <style>
@@ -43,6 +43,21 @@ st.markdown(
         font-size: clamp(2rem, 5vw, 4.2rem) !important;
     }
     </style>
+    <script>
+    let touchstartY = 0;
+    window.addEventListener('touchstart', function(event) {
+        touchstartY = event.touches[0].clientY;
+    }, { passive: true });
+
+    window.addEventListener('touchmove', function(event) {
+        let touchY = event.touches[0].clientY;
+        let touchYDelta = touchY - touchstartY;
+        // Se siamo in cima alla pagina e l'utente tira verso il basso, blocca il refresh
+        if (window.scrollY === 0 && touchYDelta > 0) {
+            event.preventDefault();
+        }
+    }, { passive: false });
+    </script>
     """,
     unsafe_allow_html=True,
 )
@@ -834,7 +849,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           st.write("### 🔩 Sospensioni Scaleauto")
           sosp_sc_opts = ["No", "Sì"]
           def_sosp_sc = edit_data.get("Sospensioni", "No") if edit_data else "No"
-          idx_sosp_sc = sosp_sc_opts.index(def_sosp_sc) if def_sosp_sc in sosp_sc_opts else 0
+          idx_sosp_sc = sosp_sc_opts.index(def_sosp_sc) if def_scosp_sc in sosp_sc_opts else 0
           sosp_scaleauto_attive = st.selectbox(
               "Sospensioni",
               sosp_sc_opts,
