@@ -39,33 +39,33 @@ if "user" not in st.session_state:
   else:
     st.session_state.user = None
 
-# Funzione di supporto per mostrare il form di autenticazione stabile (con st.form)
+# Funzione di supporto per mostrare il form di autenticazione stabile (FUORI dai form di salvataggio)
 def richiedi_autenticazione():
   st.warning("⚠️ Per completare il salvataggio devi effettuare l'accesso o registrarti.")
   
   tab_login, tab_reg = st.tabs(["Accedi", "Registrati"])
   
   with tab_login:
-    with st.form("modal_login_form_stabile"):
-      email_in = st.text_input("Email", key="modal_login_email")
-      pass_in = st.text_input("Password", type="password", key="modal_login_password")
+    with st.form("modal_login_form_definitivo"):
+      email_in = st.text_input("Email", key="modal_login_email_def")
+      pass_in = st.text_input("Password", type="password", key="modal_login_password_def")
       if st.form_submit_button("Conferma Accesso"):
         try:
           res = supabase.auth.sign_in_with_password({"email": email_in, "password": pass_in})
           st.session_state.user = res.user
-          st.success("Accesso effettuato! Clicca di nuovo su Salva per completare l'operazione.")
+          st.success("Accesso effettuato con successo! Clicca di nuovo su Salva.")
           st.rerun()
         except Exception as e:
           st.error(f"Errore di autenticazione: {e}")
         
   with tab_reg:
-    with st.form("modal_reg_form_stabile"):
-      email_reg = st.text_input("Email", key="modal_reg_email")
-      pass_reg = st.text_input("Password", type="password", key="modal_reg_password")
+    with st.form("modal_reg_form_definitivo"):
+      email_reg = st.text_input("Email", key="modal_reg_email_def")
+      pass_reg = st.text_input("Password", type="password", key="modal_reg_password_def")
       if st.form_submit_button("Crea Account"):
         try:
           supabase.auth.sign_up({"email": email_reg, "password": pass_reg})
-          st.success("Registrazione completata! Controlla la tua email per confermare l'account o effettua il login.")
+          st.success("Registrazione completata! Effettua il login nella scheda accanto.")
         except Exception as e:
           st.error(f"Errore durante la registrazione: {e}")
 
@@ -80,10 +80,10 @@ with st.sidebar:
   else:
     st.info("Stai navigando come Ospite.")
     with st.expander("🔑 Accedi / Registrati"):
-      with st.form("sb_login_form_stabile"):
-        email_sb = st.text_input("Email", key="sb_email")
-        pass_sb = st.text_input("Password", type="password", key="sb_pass")
-        if st.form_submit_button("Login rapido", key="sb_login_btn"):
+      with st.form("sb_login_form_definitivo"):
+        email_sb = st.text_input("Email", key="sb_email_def")
+        pass_sb = st.text_input("Password", type="password", key="sb_pass_def")
+        if st.form_submit_button("Login rapido", key="sb_login_btn_def"):
           try:
             res = supabase.auth.sign_in_with_password({"email": email_sb, "password": pass_sb})
             st.session_state.user = res.user
@@ -152,10 +152,9 @@ if "modifying_pulsante_data" not in st.session_state:
 if "active_tab" not in st.session_state:
   st.session_state.active_tab = "📋 Visualizza Modelli"
 
-# --- SEZIONE FILTRI E SELEZIONE (CON SUPPORTO AL DIKT DI MODIFICA) ---
+# --- SEZIONE FILTRI E SELEZIONE ---
 st.header("🔍 Navigazione e Filtri")
 
-# Filtraggio produttori: escludiamo BRM e Revoslot e aggiungiamo "Altri Produttori"
 produttori_filtrati_list = [
     p for p in produttori 
     if p and p.get("name") and p.get("id") and str(p.get("name")).strip().upper() not in ["BRM", "REVOSLOT"]
