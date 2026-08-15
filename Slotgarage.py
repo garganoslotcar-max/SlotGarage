@@ -31,41 +31,6 @@ LOGO_PATH = "logo.png"
 
 st.set_page_config(page_title="SlotGarage", page_icon=LOGO_PATH, layout="wide")
 
-# --- FORZATURA DARK MODE GLOBALE + TESTO NERO NELLE CASELLOLE DI INPUT/SELECT ---
-st.markdown(
-    """
-    <style>
-        /* Forza lo sfondo scuro generale e il testo chiaro */
-        .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-            background-color: #121212 !important;
-            color: #e0e0e0 !important;
-        }
-        /* Colore del testo generale e dei titoli */
-        h1, h2, h3, h4, h5, h6, p, span, label, div {
-            color: #e0e0e0 !important;
-        }
-        /* Colore specifico per i testi secondari o sottotitoli dorati */
-        p[style*="color: #FFD700"] {
-            color: #FFD700 !important;
-        }
-        /* Sfondo della sidebar */
-        [data-testid="stSidebar"] {
-            background-color: #1e1e1e !important;
-        }
-        /* --- CORREZIONE LEGGIBILITÀ CASELLE (INPUT & SELECTBOX) --- */
-        input, select, textarea, div[data-baseweb="select"] span, div[data-baseweb="select"] div {
-            color: #000000 !important;
-        }
-        /* Assicura che il testo digitato o selezionato sia scuro e leggibile */
-        .stTextInput input, .stTextArea textarea {
-            color: #000000 !important;
-            background-color: #ffffff !important;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
 # --- INTESTAZIONE CON LOGO E SCRITTA INGRANDITA E ABBASSATA ---
 col_logo, col_titolo = st.columns([2, 10])
 with col_logo:
