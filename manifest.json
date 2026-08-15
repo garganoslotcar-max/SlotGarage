@@ -1,0 +1,9 @@
+{
+  "name": "Nome della Mia App",
+  "short_name": "MiaApp",
+  "start_url": "https://tuo-link-streamlit.app",
+  "display": "standalone",
+  "icons": [
+    { "src": "/icona.png", "sizes": "192x192", "type": "image/png" }
+  ]
+}
