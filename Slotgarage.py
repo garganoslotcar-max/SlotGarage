@@ -113,7 +113,7 @@ with st.sidebar:
       st.rerun()
   else:
     st.info("Stai navigando come Ospite.")
-    with st.expander("🔑 Accedi / Registrati"):
+    with st.expander("🔑 Accedi"):
       with st.form("sb_login_form_definitivo"):
         email_sb = st.text_input("Email", key="sb_email_def")
         pass_sb = st.text_input("Password", type="password", key="sb_pass_def")
@@ -1290,7 +1290,7 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
   st.subheader("🚗 Il Mio Garage - Configurazioni Salvate")
 
   if not st.session_state.user:
-    st.info("Accedi o registrati per visualizzare e gestire il tuo garage personale.")
+    st.info("Accedi per visualizzare e gestire il tuo garage personale.")
     richiedi_autenticazione()
   else:
     try:
@@ -1486,7 +1486,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
           sensibilita_grilletto_val = st.text_input("Sensibilità Grilletto", value=pulsante_edit.get("Sensibilità Grilletto", "") if pulsante_edit else "")
           antispin_val = st.text_input("Antispin", value=pulsante_edit.get("Antispin", "") if pulsante_edit else "")
 
-          min_speed_val, curve_val, freno_val, power_trim_val, mapping_val, ohm_val, sensibilita_val, start_val, curva_potenza_val, freno_fine_rettilineo_val, resistenza_val, tasto_spunto_val, tasto_freno_val, tuning_val, th_min_val, th_max_val = "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""
+          min_speed_val, curve_val, freno_val, power_trim_val, mapping_val, ohm_val, sensibilita_val, start_val, curva_potenza_val, freno_fine_rettilineo_val, resistenza_val, tasto_spunto_val, tasto_freno_val, tuning_val, th_min_val, th_max_val = "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""
 
   elif scelta_tipo_pulsante == "Digitale" and scelta_modello_digitale in ["SLOT.IT SCP-1", "SLOT.IT SCP-2", "SLOT.IT SCP-3"]:
       col_tp1, col_tp2 = st.columns(2)
@@ -1501,7 +1501,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
           idx_mapping = mapping_opts.index(def_mapping) if def_mapping in mapping_opts else 1
           mapping_val = st.selectbox("Mapping", mapping_opts, index=idx_mapping)
           
-          mappa_potenza_val, potenza_val, tipo_freno_val, valore_freno_val, sensibilita_grilletto_val, ohm_val, antispin_val, sensibilita_val, start_val, curva_potenza_val, freno_fine_rettilineo_val, resistenza_val, tasto_spunto_val, tasto_freno_val, tuning_val, th_min_val, th_max_val = "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""
+          mappa_potenza_val, potenza_val, tipo_freno_val, valore_freno_val, sensibilita_grilletto_val, min_speed_val, curve_val, power_trim_val, mapping_val, ohm_val, resistenza_val, tasto_spunto_val, tasto_freno_val, tuning_val, th_min_val, th_max_val = "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""
 
   elif scelta_tipo_pulsante == "Digitale" and scelta_modello_digitale == "C.O.S.A":
       col_tp1, col_tp2 = st.columns(2)
@@ -1534,7 +1534,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
           idx_freno_rett = freno_fine_rettilineo_opts.index(def_freno_rett) if def_freno_rett in freno_fine_rettilineo_opts else 1
           freno_fine_rettilineo_val = st.selectbox("Freno di fine Rettilineo", freno_fine_rettilineo_opts, index=idx_freno_rett)
 
-          mappa_potenza_val, potenza_val, tipo_freno_val, valore_freno_val, sensibilita_grilletto_val, min_speed_val, curve_val, power_trim_val, mapping_val, ohm_val, resistenza_val, tasto_spunto_val, tasto_freno_val, tuning_val, th_min_val, th_max_val = "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""
+          mappa_potenza_val, potenza_val, tipo_freno_val, valore_freno_val, sensibilita_grilletto_val, min_speed_val, curve_val, power_trim_val, mapping_val, ohm_val, resistenza_val, tasto_spunto_val, tasto_freno_val, tuning_val, th_min_val = "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""
 
   else:
       col_tp1, col_tp2, col_tp3 = st.columns(3)
@@ -1561,8 +1561,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
 
       with col_tp3:
         resistenza_val = st.text_input("Resistenza", value=pulsante_edit.get("Resistenza", "") if pulsante_edit else "")
-        # --- RIGA CORRETTA: 16 variabili a sinistra per corrispondere alle 16 stringhe vuote ---
-        min_speed_val, curve_val, power_trim_val, mapping_val, start_val, curva_potenza_val, freno_fine_rettilineo_val, mappa_potenza_val, potenza_val, tipo_freno_val, valore_freno_val, sensibilita_grilletto_val, tuning_val, th_min_val, th_max_val, ohm_val = "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""
+        min_speed_val, curve_val, power_trim_val, mapping_val, start_val, curva_potenza_val, freno_fine_rettilineo_val, mappa_potenza_val, potenza_val, tipo_freno_val, valore_freno_val, sensibilita_grilletto_val, tuning_val, th_min_val, th_max_val = "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""
 
   st.divider()
   
@@ -1696,7 +1695,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
   st.divider()
   st.subheader("📋 I Tuoi Pulsanti Salvati")
   if not st.session_state.user:
-    st.info("Accedi o registrati per visualizzare i tuoi pulsanti salvati.")
+    st.info("Accedi per visualizzare i tuoi pulsanti salvati.")
     richiedi_autenticazione()
   else:
     try:
