@@ -73,23 +73,37 @@ def process_pending_garage():
 
 process_pending_garage()
 
-# Funzione di supporto per mostrare il form di autenticazione stabile (solo Login)
+# Funzione di supporto per mostrare il form di autenticazione e registrazione stabile
 def richiedi_autenticazione():
-  st.warning("⚠️ Per completare il salvataggio devi effettuare l'accesso.")
+  st.warning("⚠️ Per procedere devi effettuare l'accesso o registrarti.")
   
-  with st.form("modal_login_form_definitivo"):
-    email_in = st.text_input("Email", key="modal_login_email_def")
-    pass_in = st.text_input("Password", type="password", key="modal_login_password_def")
-    if st.form_submit_button("Conferma Accesso"):
-      try:
-        res = supabase.auth.sign_in_with_password({"email": email_in, "password": pass_in})
-        st.session_state.user = res.user
-        st.success("Accesso effettuato con successo!")
-        st.rerun()
-      except Exception as e:
-        st.error(f"Errore di autenticazione: {e}")
+  tab_login, tab_reg = st.tabs(["Accedi", "Registrati"])
+  
+  with tab_login:
+    with st.form("modal_login_form_definitivo"):
+      email_in = st.text_input("Email", key="modal_login_email_def")
+      pass_in = st.text_input("Password", type="password", key="modal_login_password_def")
+      if st.form_submit_button("Conferma Accesso"):
+        try:
+          res = supabase.auth.sign_in_with_password({"email": email_in, "password": pass_in})
+          st.session_state.user = res.user
+          st.success("Accesso effettuato con successo!")
+          st.rerun()
+        except Exception as e:
+          st.error(f"Errore di autenticazione: {e}")
+        
+  with tab_reg:
+    with st.form("modal_reg_form_definitivo"):
+      email_reg = st.text_input("Email", key="modal_reg_email_def")
+      pass_reg = st.text_input("Password", type="password", key="modal_reg_password_def")
+      if st.form_submit_button("Crea Account"):
+        try:
+          supabase.auth.sign_up({"email": email_reg, "password": pass_reg})
+          st.success("Registrazione completata! Effettua il login nella scheda accanto.")
+        except Exception as e:
+          st.error(f"Errore durante la registrazione: {e}")
 
-# --- BARRA LATERALE: INFO UTENTE E STATO (SOLO LOGIN) ---
+# --- BARRA LATERALE: INFO UTENTE E STATO ---
 with st.sidebar:
   if st.session_state.user:
     st.write(f"Pilota loggato: **{st.session_state.user.email}**")
@@ -99,7 +113,7 @@ with st.sidebar:
       st.rerun()
   else:
     st.info("Stai navigando come Ospite.")
-    with st.expander("🔑 Login"):
+    with st.expander("🔑 Accedi / Registrati"):
       with st.form("sb_login_form_definitivo"):
         email_sb = st.text_input("Email", key="sb_email_def")
         pass_sb = st.text_input("Password", type="password", key="sb_pass_def")
@@ -1157,9 +1171,10 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
         st.divider()
 
-        # --- SEZIONE GENERAZIONE PDF & SALVATAGGIO (SOLO SCARICA PDF E NOME CONFIGURAZIONE) ---
-        st.markdown("### Nome configurazione")
+        # --- SEZIONE GENERAZIONE PDF & SALVATAGGIO AL VOLO ---
+        st.markdown("### 📥 Operazioni Configurazione")
         
+        # Nome configurazione predefinito per il download/salvataggio
         nome_configurazione_input = st.text_input(
             "Nome Configurazione (es. Corvette Monza Gara)",
             value=st.session_state.get("modifying_config_name", ""),
@@ -1177,7 +1192,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 foto_url=foto_personalizzata_finale if foto_personalizzata_finale else default_foto_db,
             )
             st.download_button(
-                label="⬇️ Scarica PDF",
+                label="⬇️ Scarica PDF al volo",
                 data=pdf_bytes,
                 file_name=f"{(nome_configurazione_input or selected_model_name).replace(' ', '_')}_scheda_tecnica.pdf",
                 mime="application/pdf",
@@ -1275,7 +1290,7 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
   st.subheader("🚗 Il Mio Garage - Configurazioni Salvate")
 
   if not st.session_state.user:
-    st.info("Accedi per visualizzare e gestire il tuo garage personale.")
+    st.info("Accedi o registrati per visualizzare e gestire il tuo garage personale.")
     richiedi_autenticazione()
   else:
     try:
@@ -1680,7 +1695,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
   st.divider()
   st.subheader("📋 I Tuoi Pulsanti Salvati")
   if not st.session_state.user:
-    st.info("Accedi per visualizzare i tuoi pulsanti salvati.")
+    st.info("Accedi o registrati per visualizzare i tuoi pulsanti salvati.")
     richiedi_autenticazione()
   else:
     try:
