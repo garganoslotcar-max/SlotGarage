@@ -1,3 +1,4 @@
+
 import ast
 import os
 import time
@@ -30,6 +31,45 @@ supabase = init_connection()
 LOGO_PATH = "logo.png"
 
 st.set_page_config(page_title="SlotGarage", page_icon=LOGO_PATH, layout="wide")
+
+# --- GESTIONE AUTENTICAZIONE SUPABASE AUTH ---
+if "user" not in st.session_state:
+  st.session_state.user = None
+
+if not st.session_state.user:
+  st.title("🏎️ SlotGarage - Accesso")
+  tab_login, tab_reg = st.tabs(["Accedi", "Registrati"])
+  
+  with tab_login:
+    email_in = st.text_input("Email", key="login_email")
+    pass_in = st.text_input("Password", type="password", key="login_password")
+    if st.button("Accedi al Garage"):
+      try:
+        res = supabase.auth.sign_in_with_password({"email": email_in, "password": pass_in})
+        st.session_state.user = res.user
+        st.rerun()
+      except Exception as e:
+        st.error(f"Errore di autenticazione: {e}")
+        
+  with tab_reg:
+    email_reg = st.text_input("Email", key="reg_email")
+    pass_reg = st.text_input("Password", type="password", key="reg_password")
+    if st.button("Registrati"):
+      try:
+        supabase.auth.sign_up({"email": email_reg, "password": pass_reg})
+        st.success("Registrazione completata! Controlla la tua email per confermare l'account prima di accedere.")
+      except Exception as e:
+        st.error(f"Errore durante la registrazione: {e}")
+  st.stop()
+
+# --- BARRA LATERALE: INFO UTENTE E LOGOUT ---
+with st.sidebar:
+  st.write(f"Pilota loggato: **{st.session_state.user.email}**")
+  if st.button("🚪 Logout"):
+    supabase.auth.sign_out()
+    st.session_state.user = None
+    st.rerun()
+  st.divider()
 
 # --- INTESTAZIONE CON LOGO E SCRITTA INGRANDITA E ABBASSATA ---
 col_logo, col_titolo = st.columns([2, 10])
@@ -1003,10 +1043,11 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                     "nome_configurazione": nome_configurazione_input,
                     "modello_nome": selected_model_name,
                     "dettagli_setup": str(scelte_utente),
+                    "user_id": st.session_state.user.id
                 }
                 supabase.table("IlMioGarage").update(record_garage).eq(
                     "id", st.session_state.modifying_config_id
-                ).execute()
+                ).eq("user_id", st.session_state.user.id).execute()
                 st.success(
                     f"Configurazione '{nome_configurazione_input}' aggiornata"
                     " con successo!"
@@ -1048,6 +1089,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                   "nome_configurazione": nome_configurazione_input,
                   "modello_nome": selected_model_name,
                   "dettagli_setup": str(scelte_utente),
+                  "user_id": st.session_state.user.id
               }
               supabase.table("IlMioGarage").insert(record_garage).execute()
               st.success(
@@ -1068,7 +1110,7 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
   st.subheader("🚗 Il Mio Garage - Configurazioni Salvate")
 
   try:
-    response_garage = supabase.table("IlMioGarage").select("*").execute()
+    response_garage = supabase.table("IlMioGarage").select("*").eq("user_id", st.session_state.user.id).execute()
     salvati = response_garage.data if response_garage and response_garage.data else []
 
     if salvati:
@@ -1158,7 +1200,7 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
             try:
               supabase.table("IlMioGarage").delete().eq(
                   "id", conf_id
-              ).execute()
+              ).eq("user_id", st.session_state.user.id).execute()
               st.success("Configurazione eliminata con successo!")
               st.rerun()
             except Exception as e:
@@ -1391,10 +1433,11 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
                 "nome_configurazione": nome_config_pulsante,
                 "tipo_pulsante": scelta_tipo_pulsante,
                 "dettagli_setup": str(dati_pulsante),
+                "user_id": st.session_state.user.id
             }
             supabase.table("ilMioPulsante").update(record_pulsante).eq(
                 "id", st.session_state.modifying_pulsante_id
-            ).execute()
+            ).eq("user_id", st.session_state.user.id).execute()
             st.success(f"Pulsante '{nome_config_pulsante}' aggiornato con successo!")
             st.session_state.modifying_pulsante_id = None
             st.session_state.modifying_pulsante_data = None
@@ -1448,6 +1491,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
               "nome_configurazione": nome_config_pulsante,
               "tipo_pulsante": scelta_tipo_pulsante,
               "dettagli_setup": str(dati_pulsante),
+              "user_id": st.session_state.user.id
           }
           supabase.table("ilMioPulsante").insert(record_pulsante).execute()
           st.success(
@@ -1461,7 +1505,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
   st.divider()
   st.subheader("📋 I Tuoi Pulsanti Salvati")
   try:
-    response_pulsanti = supabase.table("ilMioPulsante").select("*").execute()
+    response_pulsanti = supabase.table("ilMioPulsante").select("*").eq("user_id", st.session_state.user.id).execute()
     elenco_pulsanti = response_pulsanti.data if response_pulsanti and response_pulsanti.data else []
 
     if elenco_pulsanti:
@@ -1493,7 +1537,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
         with col_p_del:
           if st.button("🗑️ Elimina", key=f"del_pulsante_{p_id}"):
             try:
-              supabase.table("ilMioPulsante").delete().eq("id", p_id).execute()
+              supabase.table("ilMioPulsante").delete().eq("id", p_id).eq("user_id", st.session_state.user.id).execute()
               st.success("Pulsante eliminato con successo!")
               st.rerun()
             except Exception as e:
