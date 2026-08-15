@@ -1561,7 +1561,8 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
 
       with col_tp3:
         resistenza_val = st.text_input("Resistenza", value=pulsante_edit.get("Resistenza", "") if pulsante_edit else "")
-        min_speed_val, curve_val, power_trim_val, mapping_val, start_val, curva_potenza_val, freno_fine_rettilineo_val, mappa_potenza_val, potenza_val, tipo_freno_val, valore_freno_val, sensibilita_grilletto_val, tuning_val, th_min_val, th_max_val = "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""
+        # --- RIGA CORRETTA: 16 variabili a sinistra per corrispondere alle 16 stringhe vuote ---
+        min_speed_val, curve_val, power_trim_val, mapping_val, start_val, curva_potenza_val, freno_fine_rettilineo_val, mappa_potenza_val, potenza_val, tipo_freno_val, valore_freno_val, sensibilita_grilletto_val, tuning_val, th_min_val, th_max_val, ohm_val = "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""
 
   st.divider()
   
