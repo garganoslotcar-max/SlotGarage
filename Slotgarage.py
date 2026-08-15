@@ -31,18 +31,26 @@ LOGO_PATH = "logo.png"
 
 st.set_page_config(page_title="SlotGarage", page_icon=LOGO_PATH, layout="wide")
 
-# --- FORZATURA DARK MODE E COLOR SCHEME PER WEBVIEW ---
+# --- FORZATURA DARK MODE GLOBALE (FISSA) ---
 st.markdown(
     """
-    <head>
-        <meta name="color-scheme" content="light dark">
-    </head>
     <style>
-        @media (prefers-color-scheme: dark) {
-            .stApp {
-                background-color: #121212 !important;
-                color: #e0e0e0 !important;
-            }
+        /* Forza lo sfondo scuro e il testo chiaro su tutta l'applicazione Streamlit */
+        .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+            background-color: #121212 !important;
+            color: #e0e0e0 !important;
+        }
+        /* Colore del testo generale e dei titoli */
+        h1, h2, h3, h4, h5, h6, p, span, label, div {
+            color: #e0e0e0 !important;
+        }
+        /* Colore specifico per i testi secondari o sottotitoli dorati */
+        p[style*="color: #FFD700"] {
+            color: #FFD700 !important;
+        }
+        /* Sfondo dei widget e dei contenitori per amalgamarli con il tema scuro */
+        [data-testid="stSidebar"] {
+            background-color: #1e1e1e !important;
         }
     </style>
     """,
