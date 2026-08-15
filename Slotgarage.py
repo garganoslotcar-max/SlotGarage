@@ -73,7 +73,7 @@ def process_pending_garage():
 
 process_pending_garage()
 
-# Funzione di supporto per mostrare il form di autenticazione stabile (FUORI dai form di salvataggio)
+# Funzione di supporto per mostrare il form di autenticazione stabile
 def richiedi_autenticazione():
   st.warning("⚠️ Per completare il salvataggio devi effettuare l'accesso o registrarti.")
   
@@ -1171,22 +1171,39 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
         st.divider()
 
-        if st.session_state.modifying_config_id:
-          st.markdown("### 🚗 Aggiorna Configurazione nel Garage")
-          default_nome_mod = (
-              st.session_state.modifying_config_name
-              if "modifying_config_name" in st.session_state
-              else ""
-          )
-          nome_configurazione_input = st.text_input(
-              "Nome Configurazione",
-              value=default_nome_mod,
-              key=f"nome_config_mod_{model_safe_key}",
-          )
+        # --- SEZIONE GENERAZIONE PDF & SALVATAGGIO AL VOLO ---
+        st.markdown("### 📥 Operazioni Configurazione")
+        
+        # Nome configurazione predefinito per il download/salvataggio
+        nome_configurazione_input = st.text_input(
+            "Nome Configurazione (es. Corvette Monza Gara)",
+            value=st.session_state.get("modifying_config_name", ""),
+            key=f"nome_config_{model_safe_key}",
+        )
 
-          col_upd1, col_upd2 = st.columns(2)
-          with col_upd1:
-            if st.button("💾 Salva Modifiche"):
+        col_dl_pdf, col_sv_gar = st.columns(2)
+
+        with col_dl_pdf:
+          try:
+            pdf_bytes = generate_pdf(
+                nome_configurazione_input if nome_configurazione_input else selected_model_name,
+                selected_model_name,
+                scelte_utente,
+                foto_url=foto_personalizzata_finale if foto_personalizzata_finale else default_foto_db,
+            )
+            st.download_button(
+                label="⬇️ Scarica PDF al volo",
+                data=pdf_bytes,
+                file_name=f"{(nome_configurazione_input or selected_model_name).replace(' ', '_')}_scheda_tecnica.pdf",
+                mime="application/pdf",
+                key=f"download_pdf_setup_{model_safe_key}",
+            )
+          except Exception as e:
+            st.error(f"Errore generazione PDF: {e}")
+
+        with col_sv_gar:
+          if st.session_state.modifying_config_id:
+            if st.button("💾 Salva Modifiche Configurazione"):
               if not st.session_state.user:
                 st.session_state.pending_garage_data = {
                     "nome_configurazione": nome_configurazione_input,
@@ -1195,7 +1212,8 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                     "is_update": True,
                     "config_id": st.session_state.modifying_config_id
                 }
-                richiedi_autenticazione()
+                st.session_state.active_tab = "🚗 Il Mio Garage"
+                st.rerun()
               else:
                 if not nome_configurazione_input:
                   st.warning("Inserisci un nome per la configurazione.")
@@ -1210,10 +1228,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                     supabase.table("IlMioGarage").update(record_garage).eq(
                         "id", st.session_state.modifying_config_id
                     ).eq("user_id", st.session_state.user.id).execute()
-                    st.success(
-                        f"Configurazione '{nome_configurazione_input}' aggiornata"
-                        " con successo!"
-                    )
+                    st.success(f"Configurazione '{nome_configurazione_input}' aggiornata con successo!")
                     st.session_state.modifying_config_id = None
                     st.session_state.modifying_data = None
                     st.session_state.modifying_config_name = ""
@@ -1223,53 +1238,46 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                     st.rerun()
                   except Exception as e:
                     st.error(f"Errore durante l'aggiornamento: {e}")
-          with col_upd2:
-            if st.button("❌ Annulla Modifica"):
-              st.session_state.modifying_config_id = None
-              st.session_state.modifying_data = None
-              st.session_state.modifying_config_name = ""
-              if "modifying_model_name" in st.session_state:
-                del st.session_state.modifying_model_name
-              st.session_state.active_tab = "🚗 Il Mio Garage"
-              st.rerun()
-        else:
-          st.markdown("### 🚗 Salva nel Mio Garage Personale")
-          nome_configurazione_input = st.text_input(
-              "Nome Configurazione (es. Corvette Monza Gara)",
-              key=f"nome_config_{model_safe_key}",
-          )
-
-          if st.button("💾 Salva nel Mio Garage"):
-            if not st.session_state.user:
-              st.session_state.pending_garage_data = {
-                  "nome_configurazione": nome_configurazione_input,
-                  "modello_nome": selected_model_name,
-                  "dettagli_setup": scelte_utente,
-                  "is_update": False,
-                  "config_id": None
-              }
-              richiedi_autenticazione()
-            else:
-              if not nome_configurazione_input:
-                st.warning(
-                    "Inserisci un nome per la configurazione prima di salvare nel"
-                    " Garage."
-                )
+          else:
+            if st.button("🚗 Salva nel mio garage"):
+              if not st.session_state.user:
+                st.session_state.pending_garage_data = {
+                    "nome_configurazione": nome_configurazione_input,
+                    "modello_nome": selected_model_name,
+                    "dettagli_setup": scelte_utente,
+                    "is_update": False,
+                    "config_id": None
+                }
+                st.session_state.active_tab = "🚗 Il Mio Garage"
+                st.rerun()
               else:
-                try:
-                  record_garage = {
-                      "nome_configurazione": nome_configurazione_input,
-                      "modello_nome": selected_model_name,
-                      "dettagli_setup": str(scelte_utente),
-                      "user_id": st.session_state.user.id
-                  }
-                  supabase.table("IlMioGarage").insert(record_garage).execute()
-                  st.success(
-                      f"Configurazione '{nome_configurazione_input}' salvata con"
-                      " successo nel tuo Garage!"
-                  )
-                except Exception as e:
-                  st.error(f"Errore durante il salvataggio nel Garage: {e}")
+                if not nome_configurazione_input:
+                  st.warning("Inserisci un nome per la configurazione prima di salvare nel Garage.")
+                else:
+                  try:
+                    record_garage = {
+                        "nome_configurazione": nome_configurazione_input,
+                        "modello_nome": selected_model_name,
+                        "dettagli_setup": str(scelte_utente),
+                        "user_id": st.session_state.user.id
+                    }
+                    supabase.table("IlMioGarage").insert(record_garage).execute()
+                    st.success(f"Configurazione '{nome_configurazione_input}' salvata con successo nel tuo Garage!")
+                    st.session_state.active_tab = "🚗 Il Mio Garage"
+                    st.rerun()
+                  except Exception as e:
+                    st.error(f"Errore durante il salvataggio nel Garage: {e}")
+
+        if st.session_state.modifying_config_id:
+          if st.button("❌ Annulla Modifica"):
+            st.session_state.modifying_config_id = None
+            st.session_state.modifying_data = None
+            st.session_state.modifying_config_name = ""
+            if "modifying_model_name" in st.session_state:
+              del st.session_state.modifying_model_name
+            st.session_state.active_tab = "🚗 Il Mio Garage"
+            st.rerun()
+
       else:
         st.info(
             "Seleziona prima un produttore specifico nei filtri in alto per"
