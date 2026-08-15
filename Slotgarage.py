@@ -39,6 +39,40 @@ if "user" not in st.session_state:
   else:
     st.session_state.user = None
 
+if "pending_garage_data" not in st.session_state:
+  st.session_state.pending_garage_data = None
+
+# Funzione per completare automaticamente il salvataggio se l'utente si è loggato ora
+def process_pending_garage():
+  if st.session_state.pending_garage_data and st.session_state.user:
+    p = st.session_state.pending_garage_data
+    try:
+      record_garage = {
+          "nome_configurazione": p["nome_configurazione"],
+          "modello_nome": p["modello_nome"],
+          "dettagli_setup": str(p["dettagli_setup"]),
+          "user_id": st.session_state.user.id
+      }
+      if p["is_update"]:
+        supabase.table("IlMioGarage").update(record_garage).eq("id", p["config_id"]).eq("user_id", st.session_state.user.id).execute()
+        st.success(f"Configurazione '{p['nome_configurazione']}' aggiornata con successo dopo il login!")
+        st.session_state.modifying_config_id = None
+        st.session_state.modifying_data = None
+        st.session_state.modifying_config_name = ""
+        if "modifying_model_name" in st.session_state:
+          del st.session_state.modifying_model_name
+      else:
+        supabase.table("IlMioGarage").insert(record_garage).execute()
+        st.success(f"Configurazione '{p['nome_configurazione']}' salvata con successo nel tuo Garage dopo il login!")
+    except Exception as e:
+      st.error(f"Errore durante il salvataggio post-login: {e}")
+    finally:
+      st.session_state.pending_garage_data = None
+      st.session_state.active_tab = "🚗 Il Mio Garage"
+      st.rerun()
+
+process_pending_garage()
+
 # Funzione di supporto per mostrare il form di autenticazione stabile (FUORI dai form di salvataggio)
 def richiedi_autenticazione():
   st.warning("⚠️ Per completare il salvataggio devi effettuare l'accesso o registrarti.")
@@ -53,7 +87,7 @@ def richiedi_autenticazione():
         try:
           res = supabase.auth.sign_in_with_password({"email": email_in, "password": pass_in})
           st.session_state.user = res.user
-          st.success("Accesso effettuato con successo! Clicca di nuovo su Salva.")
+          st.success("Accesso effettuato con successo!")
           st.rerun()
         except Exception as e:
           st.error(f"Errore di autenticazione: {e}")
@@ -1154,6 +1188,13 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           with col_upd1:
             if st.button("💾 Salva Modifiche"):
               if not st.session_state.user:
+                st.session_state.pending_garage_data = {
+                    "nome_configurazione": nome_configurazione_input,
+                    "modello_nome": selected_model_name,
+                    "dettagli_setup": scelte_utente,
+                    "is_update": True,
+                    "config_id": st.session_state.modifying_config_id
+                }
                 richiedi_autenticazione()
               else:
                 if not nome_configurazione_input:
@@ -1200,6 +1241,13 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
           if st.button("💾 Salva nel Mio Garage"):
             if not st.session_state.user:
+              st.session_state.pending_garage_data = {
+                  "nome_configurazione": nome_configurazione_input,
+                  "modello_nome": selected_model_name,
+                  "dettagli_setup": scelte_utente,
+                  "is_update": False,
+                  "config_id": None
+              }
               richiedi_autenticazione()
             else:
               if not nome_configurazione_input:
