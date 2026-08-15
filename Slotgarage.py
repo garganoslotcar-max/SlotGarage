@@ -31,11 +31,11 @@ LOGO_PATH = "logo.png"
 
 st.set_page_config(page_title="SlotGarage", page_icon=LOGO_PATH, layout="wide")
 
-# --- FORZATURA DARK MODE GLOBALE (FISSA) ---
+# --- FORZATURA DARK MODE GLOBALE + TESTO NERO NELLE CASELLOLE DI INPUT/SELECT ---
 st.markdown(
     """
     <style>
-        /* Forza lo sfondo scuro e il testo chiaro su tutta l'applicazione Streamlit */
+        /* Forza lo sfondo scuro generale e il testo chiaro */
         .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
             background-color: #121212 !important;
             color: #e0e0e0 !important;
@@ -48,9 +48,18 @@ st.markdown(
         p[style*="color: #FFD700"] {
             color: #FFD700 !important;
         }
-        /* Sfondo dei widget e dei contenitori per amalgamarli con il tema scuro */
+        /* Sfondo della sidebar */
         [data-testid="stSidebar"] {
             background-color: #1e1e1e !important;
+        }
+        /* --- CORREZIONE LEGGIBILITÀ CASELLE (INPUT & SELECTBOX) --- */
+        input, select, textarea, div[data-baseweb="select"] span, div[data-baseweb="select"] div {
+            color: #000000 !important;
+        }
+        /* Assicura che il testo digitato o selezionato sia scuro e leggibile */
+        .stTextInput input, .stTextArea textarea {
+            color: #000000 !important;
+            background-color: #ffffff !important;
         }
     </style>
     """,
