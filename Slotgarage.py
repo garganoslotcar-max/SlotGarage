@@ -40,7 +40,7 @@ if "user" not in st.session_state:
 def richiedi_autenticazione():
   st.warning("⚠️ Per completare il salvataggio devi effettuare l'accesso o registrarti.")
   
-  tab_login, tab_reg, tab_social = st.tabs(["Accedi", "Registrati", "Social Login"])
+  tab_login, tab_reg = st.tabs(["Accedi", "Registrati"])
   
   with tab_login:
     email_in = st.text_input("Email", key="modal_login_email")
@@ -63,33 +63,6 @@ def richiedi_autenticazione():
         st.success("Registrazione completata! Controlla la tua email per confermare l'account.")
       except Exception as e:
         st.error(f"Errore durante la registrazione: {e}")
-
-  with tab_social:
-    st.write("Accedi rapidamente con i tuoi account social:")
-    col_g, col_f = st.columns(2)
-    with col_g:
-      if st.button("🔵 Accedi con Google"):
-        try:
-          # Avvia il flusso OAuth con Google tramite Supabase
-          res = supabase.auth.sign_in_with_oauth({
-              "provider": "google",
-              "options": {"redirect_to": "http://localhost:8501"} # Modifica con il tuo URL di produzione se online
-          })
-          if res and res.url:
-            st.markdown(f"Clicca qui per completare il login: [Google Login]({res.url})")
-        except Exception as e:
-          st.error(f"Errore Google Login: {e}")
-    with col_f:
-      if st.button("🔵 Accedi con Facebook"):
-        try:
-          res = supabase.auth.sign_in_with_oauth({
-              "provider": "facebook",
-              "options": {"redirect_to": "http://localhost:8501"}
-          })
-          if res and res.url:
-            st.markdown(f"Clicca qui per completare il login: [Facebook Login]({res.url})")
-        except Exception as e:
-          st.error(f"Errore Facebook Login: {e}")
 
 # --- BARRA LATERALE: INFO UTENTE E STATO ---
 with st.sidebar:
