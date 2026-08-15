@@ -148,11 +148,17 @@ if "active_tab" not in st.session_state:
 # --- SEZIONE FILTRI E SELEZIONE (CON SUPPORTO AL DIKT DI MODIFICA) ---
 st.header("🔍 Navigazione e Filtri")
 
+# Filtraggio produttori: escludiamo BRM e Revoslot e aggiungiamo "Altri Produttori"
+produttori_filtrati_list = [
+    p for p in produttori 
+    if p and p.get("name") and p.get("id") and str(p.get("name")).strip().upper() not in ["BRM", "REVOSLOT"]
+]
+
 prod_options = {
     p.get("name"): p.get("id")
-    for p in produttori
-    if p and p.get("name") and p.get("id")
+    for p in produttori_filtrati_list
 }
+prod_options["Altri Produttori"] = "altri_produttori_custom_id"
 
 default_prod_idx = 0
 default_cat_idx = 0
@@ -187,13 +193,15 @@ with col_f1:
       "Seleziona Produttore", prod_names_list, index=default_prod_idx
   )
 
-if selected_prod_name != "Tutti":
+if selected_prod_name != "Tutti" and selected_prod_name != "Altri Produttori":
   prod_id = prod_options[selected_prod_name]
   cat_options = {
       c.get("name"): c.get("id")
       for c in categorie
       if c and c.get("brand_it") == prod_id
   }
+elif selected_prod_name == "Altri Produttori":
+  cat_options = {"Altro": "altro_cat_id"}
 else:
   cat_options = {
       c.get("name"): c.get("id")
@@ -211,12 +219,12 @@ with col_f2:
   )
 
 if selected_cat_name != "Tutte":
-  cat_id = cat_options[selected_cat_name]
+  cat_id = cat_options.get(selected_cat_name)
   mod_list = [
       m.get("name")
       for m in modelli
       if m and m.get("category_id") == cat_id and m.get("name")
-  ]
+  ] if selected_prod_name != "Altri Produttori" else [m.get("name") for m in modelli if m and m.get("name")]
 else:
   mod_list = [m.get("name") for m in modelli if m and m.get("name")]
 
@@ -614,7 +622,84 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             key=f"{key_prefix}_{campo}_{model_safe_key}",
         )
 
-      if selected_prod_name.lower() == "slot.it":
+      if selected_prod_name == "Altri Produttori":
+        # Scheda dedicata per "Altri Produttori" con st.text_input liberi ma stessa struttura NSR
+        col_p1, col_p2, _ = st.columns(3)
+        with col_p1:
+          scelte_utente["Peso_Carrozzeria"] = st.text_input(
+              "Peso Carrozzeria",
+              value=str(edit_data.get("Peso_Carrozzeria", "")) if edit_data else "",
+              key=f"peso_carrozzeria_altri_{model_safe_key}",
+          )
+        with col_p2:
+          scelte_utente["Peso_Totale"] = st.text_input(
+              "Peso Totale",
+              value=str(edit_data.get("Peso_Totale", "")) if edit_data else "",
+              key=f"peso_totale_altri_{model_safe_key}",
+          )
+
+        altri_campi = [
+            "Motore",
+            "Supporto Motore",
+            "Corona",
+            "Giri Motore",
+            "Pignoni",
+            "Telaio",
+            "Assale Anteriore",
+            "Assale Posteriore",
+            "Cerchi Anteriori",
+            "Cerchi Posteriori",
+            "Pickup",
+            "Viti Carrozzeria",
+        ]
+
+        cols = st.columns(3)
+        for idx, campo in enumerate(altri_campi):
+          with cols[idx % 3]:
+            val_salvato_campo = str(edit_data.get(campo, "")) if edit_data else ""
+            scelte_utente[campo] = st.text_input(
+                campo,
+                value=val_salvato_campo,
+                key=f"altri_txt_{campo}_{model_safe_key}"
+            )
+
+        st.write("### 🔩 Sospensioni")
+        sosp_altri_val = st.text_input(
+            "Sospensioni",
+            value=str(edit_data.get("Sospensioni", "")) if edit_data else "",
+            key=f"altri_sospensioni_{model_safe_key}"
+        )
+        scelte_utente["Sospensioni"] = sosp_altri_val
+
+        st.write("### 📏 Distanziali")
+        col_d1, col_d2, col_d3 = st.columns(3)
+        with col_d1:
+          scelte_utente["Distanziali_Anteriori"] = st.text_input(
+              "Distanziali anteriori",
+              value=str(edit_data.get("Distanziali_Anteriori", "")) if edit_data else "",
+              key=f"altri_dist_ant_{model_safe_key}"
+          )
+        with col_d2:
+          scelte_utente["Distanziali_Posteriori"] = st.text_input(
+              "Distanziali posteriori",
+              value=str(edit_data.get("Distanziali_Posteriori", "")) if edit_data else "",
+              key=f"altri_dist_post_{model_safe_key}"
+          )
+        with col_d3:
+          scelte_utente["Distanziali_Pickup"] = st.text_input(
+              "Distanziale Pickup",
+              value=str(edit_data.get("Distanziali_Pickup", "")) if edit_data else "",
+              key=f"altri_dist_pick_{model_safe_key}"
+          )
+
+        st.write("### 🔩 Supporto Assale")
+        scelte_utente["Tipo_Supporto"] = st.text_input(
+            "Tipo Supporto / Dettaglio Supporto",
+            value=str(edit_data.get("Tipo_Supporto", "")) if edit_data else "",
+            key=f"altri_tipo_supporto_{model_safe_key}"
+        )
+
+      elif selected_prod_name.lower() == "slot.it":
         col1_slot, col2_slot, col3_slot = st.columns(3)
         with col1_slot:
           cat_slot_opts = ["Nessuna", "P1", "P2", "Prototipi", "Sport"]
@@ -907,7 +992,9 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
       st.divider()
 
-      if selected_prod_name.lower() == "slot.it":
+      if selected_prod_name == "Altri Produttori":
+        pass  # Già gestito con i text_input sopra
+      elif selected_prod_name.lower() == "slot.it":
         st.write("### 📏 Distanziali")
         col_d_pick = st.columns(1)[0]
         with col_d_pick:
@@ -987,37 +1074,38 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
       st.divider()
 
-      st.write("### 🔩 Supporto Assale")
-      if selected_prod_name.lower() in ["nsr", "scaleauto"]:
-        scelte_utente["Tipo_Supporto"] = "Bronzine"
-        lista_bronzine = [
-            p for p in pezzi if p and p.get("Prodotto") and "bronz" in p.get("Prodotto").lower()
-        ]
-        scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", lista_bronzine, "sel_bronzine")
-      else:
-        sup_opts = ["Bronzine", "Cuscinetti"]
-        def_sup = edit_data.get("Tipo_Supporto", "Bronzine") if edit_data else "Bronzine"
-        idx_sup = sup_opts.index(def_sup) if def_sup in sup_opts else 0
-        scelta_tipo_supp = st.selectbox(
-            "Seleziona componente",
-            sup_opts,
-            index=idx_sup,
-            key=f"scelta_bronz_cusc_{model_safe_key}",
-        )
-        scelte_utente["Tipo_Supporto"] = scelta_tipo_supp
-
-        if scelta_tipo_supp == "Bronzine":
+      if selected_prod_name != "Altri Produttori":
+        st.write("### 🔩 Supporto Assale")
+        if selected_prod_name.lower() in ["nsr", "scaleauto"]:
+          scelte_utente["Tipo_Supporto"] = "Bronzine"
           lista_bronzine = [
               p for p in pezzi if p and p.get("Prodotto") and "bronz" in p.get("Prodotto").lower()
           ]
           scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", lista_bronzine, "sel_bronzine")
         else:
-          lista_cuscinetti = [
-              p for p in pezzi if p and p.get("Prodotto") and "cuscinett" in p.get("Prodotto").lower()
-          ]
-          scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", lista_cuscinetti, "sel_cuscinetti")
+          sup_opts = ["Bronzine", "Cuscinetti"]
+          def_sup = edit_data.get("Tipo_Supporto", "Bronzine") if edit_data else "Bronzine"
+          idx_sup = sup_opts.index(def_sup) if def_sup in sup_opts else 0
+          scelta_tipo_supp = st.selectbox(
+              "Seleziona componente",
+              sup_opts,
+              index=idx_sup,
+              key=f"scelta_bronz_cusc_{model_safe_key}",
+          )
+          scelte_utente["Tipo_Supporto"] = scelta_tipo_supp
 
-      st.divider()
+          if scelta_tipo_supp == "Bronzine":
+            lista_bronzine = [
+                p for p in pezzi if p and p.get("Prodotto") and "bronz" in p.get("Prodotto").lower()
+            ]
+            scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", lista_bronzine, "sel_bronzine")
+          else:
+            lista_cuscinetti = [
+                p for p in pezzi if p and p.get("Prodotto") and "cuscinett" in p.get("Prodotto").lower()
+            ]
+            scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", lista_cuscinetti, "sel_cuscinetti")
+
+        st.divider()
 
       scelte_utente["Note"] = st.text_area(
           "Note",
