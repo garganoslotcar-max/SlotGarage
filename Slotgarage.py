@@ -1,4 +1,3 @@
-
 import ast
 import os
 import time
@@ -95,8 +94,8 @@ with col_logo:
     st.write("🏎️")
 with col_titolo:
   st.markdown(
-      "<h1 style='margin-top: 25px; font-size: 4.2rem; margin-bottom:"
-      " 0px;'>SlotGarage</h1><p style='color: #FFD700; font-size: 1.3rem;"
+      "<h1 style='margin-top: 25px; font-size: clamp(2.5rem, 5vw, 4.2rem); margin-bottom:"
+      " 0px; white-space: nowrap;'>SlotGarage</h1><p style='color: #FFD700; font-size: 1.3rem;"
       " margin-top: 0px;'>Creato da Emanuele Palena</p>",
       unsafe_allow_html=True,
   )
