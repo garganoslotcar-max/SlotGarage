@@ -32,43 +32,85 @@ LOGO_PATH = "logo.png"
 
 st.set_page_config(page_title="SlotGarage", page_icon=LOGO_PATH, layout="wide")
 
-# --- GESTIONE AUTENTICAZIONE SUPABASE AUTH ---
+# --- GESTIONE STATO UTENTE ---
 if "user" not in st.session_state:
   st.session_state.user = None
 
-if not st.session_state.user:
-  st.title("🏎️ SlotGarage - Accesso")
-  tab_login, tab_reg = st.tabs(["Accedi", "Registrati"])
+# Funzione di supporto per mostrare il modale / form di autenticazione al momento del salvataggio
+def richiedi_autenticazione():
+  st.warning("⚠️ Per completare il salvataggio devi effettuare l'accesso o registrarti.")
+  
+  tab_login, tab_reg, tab_social = st.tabs(["Accedi", "Registrati", "Social Login"])
   
   with tab_login:
-    email_in = st.text_input("Email", key="login_email")
-    pass_in = st.text_input("Password", type="password", key="login_password")
-    if st.button("Accedi al Garage"):
+    email_in = st.text_input("Email", key="modal_login_email")
+    pass_in = st.text_input("Password", type="password", key="modal_login_password")
+    if st.button("Conferma Accesso"):
       try:
         res = supabase.auth.sign_in_with_password({"email": email_in, "password": pass_in})
         st.session_state.user = res.user
+        st.success("Accesso effettuato! Clicca di nuovo su Salva per completare l'operazione.")
         st.rerun()
       except Exception as e:
         st.error(f"Errore di autenticazione: {e}")
         
   with tab_reg:
-    email_reg = st.text_input("Email", key="reg_email")
-    pass_reg = st.text_input("Password", type="password", key="reg_password")
-    if st.button("Registrati"):
+    email_reg = st.text_input("Email", key="modal_reg_email")
+    pass_reg = st.text_input("Password", type="password", key="modal_reg_password")
+    if st.button("Crea Account"):
       try:
         supabase.auth.sign_up({"email": email_reg, "password": pass_reg})
-        st.success("Registrazione completata! Controlla la tua email per confermare l'account prima di accedere.")
+        st.success("Registrazione completata! Controlla la tua email per confermare l'account.")
       except Exception as e:
         st.error(f"Errore durante la registrazione: {e}")
-  st.stop()
 
-# --- BARRA LATERALE: INFO UTENTE E LOGOUT ---
+  with tab_social:
+    st.write("Accedi rapidamente con i tuoi account social:")
+    col_g, col_f = st.columns(2)
+    with col_g:
+      if st.button("🔵 Accedi con Google"):
+        try:
+          # Avvia il flusso OAuth con Google tramite Supabase
+          res = supabase.auth.sign_in_with_oauth({
+              "provider": "google",
+              "options": {"redirect_to": "http://localhost:8501"} # Modifica con il tuo URL di produzione se online
+          })
+          if res and res.url:
+            st.markdown(f"Clicca qui per completare il login: [Google Login]({res.url})")
+        except Exception as e:
+          st.error(f"Errore Google Login: {e}")
+    with col_f:
+      if st.button("🔵 Accedi con Facebook"):
+        try:
+          res = supabase.auth.sign_in_with_oauth({
+              "provider": "facebook",
+              "options": {"redirect_to": "http://localhost:8501"}
+          })
+          if res and res.url:
+            st.markdown(f"Clicca qui per completare il login: [Facebook Login]({res.url})")
+        except Exception as e:
+          st.error(f"Errore Facebook Login: {e}")
+
+# --- BARRA LATERALE: INFO UTENTE E STATO ---
 with st.sidebar:
-  st.write(f"Pilota loggato: **{st.session_state.user.email}**")
-  if st.button("🚪 Logout"):
-    supabase.auth.sign_out()
-    st.session_state.user = None
-    st.rerun()
+  if st.session_state.user:
+    st.write(f"Pilota loggato: **{st.session_state.user.email}**")
+    if st.button("🚪 Logout"):
+      supabase.auth.sign_out()
+      st.session_state.user = None
+      st.rerun()
+  else:
+    st.info("Stai navigando come Ospite.")
+    with st.expander("🔑 Accedi / Registrati"):
+      email_sb = st.text_input("Email", key="sb_email")
+      pass_sb = st.text_input("Password", type="password", key="sb_pass")
+      if st.button("Login rapido", key="sb_login_btn"):
+        try:
+          res = supabase.auth.sign_in_with_password({"email": email_sb, "password": pass_sb})
+          st.session_state.user = res.user
+          st.rerun()
+        except Exception as e:
+          st.error(f"Errore: {e}")
   st.divider()
 
 # --- INTESTAZIONE CON LOGO E SCRITTA INGRANDITA E ABBASSATA ---
@@ -477,8 +519,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
       st.warning(
           f"⚠️ Stai modificando la configurazione esistente: "
           f"**{st.session_state.get('modifying_config_name', '')}**."
-          " Modifica i parametri desiderati e clicca su 'Salva Modifiche' in"
-          " fondo alla pagina per confermare."
       )
 
     st.subheader(f"Configurazione: {selected_model_name}")
@@ -1035,32 +1075,35 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
         col_upd1, col_upd2 = st.columns(2)
         with col_upd1:
           if st.button("💾 Salva Modifiche"):
-            if not nome_configurazione_input:
-              st.warning("Inserisci un nome per la configurazione.")
+            if not st.session_state.user:
+              richiedi_autenticazione()
             else:
-              try:
-                record_garage = {
-                    "nome_configurazione": nome_configurazione_input,
-                    "modello_nome": selected_model_name,
-                    "dettagli_setup": str(scelte_utente),
-                    "user_id": st.session_state.user.id
-                }
-                supabase.table("IlMioGarage").update(record_garage).eq(
-                    "id", st.session_state.modifying_config_id
-                ).eq("user_id", st.session_state.user.id).execute()
-                st.success(
-                    f"Configurazione '{nome_configurazione_input}' aggiornata"
-                    " con successo!"
-                )
-                st.session_state.modifying_config_id = None
-                st.session_state.modifying_data = None
-                st.session_state.modifying_config_name = ""
-                if "modifying_model_name" in st.session_state:
-                  del st.session_state.modifying_model_name
-                st.session_state.active_tab = "🚗 Il Mio Garage"
-                st.rerun()
-              except Exception as e:
-                st.error(f"Errore durante l'aggiornamento: {e}")
+              if not nome_configurazione_input:
+                st.warning("Inserisci un nome per la configurazione.")
+              else:
+                try:
+                  record_garage = {
+                      "nome_configurazione": nome_configurazione_input,
+                      "modello_nome": selected_model_name,
+                      "dettagli_setup": str(scelte_utente),
+                      "user_id": st.session_state.user.id
+                  }
+                  supabase.table("IlMioGarage").update(record_garage).eq(
+                      "id", st.session_state.modifying_config_id
+                  ).eq("user_id", st.session_state.user.id).execute()
+                  st.success(
+                      f"Configurazione '{nome_configurazione_input}' aggiornata"
+                      " con successo!"
+                  )
+                  st.session_state.modifying_config_id = None
+                  st.session_state.modifying_data = None
+                  st.session_state.modifying_config_name = ""
+                  if "modifying_model_name" in st.session_state:
+                    del st.session_state.modifying_model_name
+                  st.session_state.active_tab = "🚗 Il Mio Garage"
+                  st.rerun()
+                except Exception as e:
+                  st.error(f"Errore durante l'aggiornamento: {e}")
         with col_upd2:
           if st.button("❌ Annulla Modifica"):
             st.session_state.modifying_config_id = None
@@ -1078,26 +1121,29 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
         )
 
         if st.button("💾 Salva nel Mio Garage"):
-          if not nome_configurazione_input:
-            st.warning(
-                "Inserisci un nome per la configurazione prima di salvare nel"
-                " Garage."
-            )
+          if not st.session_state.user:
+            richiedi_autenticazione()
           else:
-            try:
-              record_garage = {
-                  "nome_configurazione": nome_configurazione_input,
-                  "modello_nome": selected_model_name,
-                  "dettagli_setup": str(scelte_utente),
-                  "user_id": st.session_state.user.id
-              }
-              supabase.table("IlMioGarage").insert(record_garage).execute()
-              st.success(
-                  f"Configurazione '{nome_configurazione_input}' salvata con"
-                  " successo nel tuo Garage!"
+            if not nome_configurazione_input:
+              st.warning(
+                  "Inserisci un nome per la configurazione prima di salvare nel"
+                  " Garage."
               )
-            except Exception as e:
-              st.error(f"Errore durante il salvataggio nel Garage: {e}")
+            else:
+              try:
+                record_garage = {
+                    "nome_configurazione": nome_configurazione_input,
+                    "modello_nome": selected_model_name,
+                    "dettagli_setup": str(scelte_utente),
+                    "user_id": st.session_state.user.id
+                }
+                supabase.table("IlMioGarage").insert(record_garage).execute()
+                st.success(
+                    f"Configurazione '{nome_configurazione_input}' salvata con"
+                    " successo nel tuo Garage!"
+                )
+              except Exception as e:
+                st.error(f"Errore durante il salvataggio nel Garage: {e}")
     else:
       st.info(
           "Seleziona prima un produttore specifico nei filtri in alto per"
@@ -1109,121 +1155,125 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 elif st.session_state.active_tab == "🚗 Il Mio Garage":
   st.subheader("🚗 Il Mio Garage - Configurazioni Salvate")
 
-  try:
-    response_garage = supabase.table("IlMioGarage").select("*").eq("user_id", st.session_state.user.id).execute()
-    salvati = response_garage.data if response_garage and response_garage.data else []
+  if not st.session_state.user:
+    st.info("Accedi per visualizzare e gestire il tuo garage personale.")
+    richiedi_autenticazione()
+  else:
+    try:
+      response_garage = supabase.table("IlMioGarage").select("*").eq("user_id", st.session_state.user.id).execute()
+      salvati = response_garage.data if response_garage and response_garage.data else []
 
-    if salvati:
-      for s in salvati:
-        if not s:
-          continue
-        conf_id = s.get("id")
-        conf_nome = s.get(
-            "nome_configurazione", "Configurazione senza nome"
-        )
-        conf_modello = s.get("modello_nome", "Modello non specificato")
-
-        dettagli_str = s.get("dettagli_setup", "{}")
-        dict_dettagli = {}
-        try:
-          dict_dettagli = (
-              ast.literal_eval(dettagli_str)
-              if isinstance(dettagli_str, str)
-              else dettagli_str
+      if salvati:
+        for s in salvati:
+          if not s:
+            continue
+          conf_id = s.get("id")
+          conf_nome = s.get(
+              "nome_configurazione", "Configurazione senza nome"
           )
-        except Exception:
-          dict_dettagli = {"Dettagli": dettagli_str}
+          conf_modello = s.get("modello_nome", "Modello non specificato")
 
-        foto_auto_url = None
-        if (
-            isinstance(dict_dettagli, dict)
-            and dict_dettagli.get("foto_personalizzata_url")
-        ):
-          foto_auto_url = dict_dettagli.get("foto_personalizzata_url")
-        else:
-          match_modello = next(
-              (m for m in modelli if m and m.get("name") == conf_modello), None
-          )
-          foto_auto_url = (
-              match_modello.get("foto_url") if match_modello else None
-          )
-
-        col_info, col_btn_pdf, col_btn_mod, col_btn_del = st.columns(
-            [4, 2, 2, 2]
-        )
-        with col_info:
-          st.markdown(
-              f"**🏎️ {conf_nome}** — *(Modello: {conf_modello})*"
-          )
-
-        with col_btn_pdf:
+          dettagli_str = s.get("dettagli_setup", "{}")
+          dict_dettagli = {}
           try:
-            pdf_bytes = generate_pdf(
-                conf_nome,
-                conf_modello,
-                (
-                    dict_dettagli
-                    if isinstance(dict_dettagli, dict)
-                    else {"Dettagli": dettagli_str}
-                ),
-                foto_url=foto_auto_url,
+            dict_dettagli = (
+                ast.literal_eval(dettagli_str)
+                if isinstance(dettagli_str, str)
+                else dettagli_str
             )
-            st.download_button(
-                label="⬇️ PDF",
-                data=pdf_bytes,
-                file_name=f"{conf_nome.replace(' ', '_')}_scheda_tecnica.pdf",
-                mime="application/pdf",
-                key=f"download_pdf_{conf_id}",
-            )
-          except Exception as e:
-            st.error(f"Errore PDF: {e}")
+          except Exception:
+            dict_dettagli = {"Dettagli": dettagli_str}
 
-        with col_btn_mod:
-          if st.button("✏️ Modifica", key=f"edit_conf_{conf_id}"):
-            st.session_state.modifying_config_id = conf_id
-            st.session_state.modifying_config_name = conf_nome
-            st.session_state.modifying_model_name = conf_modello
-            dettagli_str_init = s.get("dettagli_setup", "{}")
-            try:
-              st.session_state.modifying_data = (
-                  ast.literal_eval(dettagli_str_init)
-                  if isinstance(dettagli_str_init, str)
-                  else dettagli_str_init
-              )
-            except Exception:
-              st.session_state.modifying_data = {}
-            st.session_state.active_tab = "📋 Visualizza Modelli"
-            st.rerun()
-
-        with col_btn_del:
-          if st.button("🗑️ Elimina", key=f"del_conf_{conf_id}"):
-            try:
-              supabase.table("IlMioGarage").delete().eq(
-                  "id", conf_id
-              ).eq("user_id", st.session_state.user.id).execute()
-              st.success("Configurazione eliminata con successo!")
-              st.rerun()
-            except Exception as e:
-              st.error(f"Errore durante l'eliminazione: {e}")
-
-        with st.expander(f"Visualizza dettagli di {conf_nome}"):
-          if foto_auto_url:
-            try:
-              st.image(foto_auto_url, width=200)
-            except Exception:
-              pass
-
-          if isinstance(dict_dettagli, dict):
-            for k, v in dict_dettagli.items():
-              st.write(f"- **{k}:** {v}")
+          foto_auto_url = None
+          if (
+              isinstance(dict_dettagli, dict)
+              and dict_dettagli.get("foto_personalizzata_url")
+          ):
+            foto_auto_url = dict_dettagli.get("foto_personalizzata_url")
           else:
-            st.write(dettagli_str)
+            match_modello = next(
+                (m for m in modelli if m and m.get("name") == conf_modello), None
+            )
+            foto_auto_url = (
+                match_modello.get("foto_url") if match_modello else None
+            )
 
-        st.markdown("---")
-    else:
-      st.info("Nessuna configurazione salvata nel garage al momento.")
-  except Exception as e:
-    st.error(f"Errore durante il caricamento del garage da Supabase: {e}")
+          col_info, col_btn_pdf, col_btn_mod, col_btn_del = st.columns(
+              [4, 2, 2, 2]
+          )
+          with col_info:
+            st.markdown(
+                f"**🏎️ {conf_nome}** — *(Modello: {conf_modello})*"
+            )
+
+          with col_btn_pdf:
+            try:
+              pdf_bytes = generate_pdf(
+                  conf_nome,
+                  conf_modello,
+                  (
+                      dict_dettagli
+                      if isinstance(dict_dettagli, dict)
+                      else {"Dettagli": dettagli_str}
+                  ),
+                  foto_url=foto_auto_url,
+              )
+              st.download_button(
+                  label="⬇️ PDF",
+                  data=pdf_bytes,
+                  file_name=f"{conf_nome.replace(' ', '_')}_scheda_tecnica.pdf",
+                  mime="application/pdf",
+                  key=f"download_pdf_{conf_id}",
+              )
+            except Exception as e:
+              st.error(f"Errore PDF: {e}")
+
+          with col_btn_mod:
+            if st.button("✏️ Modifica", key=f"edit_conf_{conf_id}"):
+              st.session_state.modifying_config_id = conf_id
+              st.session_state.modifying_config_name = conf_nome
+              st.session_state.modifying_model_name = conf_modello
+              dettagli_str_init = s.get("dettagli_setup", "{}")
+              try:
+                st.session_state.modifying_data = (
+                    ast.literal_eval(dettagli_str_init)
+                    if isinstance(dettagli_str_init, str)
+                    else dettagli_str_init
+                )
+              except Exception:
+                st.session_state.modifying_data = {}
+              st.session_state.active_tab = "📋 Visualizza Modelli"
+              st.rerun()
+
+          with col_btn_del:
+            if st.button("🗑️ Elimina", key=f"del_conf_{conf_id}"):
+              try:
+                supabase.table("IlMioGarage").delete().eq(
+                    "id", conf_id
+                ).eq("user_id", st.session_state.user.id).execute()
+                st.success("Configurazione eliminata con successo!")
+                st.rerun()
+              except Exception as e:
+                st.error(f"Errore durante l'eliminazione: {e}")
+
+          with st.expander(f"Visualizza dettagli di {conf_nome}"):
+            if foto_auto_url:
+              try:
+                st.image(foto_auto_url, width=200)
+              except Exception:
+                pass
+
+            if isinstance(dict_dettagli, dict):
+              for k, v in dict_dettagli.items():
+                st.write(f"- **{k}:** {v}")
+            else:
+              st.write(dettagli_str)
+
+          st.markdown("---")
+      else:
+        st.info("Nessuna configurazione salvata nel garage al momento.")
+    except Exception as e:
+      st.error(f"Errore durante il caricamento del garage da Supabase: {e}")
 
 elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
   st.subheader("🎛️ Gestione Il Mio Pulsante")
@@ -1235,7 +1285,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
   pulsante_edit = st.session_state.modifying_pulsante_data if st.session_state.modifying_pulsante_id else {}
   
   if st.session_state.modifying_pulsante_id:
-    st.info("Stai modificando un pulsante esistente. Clicca su 'Aggiorna Impostazioni Pulsante' per confermare o annulla.")
+    st.info("Stai modificando un pulsante esistente.")
 
   def_tipo_pulsante = pulsante_edit.get("Tipo Pulsante", "Analogico") if pulsante_edit else "Analogico"
   idx_tipo = 0 if def_tipo_pulsante == "Analogico" else 1
@@ -1377,7 +1427,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
 
       with col_tp3:
         resistenza_val = st.text_input("Resistenza", value=pulsante_edit.get("Resistenza", "") if pulsante_edit else "")
-        min_speed_val, curve_val, power_trim_val, mapping_val, start_val, curva_potenza_val, freno_fine_rettilineo_val, mappa_potenza_val, potenza_val, tipo_freno_val, valore_freno_val, sensibilita_grilletto_val, tuning_val, th_min_val, th_max_val = "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""
+        min_speed_val, curve_val, power_trim_val, mapping_val, start_val, curva_potenza_val, freno_fine_rettilineo_val, mappa_potenza_val, potenza_val, tipo_freno_val, valore_freno_val, sensibilita_grilletto_val, tuning_val, th_min_val, th_max_val = "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""
 
   st.divider()
   
@@ -1393,6 +1443,70 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
     col_m1, col_m2 = st.columns(2)
     with col_m1:
       if st.button("💾 Aggiorna Impostazioni Pulsante"):
+        if not st.session_state.user:
+          richiedi_autenticazione()
+        else:
+          if not nome_config_pulsante:
+            st.warning("Inserisci un nome per la configurazione del pulsante.")
+          else:
+            try:
+              dati_pulsante = {
+                  "Tipo Pulsante": scelta_tipo_pulsante,
+                  "Modello Specifico": (
+                      scelta_modello_analogico
+                      if scelta_tipo_pulsante == "Analogico"
+                      else scelta_modello_digitale
+                  ),
+                  "Tipo Pista": tipo_pista_val,
+                  "Tipo Auto": tipo_auto_val,
+                  "Ohm": ohm_val,
+                  "Antispin": antispin_val,
+                  "Sensibilità": sensibilita_val,
+                  "Freno": freno_val,
+                  "Tasto Spunto": tasto_spunto_val,
+                  "Tasto Freno": tasto_freno_val,
+                  "Resistenza": resistenza_val,
+                  "Min Speed": min_speed_val,
+                  "Curve": curve_val,
+                  "Power Trim": power_trim_val,
+                  "Mapping": mapping_val,
+                  "Start": start_val,
+                  "Curva di Potenza": curva_potenza_val,
+                  "Freno di fine Rettilineo": freno_fine_rettilineo_val,
+                  "Mappa Potenza": mappa_potenza_val,
+                  "Potenza": potenza_val,
+                  "Tipo Freno": tipo_freno_val,
+                  "Valore Freno": valore_freno_val,
+                  "Sensibilità Grilletto": sensibilita_grilletto_val,
+                  "Tuning": tuning_val,
+                  "TH MIN": th_min_val,
+                  "TH MAX": th_max_val,
+              }
+              record_pulsante = {
+                  "nome_configurazione": nome_config_pulsante,
+                  "tipo_pulsante": scelta_tipo_pulsante,
+                  "dettagli_setup": str(dati_pulsante),
+                  "user_id": st.session_state.user.id
+              }
+              supabase.table("ilMioPulsante").update(record_pulsante).eq(
+                  "id", st.session_state.modifying_pulsante_id
+              ).eq("user_id", st.session_state.user.id).execute()
+              st.success(f"Pulsante '{nome_config_pulsante}' aggiornato con successo!")
+              st.session_state.modifying_pulsante_id = None
+              st.session_state.modifying_pulsante_data = None
+              st.rerun()
+            except Exception as e:
+              st.error(f"Errore durante l'aggiornamento del pulsante: {e}")
+    with col_m2:
+      if st.button("❌ Annulla Modifica Pulsante"):
+        st.session_state.modifying_pulsante_id = None
+        st.session_state.modifying_pulsante_data = None
+        st.rerun()
+  else:
+    if st.button("💾 Salva Impostazioni Pulsante"):
+      if not st.session_state.user:
+        richiedi_autenticazione()
+      else:
         if not nome_config_pulsante:
           st.warning("Inserisci un nome per la configurazione del pulsante.")
         else:
@@ -1435,127 +1549,73 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
                 "dettagli_setup": str(dati_pulsante),
                 "user_id": st.session_state.user.id
             }
-            supabase.table("ilMioPulsante").update(record_pulsante).eq(
-                "id", st.session_state.modifying_pulsante_id
-            ).eq("user_id", st.session_state.user.id).execute()
-            st.success(f"Pulsante '{nome_config_pulsante}' aggiornato con successo!")
-            st.session_state.modifying_pulsante_id = None
-            st.session_state.modifying_pulsante_data = None
+            supabase.table("ilMioPulsante").insert(record_pulsante).execute()
+            st.success(
+                f"Configurazione del pulsante '{nome_config_pulsante}' salvata con"
+                " successo nella tabella ilMioPulsante!"
+            )
             st.rerun()
           except Exception as e:
-            st.error(f"Errore durante l'aggiornamento del pulsante: {e}")
-    with col_m2:
-      if st.button("❌ Annulla Modifica Pulsante"):
-        st.session_state.modifying_pulsante_id = None
-        st.session_state.modifying_pulsante_data = None
-        st.rerun()
-  else:
-    if st.button("💾 Salva Impostazioni Pulsante"):
-      if not nome_config_pulsante:
-        st.warning("Inserisci un nome per la configurazione del pulsante.")
-      else:
-        try:
-          dati_pulsante = {
-              "Tipo Pulsante": scelta_tipo_pulsante,
-              "Modello Specifico": (
-                  scelta_modello_analogico
-                  if scelta_tipo_pulsante == "Analogico"
-                  else scelta_modello_digitale
-              ),
-              "Tipo Pista": tipo_pista_val,
-              "Tipo Auto": tipo_auto_val,
-              "Ohm": ohm_val,
-              "Antispin": antispin_val,
-              "Sensibilità": sensibilita_val,
-              "Freno": freno_val,
-              "Tasto Spunto": tasto_spunto_val,
-              "Tasto Freno": tasto_freno_val,
-              "Resistenza": resistenza_val,
-              "Min Speed": min_speed_val,
-              "Curve": curve_val,
-              "Power Trim": power_trim_val,
-              "Mapping": mapping_val,
-              "Start": start_val,
-              "Curva di Potenza": curva_potenza_val,
-              "Freno di fine Rettilineo": freno_fine_rettilineo_val,
-              "Mappa Potenza": mappa_potenza_val,
-              "Potenza": potenza_val,
-              "Tipo Freno": tipo_freno_val,
-              "Valore Freno": valore_freno_val,
-              "Sensibilità Grilletto": sensibilita_grilletto_val,
-              "Tuning": tuning_val,
-              "TH MIN": th_min_val,
-              "TH MAX": th_max_val,
-          }
-          record_pulsante = {
-              "nome_configurazione": nome_config_pulsante,
-              "tipo_pulsante": scelta_tipo_pulsante,
-              "dettagli_setup": str(dati_pulsante),
-              "user_id": st.session_state.user.id
-          }
-          supabase.table("ilMioPulsante").insert(record_pulsante).execute()
-          st.success(
-              f"Configurazione del pulsante '{nome_config_pulsante}' salvata con"
-              " successo nella tabella ilMioPulsante!"
-          )
-          st.rerun()
-        except Exception as e:
-          st.error(f"Errore durante il salvataggio del pulsante: {e}")
+            st.error(f"Errore durante il salvataggio del pulsante: {e}")
 
   st.divider()
   st.subheader("📋 I Tuoi Pulsanti Salvati")
-  try:
-    response_pulsanti = supabase.table("ilMioPulsante").select("*").eq("user_id", st.session_state.user.id).execute()
-    elenco_pulsanti = response_pulsanti.data if response_pulsanti and response_pulsanti.data else []
+  if not st.session_state.user:
+    st.info("Accedi per visualizzare i tuoi pulsanti salvati.")
+    richiedi_autenticazione()
+  else:
+    try:
+      response_pulsanti = supabase.table("ilMioPulsante").select("*").eq("user_id", st.session_state.user.id).execute()
+      elenco_pulsanti = response_pulsanti.data if response_pulsanti and response_pulsanti.data else []
 
-    if elenco_pulsanti:
-      for pul in elenco_pulsanti:
-        if not pul:
-          continue
-        p_id = pul.get("id")
-        p_nome = pul.get("nome_configurazione", "Pulsante senza nome")
-        p_tipo = pul.get("tipo_pulsante", "N/D")
-        
-        p_dettagli_str = pul.get("dettagli_setup", "{}")
-        p_dict = {}
-        try:
-          p_dict = ast.literal_eval(p_dettagli_str) if isinstance(p_dettagli_str, str) else p_dettagli_str
-        except Exception:
-          p_dict = {"Dettagli": p_dettagli_str}
+      if elenco_pulsanti:
+        for pul in elenco_pulsanti:
+          if not pul:
+            continue
+          p_id = pul.get("id")
+          p_nome = pul.get("nome_configurazione", "Pulsante senza nome")
+          p_tipo = pul.get("tipo_pulsante", "N/D")
+          
+          p_dettagli_str = pul.get("dettagli_setup", "{}")
+          p_dict = {}
+          try:
+            p_dict = ast.literal_eval(p_dettagli_str) if isinstance(p_dettagli_str, str) else p_dettagli_str
+          except Exception:
+            p_dict = {"Dettagli": p_dettagli_str}
 
-        col_p_info, col_p_mod, col_p_del = st.columns([6, 2, 2])
-        with col_p_info:
-          st.markdown(f"**🎛️ {p_nome}** — *(Tipo: {p_tipo})*")
+          col_p_info, col_p_mod, col_p_del = st.columns([6, 2, 2])
+          with col_p_info:
+            st.markdown(f"**🎛️ {p_nome}** — *(Tipo: {p_tipo})*")
 
-        with col_p_mod:
-          if st.button("✏️ Modifica", key=f"edit_pulsante_{p_id}"):
-            st.session_state.modifying_pulsante_id = p_id
-            st.session_state.modifying_pulsante_name = p_nome
-            st.session_state.modifying_pulsante_data = p_dict
-            st.rerun()
-
-        with col_p_del:
-          if st.button("🗑️ Elimina", key=f"del_pulsante_{p_id}"):
-            try:
-              supabase.table("ilMioPulsante").delete().eq("id", p_id).eq("user_id", st.session_state.user.id).execute()
-              st.success("Pulsante eliminato con successo!")
+          with col_p_mod:
+            if st.button("✏️ Modifica", key=f"edit_pulsante_{p_id}"):
+              st.session_state.modifying_pulsante_id = p_id
+              st.session_state.modifying_pulsante_name = p_nome
+              st.session_state.modifying_pulsante_data = p_dict
               st.rerun()
-            except Exception as e:
-              st.error(f"Errore durante l'eliminazione: {e}")
 
-        with st.expander(f"Dettagli tecnici di {p_nome}"):
-          if isinstance(p_dict, dict):
-            for k, v in p_dict.items():
-              if v:
-                st.write(f"- **{k}:** {v}")
-          else:
-            st.write(p_dettagli_str)
+          with col_p_del:
+            if st.button("🗑️ Elimina", key=f"del_pulsante_{p_id}"):
+              try:
+                supabase.table("ilMioPulsante").delete().eq("id", p_id).eq("user_id", st.session_state.user.id).execute()
+                st.success("Pulsante eliminato con successo!")
+                st.rerun()
+              except Exception as e:
+                st.error(f"Errore durante l'eliminazione: {e}")
 
-        st.markdown("---")
-    else:
-      st.info("Nessuna configurazione di pulsante salvata al momento.")
-  except Exception as e:
-    st.error(f"Errore durante il recupero dei pulsanti: {e}")
+          with st.expander(f"Dettagli tecnici di {p_nome}"):
+            if isinstance(p_dict, dict):
+              for k, v in p_dict.items():
+                if v:
+                  st.write(f"- **{k}:** {v}")
+            else:
+              st.write(p_dettagli_str)
+
+          st.markdown("---")
+      else:
+        st.info("Nessuna configurazione di pulsante salvata al momento.")
+    except Exception as e:
+      st.error(f"Errore durante il recupero dei pulsanti: {e}")
 
 elif st.session_state.active_tab == "➕ Carica Modello":
   st.subheader("Inserisci Nuovo Modello")
@@ -1588,22 +1648,25 @@ elif st.session_state.active_tab == "➕ Carica Modello":
 
     submitted = st.form_submit_button("Salva nel Database")
 
-    if submitted and nuovo_modello:
-      try:
-        finale_foto_url = foto_modello_url
-        if carica_file_foto is not None:
-          uploaded_cloud_url = upload_image_to_supabase(carica_file_foto)
-          if uploaded_cloud_url:
-            finale_foto_url = uploaded_cloud_url
+    if submitted:
+      if not st.session_state.user:
+        st.warning("Devi effettuare il login per caricare un nuovo modello nel database.")
+      elif nuovo_modello:
+        try:
+          finale_foto_url = foto_modello_url
+          if carica_file_foto is not None:
+            uploaded_cloud_url = upload_image_to_supabase(carica_file_foto)
+            if uploaded_cloud_url:
+              finale_foto_url = uploaded_cloud_url
 
-        id_cat_scelta = cat_form_list.get(scelta_categoria)
-        nuovo_record = {
-            "name": nuovo_modello,
-            "category_id": id_cat_scelta,
-            "foto_url": finale_foto_url,
-        }
-        supabase.table("MODELLI").insert(nuovo_record).execute()
-        st.success(f"Modello '{nuovo_modello}' salvato con successo!")
-        st.rerun()
-      except Exception as e:
-        st.error(f"Errore durante il salvataggio: {e}")
+          id_cat_scelta = cat_form_list.get(scelta_categoria)
+          nuovo_record = {
+              "name": nuovo_modello,
+              "category_id": id_cat_scelta,
+              "foto_url": finale_foto_url,
+          }
+          supabase.table("MODELLI").insert(nuovo_record).execute()
+          st.success(f"Modello '{nuovo_modello}' salvato con successo!")
+          st.rerun()
+        except Exception as e:
+          st.error(f"Errore durante il salvataggio: {e}")
