@@ -39,12 +39,9 @@ if "user" not in st.session_state:
   else:
     st.session_state.user = None
 
-if "mostra_login_richiesto" not in st.session_state:
-  st.session_state.mostra_login_richiesto = False
-
-# Funzione di supporto per mostrare il form di autenticazione stabile (fuori dai click dei bottoni)
+# Funzione di supporto per mostrare il form di autenticazione stabile (con st.form)
 def richiedi_autenticazione():
-  st.warning("⚠️ Per completare l'operazione devi effettuare l'accesso o registrarti.")
+  st.warning("⚠️ Per completare il salvataggio devi effettuare l'accesso o registrarti.")
   
   tab_login, tab_reg = st.tabs(["Accedi", "Registrati"])
   
@@ -52,13 +49,11 @@ def richiedi_autenticazione():
     with st.form("modal_login_form_stabile"):
       email_in = st.text_input("Email", key="modal_login_email")
       pass_in = st.text_input("Password", type="password", key="modal_login_password")
-      submitted_login = st.form_submit_button("Conferma Accesso")
-      if submitted_login:
+      if st.form_submit_button("Conferma Accesso"):
         try:
           res = supabase.auth.sign_in_with_password({"email": email_in, "password": pass_in})
           st.session_state.user = res.user
-          st.session_state.mostra_login_richiesto = False
-          st.success("Accesso effettuato con successo!")
+          st.success("Accesso effettuato! Clicca di nuovo su Salva per completare l'operazione.")
           st.rerun()
         except Exception as e:
           st.error(f"Errore di autenticazione: {e}")
@@ -67,11 +62,10 @@ def richiedi_autenticazione():
     with st.form("modal_reg_form_stabile"):
       email_reg = st.text_input("Email", key="modal_reg_email")
       pass_reg = st.text_input("Password", type="password", key="modal_reg_password")
-      submitted_reg = st.form_submit_button("Crea Account")
-      if submitted_reg:
+      if st.form_submit_button("Crea Account"):
         try:
           supabase.auth.sign_up({"email": email_reg, "password": pass_reg})
-          st.success("Registrazione completata! Controlla la tua email per confermare l'account.")
+          st.success("Registrazione completata! Controlla la tua email per confermare l'account o effettua il login.")
         except Exception as e:
           st.error(f"Errore durante la registrazione: {e}")
 
@@ -82,7 +76,6 @@ with st.sidebar:
     if st.button("🚪 Logout"):
       supabase.auth.sign_out()
       st.session_state.user = None
-      st.session_state.mostra_login_richiesto = False
       st.rerun()
   else:
     st.info("Stai navigando come Ospite.")
@@ -97,14 +90,6 @@ with st.sidebar:
             st.rerun()
           except Exception as e:
             st.error(f"Errore: {e}")
-  st.divider()
-
-# --- SEZIONE GESTIONE LOGIN RICHIESTO IN EVIDENZA ---
-if st.session_state.mostra_login_richiesto and not st.session_state.user:
-  richiedi_autenticazione()
-  if st.button("❌ Chiudi Finestra di Accesso"):
-    st.session_state.mostra_login_richiesto = False
-    st.rerun()
   st.divider()
 
 # --- INTESTAZIONE CON LOGO E SCRITTA INGRANDITA E ABBASSATA ---
@@ -1170,8 +1155,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           with col_upd1:
             if st.button("💾 Salva Modifiche"):
               if not st.session_state.user:
-                st.session_state.mostra_login_richiesto = True
-                st.rerun()
+                richiedi_autenticazione()
               else:
                 if not nome_configurazione_input:
                   st.warning("Inserisci un nome per la configurazione.")
@@ -1217,8 +1201,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
           if st.button("💾 Salva nel Mio Garage"):
             if not st.session_state.user:
-              st.session_state.mostra_login_richiesto = True
-              st.rerun()
+              richiedi_autenticazione()
             else:
               if not nome_configurazione_input:
                 st.warning(
@@ -1253,8 +1236,7 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
 
   if not st.session_state.user:
     st.info("Accedi per visualizzare e gestire il tuo garage personale.")
-    st.session_state.mostra_login_richiesto = True
-    st.rerun()
+    richiedi_autenticazione()
   else:
     try:
       response_garage = supabase.table("IlMioGarage").select("*").eq("user_id", st.session_state.user.id).execute()
@@ -1541,8 +1523,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
     with col_m1:
       if st.button("💾 Aggiorna Impostazioni Pulsante"):
         if not st.session_state.user:
-          st.session_state.mostra_login_richiesto = True
-          st.rerun()
+          richiedi_autenticazione()
         else:
           if not nome_config_pulsante:
             st.warning("Inserisci un nome per la configurazione del pulsante.")
@@ -1603,8 +1584,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
   else:
     if st.button("💾 Salva Impostazioni Pulsante"):
       if not st.session_state.user:
-        st.session_state.mostra_login_richiesto = True
-        st.rerun()
+        richiedi_autenticazione()
       else:
         if not nome_config_pulsante:
           st.warning("Inserisci un nome per la configurazione del pulsante.")
@@ -1661,8 +1641,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
   st.subheader("📋 I Tuoi Pulsanti Salvati")
   if not st.session_state.user:
     st.info("Accedi per visualizzare i tuoi pulsanti salvati.")
-    st.session_state.mostra_login_richiesto = True
-    st.rerun()
+    richiedi_autenticazione()
   else:
     try:
       response_pulsanti = supabase.table("ilMioPulsante").select("*").eq("user_id", st.session_state.user.id).execute()
@@ -1750,8 +1729,7 @@ elif st.session_state.active_tab == "➕ Carica Modello":
 
     if submitted:
       if not st.session_state.user:
-        st.session_state.mostra_login_richiesto = True
-        st.rerun()
+        richiedi_autenticazione()
       elif nuovo_modello:
         try:
           finale_foto_url = foto_modello_url
