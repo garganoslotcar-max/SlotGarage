@@ -113,7 +113,7 @@ with st.sidebar:
       st.rerun()
   else:
     st.info("Stai navigando come Ospite.")
-    with st.expander("🔑 Accedi"):
+    with st.expander("🔑 Accedi / Registrati"):
       with st.form("sb_login_form_definitivo"):
         email_sb = st.text_input("Email", key="sb_email_def")
         pass_sb = st.text_input("Password", type="password", key="sb_pass_def")
@@ -187,7 +187,7 @@ if "active_tab" not in st.session_state:
   st.session_state.active_tab = "📋 Visualizza Modelli"
 
 # --- SEZIONE FILTRI E SELEZIONE ---
-st.header("🔍 Scelta Modelli")
+st.header("🔍 Navigazione e Filtri")
 
 produttori_filtrati_list = [
     p for p in produttori 
@@ -416,14 +416,16 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
   col1_x = 98
   col2_x = 194
 
-  pesi_motore_Keys = [
-      "Peso_Carrozzeria",
-      "Peso_Totale",
-      "Giri_Motore",
-      "Motore",
-      "Supporto Motore",
-      "Corona",
-      "Pignoni",
+  # Lista normalizzata per il filtro delle chiavi di propulsione e pesi
+  pesi_motore_keywords = [
+      "peso_carrozzeria",
+      "peso_totale",
+      "misura_assale_posteriore",
+      "giri_motore",
+      "motore",
+      "supporto_motore",
+      "corona",
+      "pignoni",
   ]
 
   dettagli_filtrati = {}
@@ -447,14 +449,15 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
       continue
     dettagli_filtrati[k] = v
 
-  left_items = {
-      k: v
-      for k, v in dettagli_filtrati.items()
-      if any(pk in k for pk in pesi_motore_Keys)
-  }
-  right_items = {
-      k: v for k, v in dettagli_filtrati.items() if k not in left_items
-  }
+  # Divisione dinamica basata su normalizzazione
+  left_items = {}
+  right_items = {}
+  for k, v in dettagli_filtrati.items():
+    k_norm = k.lower().replace(" ", "_")
+    if any(pk in k_norm for pk in pesi_motore_keywords):
+      left_items[k] = v
+    else:
+      right_items[k] = v
 
   def draw_tech_section(x, y, w, title, items_dict):
     pdf.set_fill_color(*bg_dark)
@@ -465,6 +468,8 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
 
     item_y = y + 7.5
     for k, v in items_dict.items():
+      if not v or str(v).lower() == "no" or str(v).lower() == "nessuna":
+        continue
       pdf.set_text_color(*text_dark)
       pdf.set_font("Helvetica", "", 8.5)
       k_clean = str(k).replace("_", " ")
@@ -490,7 +495,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
       col1_x,
       box_start_y,
       col_w,
-      "MOTORE & PESI",
+      "PROPULSIONE & PESI",
       left_items if left_items else {"Info": "Nessun dato"},
   )
   h_col2 = draw_tech_section(
@@ -510,14 +515,17 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
     pdf.set_text_color(*text_light)
     pdf.set_font("Helvetica", "B", 8.5)
     pdf.set_xy(col1_x, next_y)
-    pdf.cell(189, 5, "   NOTE DI PREPARAZIONE", ln=True, fill=True)
+    pdf.cell(189, 5, "   NOTE DI SETTING / COLLAUDO", ln=True, fill=True)
 
     pdf.set_text_color(*text_dark)
     pdf.set_font("Helvetica", "", 8.5)
     pdf.set_xy(col1_x + 3, next_y + 5.5)
     pdf.multi_cell(183, 4, str(note_val))
 
-  return pdf.output(dest="S").encode("latin-1", "replace")
+  pdf_data = pdf.output(dest="S")
+  if isinstance(pdf_data, str):
+    return pdf_data.encode("latin1")
+  return bytes(pdf_data)
 
 
 # --- GESTIONE SEZIONI (TAB) ---
@@ -676,7 +684,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           )
 
         if selected_prod_name == "Altri Produttori":
-          col_p1, col_p2, _ = st.columns(3)
+          col_p1, col_p2, col_p3 = st.columns(3)
           with col_p1:
             scelte_utente["Peso_Carrozzeria"] = st.text_input(
                 "Peso Carrozzeria",
@@ -688,6 +696,12 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 "Peso Totale",
                 value=str(edit_data.get("Peso_Totale", "")) if edit_data else "",
                 key=f"peso_totale_altri_{model_safe_key}",
+            )
+          with col_p3:
+            scelte_utente["Misura_Assale_Posteriore"] = st.text_input(
+                "Misura Assale Posteriore",
+                value=str(edit_data.get("Misura_Assale_Posteriore", "")) if edit_data else "",
+                key=f"misura_assale_posteriore_{model_safe_key}"
             )
 
           altri_campi = [
@@ -802,12 +816,20 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                     key=f"giri_motore_slotit_{model_safe_key}",
                 )
               elif campo == "Stopper":
-                stopper_opts = ["No", "Sì"]
-                def_stop = edit_data.get("Stopper", "No") if edit_data else "No"
-                idx_stop = stopper_opts.index(def_stop) if def_stop in stopper_opts else 0
-                scelte_utente["Stopper"] = st.selectbox(
-                    "Stopper", stopper_opts, index=idx_stop, key=f"slotit_stopper_{model_safe_key}"
-                )
+                col_stop_1, col_stop_2 = st.columns(2)
+                with col_stop_1:
+                  stopper_opts = ["No", "Sì"]
+                  def_stop = edit_data.get("Stopper", "No") if edit_data else "No"
+                  idx_stop = stopper_opts.index(def_stop) if def_stop in stopper_opts else 0
+                  scelte_utente["Stopper"] = st.selectbox(
+                      "Stopper", stopper_opts, index=idx_stop, key=f"slotit_stopper_{model_safe_key}"
+                  )
+                with col_stop_2:
+                  scelte_utente["Misura_Assale_Posteriore"] = st.text_input(
+                      "Misura Assale Posteriore",
+                      value=str(edit_data.get("Misura_Assale_Posteriore", "")) if edit_data else "",
+                      key=f"misura_assale_posteriore_{model_safe_key}"
+                  )
               else:
                 sub_pezzi = helper_filtra_pezzi(campo)
                 scelte_utente[campo] = render_select_componente(campo, sub_pezzi, "slotit")
@@ -842,7 +864,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           scelte_utente["Sospensioni"] = render_select_componente("Sospensioni", sub_sosp, "slotit_scelta_sosp")
 
         else:
-          col_p1, col_p2, _ = st.columns(3)
+          col_p1, col_p2, col_p3 = st.columns(3)
           with col_p1:
             scelte_utente["Peso_Carrozzeria"] = st.text_input(
                 "Peso Carrozzeria",
@@ -854,6 +876,12 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 "Peso Totale",
                 value=str(edit_data.get("Peso_Totale", "")) if edit_data else "",
                 key=f"peso_totale_{selected_prod_name}_{model_safe_key}",
+            )
+          with col_p3:
+            scelte_utente["Misura_Assale_Posteriore"] = st.text_input(
+                "Misura Assale Posteriore",
+                value=str(edit_data.get("Misura_Assale_Posteriore", "")) if edit_data else "",
+                key=f"misura_assale_posteriore_{model_safe_key}"
             )
 
           if selected_prod_name.lower() == "nsr":
@@ -1153,7 +1181,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", lista_bronzine, "sel_bronzine")
             else:
               lista_cuscinetti = [
-                  p for p in pezzi if p and p.get("Prodotto") and "cuscinetti" in p.get("Prodotto").lower()
+                  p for p in pezzi if p and p.get("Prodotto") and "cuscinett" in p.get("Prodotto").lower()
               ]
               scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", lista_cuscinetti, "sel_cuscinetti")
 
@@ -1172,9 +1200,8 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
         st.divider()
 
         # --- SEZIONE GENERAZIONE PDF & SALVATAGGIO AL VOLO ---
-        st.markdown("### 📥 Nome Configurazione")
+        st.markdown("### 📥 Operazioni Configurazione")
         
-        # Nome configurazione predefinito per il download/salvataggio
         nome_configurazione_input = st.text_input(
             "Nome Configurazione (es. Corvette Monza Gara)",
             value=st.session_state.get("modifying_config_name", ""),
