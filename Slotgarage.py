@@ -490,7 +490,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
       col1_x,
       box_start_y,
       col_w,
-      "PROPULSIONE & PESI",
+      "MOTORE & PESI",
       left_items if left_items else {"Info": "Nessun dato"},
   )
   h_col2 = draw_tech_section(
@@ -510,7 +510,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
     pdf.set_text_color(*text_light)
     pdf.set_font("Helvetica", "B", 8.5)
     pdf.set_xy(col1_x, next_y)
-    pdf.cell(189, 5, "   NOTE DI SETTING / COLLAUDO", ln=True, fill=True)
+    pdf.cell(189, 5, "   NOTE DI PREPARAZIONE", ln=True, fill=True)
 
     pdf.set_text_color(*text_dark)
     pdf.set_font("Helvetica", "", 8.5)
