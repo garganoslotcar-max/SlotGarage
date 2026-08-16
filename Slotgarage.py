@@ -113,7 +113,7 @@ with st.sidebar:
       st.rerun()
   else:
     st.info("Stai navigando come Ospite.")
-    with st.expander("🔑 Accedi / Registrati"):
+    with st.expander("🔑 Accedi"):
       with st.form("sb_login_form_definitivo"):
         email_sb = st.text_input("Email", key="sb_email_def")
         pass_sb = st.text_input("Password", type="password", key="sb_pass_def")
@@ -187,7 +187,7 @@ if "active_tab" not in st.session_state:
   st.session_state.active_tab = "📋 Visualizza Modelli"
 
 # --- SEZIONE FILTRI E SELEZIONE ---
-st.header("🔍 Navigazione e Filtri")
+st.header("🔍 Filtra Modello")
 
 produttori_filtrati_list = [
     p for p in produttori 
@@ -416,11 +416,11 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
   col1_x = 98
   col2_x = 194
 
-  # Lista normalizzata per il filtro delle chiavi di propulsione e pesi
+  # Lista normalizzata per il filtro delle chiavi di motore e pesi
   pesi_motore_keywords = [
       "peso_carrozzeria",
       "peso_totale",
-      "misura_assale_posteriore",
+      "misura_assale_post.",
       "giri_motore",
       "motore",
       "supporto_motore",
@@ -495,7 +495,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
       col1_x,
       box_start_y,
       col_w,
-      "PROPULSIONE & PESI",
+      "MOTORE & PESI",
       left_items if left_items else {"Info": "Nessun dato"},
   )
   h_col2 = draw_tech_section(
@@ -1200,7 +1200,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
         st.divider()
 
         # --- SEZIONE GENERAZIONE PDF & SALVATAGGIO AL VOLO ---
-        st.markdown("### 📥 Operazioni Configurazione")
+        st.markdown("### 📥 Nome Configurazione")
         
         nome_configurazione_input = st.text_input(
             "Nome Configurazione (es. Corvette Monza Gara)",
