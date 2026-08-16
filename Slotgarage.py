@@ -113,7 +113,7 @@ with st.sidebar:
       st.rerun()
   else:
     st.info("Stai navigando come Ospite.")
-    with st.expander("🔑 Accedi / Registrati"):
+    with st.expander("🔑 Accedi"):
       with st.form("sb_login_form_definitivo"):
         email_sb = st.text_input("Email", key="sb_email_def")
         pass_sb = st.text_input("Password", type="password", key="sb_pass_def")
@@ -187,7 +187,7 @@ if "active_tab" not in st.session_state:
   st.session_state.active_tab = "📋 Visualizza Modelli"
 
 # --- SEZIONE FILTRI E SELEZIONE ---
-st.header("🔍 Navigazione e Filtri")
+st.header("🔍 Scelta Modelli")
 
 produttori_filtrati_list = [
     p for p in produttori 
@@ -1153,7 +1153,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", lista_bronzine, "sel_bronzine")
             else:
               lista_cuscinetti = [
-                  p for p in pezzi if p and p.get("Prodotto") and "cuscinett" in p.get("Prodotto").lower()
+                  p for p in pezzi if p and p.get("Prodotto") and "cuscinetti" in p.get("Prodotto").lower()
               ]
               scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", lista_cuscinetti, "sel_cuscinetti")
 
@@ -1172,7 +1172,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
         st.divider()
 
         # --- SEZIONE GENERAZIONE PDF & SALVATAGGIO AL VOLO ---
-        st.markdown("### 📥 Operazioni Configurazione")
+        st.markdown("### 📥 Nome Configurazione")
         
         # Nome configurazione predefinito per il download/salvataggio
         nome_configurazione_input = st.text_input(
