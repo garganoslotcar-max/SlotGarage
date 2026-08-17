@@ -481,15 +481,12 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
       pdf.set_font("Helvetica", "B", 8.5)
       pdf.set_xy(x + 37, item_y)
 
-      start_val_y = pdf.get_y()
       pdf.multi_cell(w - 40, 4.2, f"{v_clean}")
-      end_val_y = pdf.get_y()
-
-      row_height = max(4.8, (end_val_y - start_val_y))
-      item_y += row_height + 0.8
+      
+      item_y = pdf.get_y() + 0.8
 
     return item_y - y
-
+    
   box_start_y = 24
   h_col1 = draw_tech_section(
       col1_x,
