@@ -842,7 +842,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 p for p in pezzi
                 if p and p.get("Prodotto") and p.get("Prodotto").strip().lower() == "viti metriche sospensioni"
             ]
-            scelte_utente["Viti_Metriche_Sospensioni"] = render_select_componente("Viti_Metriche_Sospensioni", sub_viti_sosp, "slotit_viti")
+            scelte_utente["Viti_Metriche_Sosp."] = render_select_componente("Viti_Metriche_Sospensioni", sub_viti_sosp, "slotit_viti")
 
           with col_tipo_sosp:
             tipo_sosp_opts = ["Molle", "Magneti"]
