@@ -432,7 +432,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
   for k, v in dettagli.items():
     if k.lower() == "note" or k.lower() == "foto_personalizzata_url":
       continue
-    if k in ["Distanziali_Anteriori", "Distanziali_Posteriori"]:
+    if k in ["Distanziali_Ant.", "Distanziali_Post."]:
       continue
     if k == "Distanziali_Pickup":
       val_misura = dettagli.get("Distanziale_Pickup", "")
@@ -515,7 +515,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
     pdf.set_text_color(*text_light)
     pdf.set_font("Helvetica", "B", 8.5)
     pdf.set_xy(col1_x, next_y)
-    pdf.cell(189, 5, "   NOTE DI SETTING / COLLAUDO", ln=True, fill=True)
+    pdf.cell(189, 5, "   NOTE", ln=True, fill=True)
 
     pdf.set_text_color(*text_dark)
     pdf.set_font("Helvetica", "", 8.5)
@@ -840,7 +840,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           with col_viti:
             sub_viti_sosp = [
                 p for p in pezzi
-                if p and p.get("Prodotto") and p.get("Prodotto").strip().lower() == "viti metriche sospensioni"
+                if p and p.get("Prodotto") and p.get("Prodotto").strip().lower() == "viti sospensioni"
             ]
             scelte_utente["Viti_Metriche_Sospensioni"] = render_select_componente("Viti_Metriche_Sospensioni", sub_viti_sosp, "slotit_viti")
 
