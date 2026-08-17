@@ -473,7 +473,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
       pdf.set_text_color(*text_dark)
       pdf.set_font("Helvetica", "", 8.5)
       k_clean = str(k).replace("_", " ")
-      k_clean = str(k).replace("_", " ").replace("Tipo_", "").replace("Tipo", "").strip()
+      v_clean = str(v)
 
       pdf.set_xy(x + 3, item_y)
       pdf.cell(34, 4.8, f"{k_clean}:", 0, 0)
