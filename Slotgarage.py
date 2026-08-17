@@ -472,8 +472,8 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
         continue
       pdf.set_text_color(*text_dark)
       pdf.set_font("Helvetica", "", 8.5)
-      k_clean = k_clean.replace("Tipo Sospensione", "Tipo Sosp.")
-      k_clean = k_clean.replace("Durezza Molla", "Dur. Molla")
+      k_clean = str(k).replace("_", " ")
+      v_clean = str(v)
 
       pdf.set_xy(x + 3, item_y)
       pdf.cell(34, 4.8, f"{k_clean}:", 0, 0)
