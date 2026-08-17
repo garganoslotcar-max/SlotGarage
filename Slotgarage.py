@@ -476,13 +476,13 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
       v_clean = str(v)
 
       pdf.set_xy(x + 3, item_y)
-      pdf.cell(40, 4.8, f"{k_clean}:", 0, 0)
+      pdf.cell(34, 4.8, f"{k_clean}:", 0, 0)
 
       pdf.set_font("Helvetica", "B", 8.5)
-      pdf.set_xy(x + 45, item_y)
+      pdf.set_xy(x + 37, item_y)
 
       start_val_y = pdf.get_y()
-      pdf.multi_cell(w - 48, 4.2, f"{v_clean}")
+      pdf.multi_cell(w - 40, 4.2, f"{v_clean}")
       end_val_y = pdf.get_y()
 
       row_height = max(4.8, (end_val_y - start_val_y))
