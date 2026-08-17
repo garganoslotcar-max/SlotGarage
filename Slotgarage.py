@@ -650,13 +650,13 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           elif "corona" in c_low:
             return [p for p in pezzi if p and p.get("Prodotto") and "corona" in p.get("Prodotto").lower()]
           elif "pignoni" in c_low or "pignone" in c_low:
-            return [p for p in pezzi if p and p.get("Prodotto") and "pignon" in p.get("Prodotto").lower()]
+            return [p for p in pezzi if p and p.get("Prodotto") and "pignoni" in p.get("Prodotto").lower()]
           elif "telaio" in c_low:
             return [p for p in pezzi if p and p.get("Prodotto") and "telaio" in p.get("Prodotto").lower()]
           elif "assale" in c_low:
             return [p for p in pezzi if p and p.get("Prodotto") and "assale" in p.get("Prodotto").lower()]
-          elif "cerch" in c_low:
-            return [p for p in pezzi if p and p.get("Prodotto") and "cerch" in p.get("Prodotto").lower()]
+          elif "cerchi" in c_low:
+            return [p for p in pezzi if p and p.get("Prodotto") and "cerchi" in p.get("Prodotto").lower()]
           elif "pickup" in c_low:
             return [p for p in pezzi if p and p.get("Prodotto") and "pickup" in p.get("Prodotto").lower()]
           elif "viti carrozzeria" in c_low or "viti" in c_low:
