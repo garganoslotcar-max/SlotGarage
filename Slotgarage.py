@@ -472,8 +472,8 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
         continue
       pdf.set_text_color(*text_dark)
       pdf.set_font("Helvetica", "", 8.5)
-      k_clean = str(k).replace("_", " ")
-      v_clean = str(v)
+      k_clean = k_clean.replace("Tipo Sospensione", "Tipo Sosp.")
+      k_clean = k_clean.replace("Durezza Molla", "Dur. Molla")
 
       pdf.set_xy(x + 3, item_y)
       pdf.cell(34, 4.8, f"{k_clean}:", 0, 0)
@@ -481,12 +481,15 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
       pdf.set_font("Helvetica", "B", 8.5)
       pdf.set_xy(x + 37, item_y)
 
+      start_val_y = pdf.get_y()
       pdf.multi_cell(w - 40, 4.2, f"{v_clean}")
-      
-      item_y = pdf.get_y() + 0.8
+      end_val_y = pdf.get_y()
+
+      row_height = max(4.8, (end_val_y - start_val_y))
+      item_y += row_height + 0.8
 
     return item_y - y
-    
+
   box_start_y = 24
   h_col1 = draw_tech_section(
       col1_x,
