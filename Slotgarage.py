@@ -162,7 +162,7 @@ def get_data(table_name):
 produttori = get_data("Produttori")
 categorie = get_data("Categorie")
 modelli = get_data("MODELLI")
-catalogo_compon_wenti = get_data("CatalogoComponenti")
+catalogo_componenti = get_data("CatalogoComponenti")
 
 if not produttori and not modelli:
   st.warning(
@@ -414,7 +414,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
 
   col_w = 93
   col1_x = 98
-  col2_x = 205
+  col2_x = 194
 
   # Lista normalizzata per il filtro delle chiavi di motore e pesi
   pesi_motore_keywords = [
