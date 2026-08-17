@@ -414,7 +414,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
 
   col_w = 93
   col1_x = 98
-  col2_x = 194
+  col2_x = 210
 
   # Lista normalizzata per il filtro delle chiavi di motore e pesi
   pesi_motore_keywords = [
