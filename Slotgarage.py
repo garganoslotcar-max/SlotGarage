@@ -1,10 +1,13 @@
 import ast
+import json
 import os
 import time
 import tempfile
+from urllib.parse import urlparse
 from fpdf import FPDF
 import requests
 import streamlit as st
+from datetime import datetime, date
 from supabase import create_client, ClientOptions
 
 # --- CONFIGURAZIONE SUPABASE & SICUREZZA ---
@@ -16,19 +19,360 @@ except Exception:
   SUPABASE_KEY = "sb_publishable_vp-3OcwsKymyHEgP8XlbsQ_KVFQh0I6"
 
 
-@st.cache_resource
 def init_connection():
+  """Create one Supabase client per Streamlit user session.
+
+  The original app cached the authenticated client globally with
+  ``st.cache_resource``. That can mix authentication state between browser
+  sessions. Keeping the client in session_state preserves the same API used by
+  the rest of the application while isolating auth state per user session.
+  """
+  client = st.session_state.get("_supabase_client")
+  if client is not None:
+    return client
   try:
     options = ClientOptions(persist_session=True)
-    return create_client(SUPABASE_URL, SUPABASE_KEY, options=options)
+    client = create_client(SUPABASE_URL, SUPABASE_KEY, options=options)
+    st.session_state["_supabase_client"] = client
+    return client
   except Exception as e:
     st.error(f"Errore di connessione a Supabase: {e}")
     return None
 
-
 supabase = init_connection()
 
 LOGO_PATH = "logo.png"
+
+
+# ===== SLOTGARAGE PRO V5 =====
+# Funzioni aggiuntive persistenti tramite Supabase.
+# Non sostituiscono i configuratori esistenti.
+
+def sg_parse_dict(value):
+    if isinstance(value, dict):
+        return value
+    if not value:
+        return {}
+    if isinstance(value, str):
+        try:
+            obj = json.loads(value)
+            if isinstance(obj, dict):
+                return obj
+        except Exception:
+            pass
+        try:
+            obj = ast.literal_eval(value)
+            return obj if isinstance(obj, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+def sg_config_label(row):
+    nome = row.get("nome_configurazione") or row.get("nome") or "Senza nome"
+    modello = row.get("modello") or row.get("modello_nome") or ""
+    return f"{nome} — {modello}".strip(" —")
+
+def sg_flatten(row):
+    out = {}
+    for k, v in (row or {}).items():
+        if k in {"id", "user_id", "created_at", "updated_at"}:
+            continue
+        parsed = sg_parse_dict(v)
+        if parsed and isinstance(v, (dict, str)):
+            for sk, sv in parsed.items():
+                out[f"{k}.{sk}"] = sv
+        else:
+            out[k] = v
+    return out
+
+def sg_compare(a, b):
+    aa, bb = sg_flatten(a), sg_flatten(b)
+    diffs = []
+    for key in sorted(set(aa) | set(bb), key=str.lower):
+        av, bv = aa.get(key, "—"), bb.get(key, "—")
+        if str(av) != str(bv):
+            diffs.append({"Parametro": key, "A": av, "B": bv})
+    return diffs
+
+def sg_seconds(value):
+    if value is None or str(value).strip() == "":
+        return None
+    try:
+        return float(str(value).lower().replace("s", "").replace(",", ".").strip())
+    except (ValueError, TypeError):
+        return None
+
+def sg_load_garage():
+    try:
+        uid = sg_current_user_id()
+        return supabase.table("IlMioGarage").select("*").eq("user_id", uid).execute().data or []
+    except Exception:
+        return []
+
+def sg_pro_ui():
+    if not st.session_state.get("user"):
+        return
+
+    st.markdown("---")
+    st.subheader("Comparazione e Telemetria Modelli")
+
+    tabs = st.tabs([
+        "Confronto configurazioni",
+        "Prove in pista",
+        "Storico modifiche",
+        "Classifica prestazioni",
+        "Archivio componenti",
+        "Analisi modifica",
+    ])
+
+    garage = sg_load_garage()
+
+    with tabs[0]:
+        if len(garage) < 2:
+            st.info("Servono almeno due configurazioni salvate nel Garage.")
+        else:
+            labels = [sg_config_label(r) for r in garage]
+            a_i = st.selectbox("Configurazione A", range(len(garage)),
+                               format_func=lambda i: labels[i], key="pro5_cmp_a")
+            b_i = st.selectbox("Configurazione B", range(len(garage)),
+                               index=min(1, len(garage)-1),
+                               format_func=lambda i: labels[i], key="pro5_cmp_b")
+            if a_i == b_i:
+                st.warning("Seleziona due configurazioni diverse.")
+            else:
+                diffs = sg_compare(garage[a_i], garage[b_i])
+                if diffs:
+                    st.dataframe(diffs, use_container_width=True, hide_index=True)
+                else:
+                    st.success("Nessuna differenza rilevata.")
+
+    with tabs[1]:
+        if not garage:
+            st.info("Salva prima una configurazione nel Garage.")
+        else:
+            labels = [sg_config_label(r) for r in garage]
+            ci = st.selectbox("Configurazione", range(len(garage)),
+                              format_func=lambda i: labels[i], key="pro5_test_cfg")
+            c1, c2 = st.columns(2)
+            with c1:
+                pista = st.text_input("Pista", key="pro5_test_track")
+                data_prova = st.date_input("Data", value=date.today(), key="pro5_test_date")
+                giri = st.number_input("Giri", min_value=0, value=50, step=1, key="pro5_test_laps")
+                corsia = st.text_input("Corsia", key="pro5_test_lane")
+            with c2:
+                best = st.text_input("Miglior tempo (s)", placeholder="8.423", key="pro5_test_best")
+                media = st.text_input("Tempo medio (s)", placeholder="8.691", key="pro5_test_avg")
+                pneumatici = st.text_input("Pneumatici", key="pro5_test_tires")
+                note = st.text_input("Note", key="pro5_test_notes")
+            if st.button("Salva prova in pista", type="primary", key="pro5_test_save"):
+                best_s = sg_seconds(best)
+                if not pista.strip() or best_s is None:
+                    st.warning("Inserisci una pista e un miglior tempo valido.")
+                else:
+                    payload = {
+                        "user_id": st.session_state.user.id,
+                        "garage_id": garage[ci].get("id"),
+                        "modello": garage[ci].get("modello"),
+                        "configurazione": garage[ci].get("nome_configurazione") or garage[ci].get("nome"),
+                        "pista": pista.strip(),
+                        "data_prova": str(data_prova),
+                        "giri": int(giri),
+                        "miglior_tempo": best_s,
+                        "tempo_medio": sg_seconds(media),
+                        "corsia": corsia.strip(),
+                        "pneumatici": pneumatici.strip(),
+                        "note": note.strip(),
+                    }
+                    try:
+                        sg_save_telemetry_test(payload)
+                        st.success("Prova salvata.")
+                    except Exception as e:
+                        st.error(f"Errore salvataggio prova: {e}")
+
+            try:
+                tests = sg_load_telemetry_tests(sg_current_user_id())
+            except Exception:
+                tests = []
+            if tests:
+                st.dataframe([{
+                    "Configurazione": t.get("configurazione"),
+                    "Pista": t.get("pista"),
+                    "Data": t.get("data_prova"),
+                    "Giri": t.get("giri"),
+                    "Miglior tempo": f"{t.get('miglior_tempo'):.3f} s" if t.get("miglior_tempo") is not None else "—",
+                    "Media": f"{t.get('tempo_medio'):.3f} s" if t.get("tempo_medio") is not None else "—",
+                    "Pneumatici": t.get("pneumatici"),
+                } for t in tests], use_container_width=True, hide_index=True)
+
+    with tabs[2]:
+        if len(garage) < 2:
+            st.info("Servono almeno due configurazioni per generare uno storico.")
+        else:
+            labels = [sg_config_label(r) for r in garage]
+            old_i = st.selectbox("Versione precedente", range(len(garage)),
+                                 format_func=lambda i: labels[i], key="pro5_hist_old")
+            new_i = st.selectbox("Versione successiva", range(len(garage)),
+                                 index=min(1, len(garage)-1),
+                                 format_func=lambda i: labels[i], key="pro5_hist_new")
+            if old_i != new_i:
+                diffs = sg_compare(garage[old_i], garage[new_i])
+                if diffs:
+                    st.dataframe(diffs, use_container_width=True, hide_index=True)
+                    if st.button("Salva storico modifica", key="pro5_hist_save"):
+                        try:
+                            sg_save_telemetry_history({
+                                "user_id": st.session_state.user.id,
+                                "garage_id": garage[new_i].get("id"),
+                                "vecchio_garage_id": garage[old_i].get("id"),
+                                "data_modifica": datetime.now().isoformat(),
+                                "modifiche": json.dumps(diffs, ensure_ascii=False),
+                            }).execute()
+                            st.success("Storico salvato.")
+                        except Exception as e:
+                            st.error(f"Errore salvataggio storico: {e}")
+                else:
+                    st.info("Nessuna differenza rilevata.")
+
+    with tabs[3]:
+        st.caption("Confronta i migliori tempi registrati per capire quali configurazioni rendono meglio in pista.")
+        try:
+            tests = sg_load_telemetry_tests(sg_current_user_id())
+        except Exception:
+            tests = []
+        if not tests:
+            st.info("Nessuna prova in pista registrata.")
+        else:
+            best_by_cfg = {}
+            for t in tests:
+                key = (t.get("modello") or "", t.get("configurazione") or "")
+                tm = t.get("miglior_tempo")
+                if tm is not None and (key not in best_by_cfg or tm < best_by_cfg[key]):
+                    best_by_cfg[key] = tm
+            ranking = sorted(
+                [{"Pos.": i+1, "Modello": k[0], "Configurazione": k[1],
+                  "Miglior tempo": f"{v:.3f} s"}
+                 for i, (k, v) in enumerate(best_by_cfg.items())],
+                key=lambda x: x["Miglior tempo"]
+            )
+            for i, row in enumerate(ranking, 1):
+                row["Pos."] = i
+            st.dataframe(ranking, use_container_width=True, hide_index=True)
+
+    with tabs[4]:
+        st.caption("Archivio personale di motori, corone, pignoni, cerchi, pneumatici e sospensioni, da collegare alle preparazioni.")
+        c1, c2 = st.columns(2)
+        with c1:
+            tipo = st.selectbox("Tipo componente",
+                                ["Motore", "Corona", "Pignone", "Cerchi",
+                                 "Pneumatici", "Sospensioni", "Altro"],
+                                key="pro5_comp_type")
+            marca = st.text_input("Marca", key="pro5_comp_brand")
+        with c2:
+            nome = st.text_input("Nome / codice", key="pro5_comp_name")
+            note = st.text_input("Note", key="pro5_comp_notes")
+        if st.button("Salva componente", type="primary", key="pro5_comp_save"):
+            if not nome.strip():
+                st.warning("Inserisci nome o codice.")
+            else:
+                try:
+                    sg_save_telemetry_component({
+                        "user_id": st.session_state.user.id,
+                        "tipo": tipo,
+                        "marca": marca.strip(),
+                        "nome": nome.strip(),
+                        "note": note.strip(),
+                    }).execute()
+                    st.success("Componente salvato.")
+                except Exception as e:
+                    st.error(f"Errore salvataggio componente: {e}")
+        try:
+            components = sg_load_telemetry_components(sg_current_user_id())
+        except Exception:
+            components = []
+        if components:
+            st.dataframe([{
+                "Tipo": x.get("tipo"), "Marca": x.get("marca"),
+                "Nome / codice": x.get("nome"), "Note": x.get("note")
+            } for x in components], use_container_width=True, hide_index=True)
+
+    with tabs[5]:
+        st.caption("Indicazione tecnica orientativa sulle conseguenze possibili di una modifica. Non è una simulazione fisica.")
+        component = st.selectbox(
+            "Componente", ["Corona", "Pignone", "Motore", "Sospensioni", "Pneumatici"],
+            key="pro5_whatif_component"
+        )
+        old = st.text_input("Valore attuale", key="pro5_whatif_old")
+        new = st.text_input("Nuovo valore", key="pro5_whatif_new")
+        if st.button("Analizza modifica", key="pro5_whatif_run"):
+            if not old.strip() or not new.strip():
+                st.warning("Inserisci entrambi i valori.")
+            else:
+                msg = {
+                    "Corona": "Un rapporto diverso modifica il compromesso tra accelerazione e velocità massima.",
+                    "Pignone": "Un pignone diverso modifica il rapporto finale e quindi la risposta della trasmissione.",
+                    "Motore": "Motore e regime influenzano la risposta; il risultato dipende anche dal rapporto.",
+                    "Sospensioni": "La risposta dell'assetto può cambiare: verifica sempre il risultato in pista.",
+                    "Pneumatici": "Grip, temperatura e pista possono cambiare sensibilmente il comportamento."
+                }[component]
+                st.info(msg + " Questa è un'indicazione tecnica, non una simulazione fisica.")
+
+
+
+# ===== SLOTGARAGE V8 REFACTOR HELPERS =====
+# Refactoring conservativo: nessuna nuova funzione utente e nessun cambio grafico.
+# Questi helper centralizzano accesso dati e gestione errori della sezione
+# "Comparazione e Telemetria Modelli".
+
+def sg_current_user_id():
+    user = st.session_state.get("user")
+    return getattr(user, "id", None) if user else None
+
+def sg_db_select(table, *, user_id=None, order_column=None, desc=False):
+    query = supabase.table(table).select("*")
+    if user_id is not None:
+        query = query.eq("user_id", user_id)
+    if order_column:
+        query = query.order(order_column, desc=desc)
+    return query.execute().data or []
+
+def sg_db_insert(table, payload):
+    return supabase.table(table).insert(payload).execute().data or []
+
+def sg_load_telemetry_tests(user_id=None):
+    return sg_db_select(
+        "SlotGarage_Prove",
+        user_id=user_id,
+        order_column="miglior_tempo",
+        desc=False,
+    )
+
+def sg_load_telemetry_components(user_id=None):
+    return sg_db_select(
+        "SlotGarage_Componenti",
+        user_id=user_id,
+        order_column="created_at",
+        desc=True,
+    )
+
+def sg_load_telemetry_history(user_id=None):
+    return sg_db_select(
+        "SlotGarage_Storico",
+        user_id=user_id,
+        order_column="data_modifica",
+        desc=True,
+    )
+
+def sg_save_telemetry_test(payload):
+    return sg_db_insert("SlotGarage_Prove", payload)
+
+def sg_save_telemetry_component(payload):
+    return sg_db_insert("SlotGarage_Componenti", payload)
+
+def sg_save_telemetry_history(payload):
+    return sg_db_insert("SlotGarage_Storico", payload)
+
+def sg_safe_message(action, exc):
+    return f"Errore durante {action}: {exc}"
 
 st.set_page_config(page_title="SlotGarage", page_icon=LOGO_PATH, layout="wide")
 
@@ -42,34 +386,85 @@ if "user" not in st.session_state:
 if "pending_garage_data" not in st.session_state:
   st.session_state.pending_garage_data = None
 
+# --- SERIALIZZAZIONE COMPATIBILE DEI DETTAGLI ---
+def serialize_details(value):
+  """Store new setup data as JSON while remaining compatible with old rows."""
+  if isinstance(value, str):
+    return value
+  return json.dumps(value or {}, ensure_ascii=False, separators=(",", ":"))
+
+
+def deserialize_details(value):
+  """Read JSON data and transparently support legacy Python-dict strings."""
+  if isinstance(value, dict):
+    return value
+  if value is None or value == "":
+    return {}
+  if isinstance(value, str):
+    try:
+      parsed = json.loads(value)
+      return parsed if isinstance(parsed, dict) else {"Dettagli": parsed}
+    except (json.JSONDecodeError, TypeError):
+      try:
+        parsed = ast.literal_eval(value)
+        return parsed if isinstance(parsed, dict) else {"Dettagli": parsed}
+      except (ValueError, SyntaxError, TypeError):
+        return {"Dettagli": value}
+  return {"Dettagli": value}
+
+
+def clear_garage_edit_state():
+  for key, value in {
+      "modifying_config_id": None,
+      "modifying_data": None,
+      "modifying_config_name": "",
+      "modifying_model_name": None,
+  }.items():
+    st.session_state[key] = value
+
+
 # Funzione per completare automaticamente il salvataggio se l'utente si è loggato ora
 def process_pending_garage():
-  if st.session_state.pending_garage_data and st.session_state.user:
-    p = st.session_state.pending_garage_data
-    try:
-      record_garage = {
-          "nome_configurazione": p["nome_configurazione"],
-          "modello_nome": p["modello_nome"],
-          "dettagli_setup": str(p["dettagli_setup"]),
-          "user_id": st.session_state.user.id
-      }
-      if p["is_update"]:
-        supabase.table("IlMioGarage").update(record_garage).eq("id", p["config_id"]).eq("user_id", st.session_state.user.id).execute()
-        st.success(f"Configurazione '{p['nome_configurazione']}' aggiornata con successo dopo il login!")
-        st.session_state.modifying_config_id = None
-        st.session_state.modifying_data = None
-        st.session_state.modifying_config_name = ""
-        if "modifying_model_name" in st.session_state:
-          del st.session_state.modifying_model_name
-      else:
-        supabase.table("IlMioGarage").insert(record_garage).execute()
-        st.success(f"Configurazione '{p['nome_configurazione']}' salvata con successo nel tuo Garage dopo il login!")
-    except Exception as e:
-      st.error(f"Errore durante il salvataggio post-login: {e}")
-    finally:
-      st.session_state.pending_garage_data = None
-      st.session_state.active_tab = "🚗 Il Mio Garage"
-      st.rerun()
+  pending = st.session_state.get("pending_garage_data")
+  user = st.session_state.get("user")
+  if not pending or not user or supabase is None:
+    return
+
+  nome = str(pending.get("nome_configurazione") or "").strip()
+  modello = str(pending.get("modello_nome") or "").strip()
+  if not nome:
+    st.warning("Inserisci un nome per la configurazione prima di salvarla nel Garage.")
+    st.session_state.pending_garage_data = None
+    st.session_state.active_tab = "🚗 Il Mio Garage"
+    return
+  if not modello:
+    st.warning("Seleziona un modello prima di salvare la configurazione.")
+    st.session_state.pending_garage_data = None
+    st.session_state.active_tab = "📋 Visualizza Modelli"
+    return
+
+  try:
+    record_garage = {
+        "nome_configurazione": nome,
+        "modello_nome": modello,
+        "dettagli_setup": serialize_details(pending.get("dettagli_setup", {})),
+        "user_id": user.id,
+    }
+    if pending.get("is_update"):
+      supabase.table("IlMioGarage").update(record_garage).eq(
+          "id", pending.get("config_id")
+      ).eq("user_id", user.id).execute()
+      st.success(f"Configurazione '{nome}' aggiornata con successo dopo il login!")
+      clear_garage_edit_state()
+    else:
+      supabase.table("IlMioGarage").insert(record_garage).execute()
+      st.success(f"Configurazione '{nome}' salvata con successo nel tuo Garage dopo il login!")
+
+    st.session_state.pending_garage_data = None
+    st.session_state.active_tab = "🚗 Il Mio Garage"
+    st.rerun()
+  except Exception as e:
+    st.error(f"Errore durante il salvataggio post-login: {e}")
 
 process_pending_garage()
 
@@ -234,7 +629,7 @@ if pre_selected_prod in prod_names_list:
 
 with col_f1:
   selected_prod_name = st.selectbox(
-      "Seleziona Produttore", prod_names_list, index=default_prod_idx
+      "Scegli Marchio", prod_names_list, index=default_prod_idx
   )
 
 if selected_prod_name != "Tutti" and selected_prod_name != "Altri Produttori":
@@ -259,7 +654,7 @@ if pre_selected_cat in cat_names_list:
 
 with col_f2:
   selected_cat_name = st.selectbox(
-      "Seleziona Categoria", cat_names_list, index=default_cat_idx
+      "Scegli Categoria", cat_names_list, index=default_cat_idx
   )
 
 if selected_cat_name != "Tutte":
@@ -283,7 +678,7 @@ if pre_selected_mod in mod_names_list:
   default_mod_idx = mod_names_list.index(pre_selected_mod)
 
 with col_f3:
-  selected_model_name = st.selectbox("Seleziona Modello", mod_names_list, index=default_mod_idx)
+  selected_model_name = st.selectbox("Modello", mod_names_list, index=default_mod_idx)
 
 st.divider()
 
@@ -293,6 +688,7 @@ tabs_list = [
     "🚗 Il Mio Garage",
     "🎛️ Il Mio Pulsante",
     "➕ Carica Modello",
+    "Comparazione e Telemetria Modelli",
 ]
 selected_tab = st.radio(
     "Navigazione",
@@ -327,25 +723,47 @@ def find_default_index(opzioni, model_name, target_value=None):
 
 
 def upload_image_to_supabase(uploaded_file):
-  if uploaded_file is None:
+  """Upload a validated image and return its public URL."""
+  if uploaded_file is None or supabase is None:
     return None
-  try:
-    file_ext = uploaded_file.name.split(".")[-1]
-    file_name = f"car_{int(time.time())}_{os.urandom(2).hex()}.{file_ext}"
-    file_bytes = uploaded_file.getvalue()
 
+  allowed_types = {"image/jpeg": ".jpg", "image/png": ".png"}
+  max_bytes = 10 * 1024 * 1024
+  content_type = (uploaded_file.type or "").lower()
+  if content_type not in allowed_types:
+    st.error("Formato immagine non supportato. Usa JPG o PNG.")
+    return None
+
+  file_bytes = uploaded_file.getvalue()
+  if len(file_bytes) > max_bytes:
+    st.error("L'immagine è troppo grande. Il limite è di 10 MB.")
+    return None
+
+  file_ext = allowed_types[content_type]
+  file_name = f"car_{int(time.time())}_{os.urandom(8).hex()}{file_ext}"
+  try:
     supabase.storage.from_("immagini-garage").upload(
         path=file_name,
         file=file_bytes,
-        file_options={"content-type": uploaded_file.type},
+        file_options={"content-type": content_type, "upsert": "false"},
     )
-
-    public_url_res = supabase.storage.from_("immagini-garage").get_public_url(
-        file_name
-    )
-    return public_url_res
+    return supabase.storage.from_("immagini-garage").get_public_url(file_name)
   except Exception as e:
     st.error(f"Errore durante il caricamento dell'immagine nel cloud: {e}")
+    return None
+
+
+def validate_image_url(url):
+  """Allow only normal HTTP(S) image URLs for previews/PDF generation."""
+  if not url:
+    return None
+  url = str(url).strip()
+  try:
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+      return None
+    return url
+  except ValueError:
     return None
 
 
@@ -389,9 +807,14 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
   if foto_url:
     img_file_obj = None
     try:
-      if foto_url.startswith("http"):
-        response_img = requests.get(foto_url, timeout=5)
-        if response_img.status_code == 200:
+      safe_foto_url = validate_image_url(foto_url)
+      if safe_foto_url:
+        response_img = requests.get(
+            safe_foto_url, timeout=5, allow_redirects=True,
+            headers={"User-Agent": "SlotGarage/1.0"}
+        )
+        content_type = (response_img.headers.get("Content-Type") or "").lower()
+        if response_img.status_code == 200 and content_type.startswith("image/") and len(response_img.content) <= 10 * 1024 * 1024:
           img_file_obj = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
           img_file_obj.write(response_img.content)
           img_file_obj.close()
@@ -450,7 +873,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
     else:
       right_items[k] = v
 
-  def draw_tech_section(x, y, w, title, items_dict):
+  def draw_tech_section(x, y, w, title, items_dict, label_width=34, label_gap=3):
     pdf.set_fill_color(*bg_dark)
     pdf.set_text_color(*text_light)
     pdf.set_font("Helvetica", "B", 9)
@@ -458,22 +881,48 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
     pdf.cell(w, 6, f"   {title}", ln=True, fill=True)
 
     item_y = y + 7.5
+    value_x = x + 3 + label_width + label_gap
+    value_w = w - (3 + label_width + label_gap + 3)
+
     for k, v in items_dict.items():
       if not v or str(v).lower() == "no" or str(v).lower() == "nessuna":
         continue
       pdf.set_text_color(*text_dark)
       pdf.set_font("Helvetica", "", 8.5)
-      k_clean = str(k).replace("_", " ")
+
+      # Etichette compatte per le sospensioni Thunderslot nel PDF.
+      # Manteniamo invariati i nomi interni dei dati e interveniamo solo
+      # sulla visualizzazione, così non cambiano salvataggio, modifica o
+      # compatibilita con i dati gia presenti.
+      # Alias per la stampa: i dati possono arrivare dal DB sia con underscore
+      # sia con spazi (es. "Tipo Sospensione Posteriori"). Normalizziamo
+      # prima la chiave, così l'etichetta compatta viene applicata sempre.
+      label_aliases = {
+          "tipo_sospensione_posteriori": "Tipo Sosp. Post.",
+          "tipo_sospensione_laterali": "Tipo Sosp. Lat.",
+          "tipo_sospensione_anteriori": "Tipo Sosp. Ant.",
+          "durezza_molla_posteriori": "Durezza Molla Post.",
+          "durezza_molla_laterali": "Durezza Molla Lat.",
+          "durezza_molla_anteriori": "Durezza Molla Ant.",
+          "sospensioni_posteriori": "Sospensioni Post.",
+          "sospensioni_laterali": "Sospensioni Lat.",
+          "sospensioni_anteriori": "Sospensioni Ant.",
+      }
+      k_str = str(k).strip()
+      k_norm = "_".join(k_str.lower().replace("-", " ").split())
+      k_clean = label_aliases.get(k_norm, k_str.replace("_", " "))
       v_clean = str(v)
 
+      # La colonna delle etichette viene dimensionata separatamente da quella
+      # dei valori, così le etichette lunghe non invadono più la seconda colonna.
       pdf.set_xy(x + 3, item_y)
-      pdf.cell(34, 4.8, f"{k_clean}:", 0, 0)
+      pdf.cell(label_width, 4.8, f"{k_clean}:", 0, 0)
 
       pdf.set_font("Helvetica", "B", 8.5)
-      pdf.set_xy(x + 37, item_y)
+      pdf.set_xy(value_x, item_y)
 
       start_val_y = pdf.get_y()
-      pdf.multi_cell(w - 40, 4.2, f"{v_clean}")
+      pdf.multi_cell(value_w, 4.2, f"{v_clean}")
       end_val_y = pdf.get_y()
 
       row_height = max(4.8, (end_val_y - start_val_y))
@@ -495,6 +944,8 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
       col_w,
       "Assetto",
       right_items if right_items else dettagli_filtrati,
+      label_width=50 if is_thunder else 42,
+      label_gap=4,
   )
 
   max_box_h = max(h_col1, h_col2)
@@ -1235,7 +1686,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                     record_garage = {
                         "nome_configurazione": nome_configurazione_input,
                         "modello_nome": selected_model_name,
-                        "dettagli_setup": str(scelte_utente),
+                        "dettagli_setup": serialize_details(scelte_utente),
                         "user_id": st.session_state.user.id
                     }
                     supabase.table("IlMioGarage").update(record_garage).eq(
@@ -1253,7 +1704,9 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                     st.error(f"Errore durante l'aggiornamento: {e}")
           else:
             if st.button("🚗 Salva nel mio garage"):
-              if not st.session_state.user:
+              if not nome_configurazione_input or not nome_configurazione_input.strip():
+                st.warning("Inserisci un nome per la configurazione prima di salvare nel Garage.")
+              elif not st.session_state.user:
                 st.session_state.pending_garage_data = {
                     "nome_configurazione": nome_configurazione_input,
                     "modello_nome": selected_model_name,
@@ -1271,7 +1724,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                     record_garage = {
                         "nome_configurazione": nome_configurazione_input,
                         "modello_nome": selected_model_name,
-                        "dettagli_setup": str(scelte_utente),
+                        "dettagli_setup": serialize_details(scelte_utente),
                         "user_id": st.session_state.user.id
                     }
                     supabase.table("IlMioGarage").insert(record_garage).execute()
@@ -1322,14 +1775,7 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
 
           dettagli_str = s.get("dettagli_setup", "{}")
           dict_dettagli = {}
-          try:
-            dict_dettagli = (
-                ast.literal_eval(dettagli_str)
-                if isinstance(dettagli_str, str)
-                else dettagli_str
-            )
-          except Exception:
-            dict_dettagli = {"Dettagli": dettagli_str}
+          dict_dettagli = deserialize_details(dettagli_str)
 
           foto_auto_url = None
           prod_nome_per_pdf = ""
@@ -1393,14 +1839,7 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
               st.session_state.modifying_config_name = conf_nome
               st.session_state.modifying_model_name = conf_modello
               dettagli_str_init = s.get("dettagli_setup", "{}")
-              try:
-                st.session_state.modifying_data = (
-                    ast.literal_eval(dettagli_str_init)
-                    if isinstance(dettagli_str_init, str)
-                    else dettagli_str_init
-                )
-              except Exception:
-                st.session_state.modifying_data = {}
+              st.session_state.modifying_data = deserialize_details(dettagli_str_init)
               st.session_state.active_tab = "📋 Visualizza Modelli"
               st.rerun()
 
@@ -1720,7 +2159,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
               record_pulsante = {
                   "nome_configurazione": nome_config_pulsante,
                   "tipo_pulsante": scelta_tipo_pulsante,
-                  "dettagli_setup": str(dati_pulsante),
+                  "dettagli_setup": serialize_details(dati_pulsante),
                   "user_id": st.session_state.user.id
               }
               supabase.table("ilMioPulsante").update(record_pulsante).eq(
@@ -1781,7 +2220,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
             record_pulsante = {
                 "nome_configurazione": nome_config_pulsante,
                 "tipo_pulsante": scelta_tipo_pulsante,
-                "dettagli_setup": str(dati_pulsante),
+                "dettagli_setup": serialize_details(dati_pulsante),
                 "user_id": st.session_state.user.id
             }
             supabase.table("ilMioPulsante").insert(record_pulsante).execute()
@@ -1813,10 +2252,7 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
           
           p_dettagli_str = pul.get("dettagli_setup", "{}")
           p_dict = {}
-          try:
-            p_dict = ast.literal_eval(p_dettagli_str) if isinstance(p_dettagli_str, str) else p_dettagli_str
-          except Exception:
-            p_dict = {"Dettagli": p_dettagli_str}
+          p_dict = deserialize_details(p_dettagli_str)
 
           col_p_info, col_p_mod, col_p_del = st.columns([6, 2, 2])
           with col_p_info:
@@ -1901,7 +2337,16 @@ elif st.session_state.active_tab == "➕ Carica Modello":
               "foto_url": finale_foto_url,
           }
           supabase.table("MODELLI").insert(nuovo_record).execute()
+          st.cache_data.clear()
           st.success(f"Modello '{nuovo_modello}' salvato con successo!")
           st.rerun()
         except Exception as e:
           st.error(f"Errore durante il salvataggio: {e}")
+
+
+# --- SLOTGARAGE PRO: voce di navigazione reale ---
+if st.session_state.active_tab == "Comparazione e Telemetria Modelli":
+  sg_pro_ui()
+
+
+# Comparazione e Telemetria Modelli - UI
