@@ -1199,9 +1199,34 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           return None
 
         def filtra_per_materiale_configurazione(campo, lista_pezzi):
-          # Il telaio rimane completamente libero: e' gestito dalla logica
-          # gia' esistente e dal telaio_catalogo_id.
-          if "telaio" in _normalizza_testo_filtro(campo):
+          """
+          Applica il filtro Anglewinder / Sidewinder / In linea
+          SOLTANTO ai campi per i quali la configurazione del motore
+          deve determinare il componente.
+
+          Campi filtrati:
+            - Supporto Motore
+            - Pignoni
+            - Corona
+            - Telaio
+
+          Tutti gli altri campi (Motore, Assali, Cerchi, Pickup,
+          Viti Carrozzeria, ecc.) restano liberi e mostrano i componenti
+          gia' filtrati per produttore + categoria.
+          """
+          campo_norm = _normalizza_testo_filtro(campo)
+
+          campi_con_filtro_materiale = {
+            "supporto motore",
+            "pignoni",
+            "pignone",
+            "corona",
+            "telaio",
+          }
+
+          # Per tutti gli altri componenti NON applicare il filtro
+          # Anglewinder / Sidewinder / In linea.
+          if campo_norm not in campi_con_filtro_materiale:
             return lista_pezzi
 
           materiale_richiesto = materiale_richiesto_per_categoria()
@@ -1217,33 +1242,122 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               continue
 
             # Accetta sia "Anglewinder" sia eventuali descrizioni piu'
-            # lunghe che iniziano/contengono il materiale di montaggio.
+            # lunghe che contengono il materiale di montaggio.
             if target in materiale:
               filtrati.append(p)
 
           return filtrati
 
-        def helper_filtra_pezzi(campo):
-          c_low = campo.lower()
-          if "motore" in c_low and "supporto" not in c_low:
-            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "motore" in p.get("Prodotto").lower() and "supporto" not in p.get("Prodotto").lower()])
-          elif "supporto" in c_low and "assale" not in c_low:
-            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "supporto" in p.get("Prodotto").lower()])
-          elif "corona" in c_low:
-            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "corona" in p.get("Prodotto").lower()])
-          elif "pignoni" in c_low or "pignone" in c_low:
-            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "pignon" in p.get("Prodotto").lower()])
-          elif "telaio" in c_low:
-            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "telaio" in p.get("Prodotto").lower()])
-          elif "assale" in c_low:
-            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "assale" in p.get("Prodotto").lower()])
-          elif "cerch" in c_low:
-            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "cerch" in p.get("Prodotto").lower()])
-          elif "pickup" in c_low:
-            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "pickup" in p.get("Prodotto").lower()])
-          elif "viti carrozzeria" in c_low or "viti" in c_low:
-            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and ("viti" in p.get("Prodotto").lower() or "carrozzeria" in p.get("Prodotto").lower())])
+        def helper_filtra_pezzi(campo, pezzi):
+          """
+          FILTRO DEFINITIVO COMPONENTI.
+
+          Prima 'pezzi' è già filtrato per PRODUTTORE + CATEGORIA.
+          Qui filtriamo SOLO la tipologia del componente.
+
+          La configurazione Sidewinder / Anglewinder / In linea viene
+          applicata ESCLUSIVAMENTE a:
+              - Supporto Motore
+              - Corona
+              - Pignoni
+              - Telaio
+
+          NON viene applicata a:
+              - Motore
+              - Assale Anteriore/Posteriore
+              - Cerchi Anteriori/Posteriori
+              - Pickup
+              - Viti Carrozzeria
+          """
+          c = _normalizza_testo_filtro(campo)
+
+          # IMPORTANTISSIMO: Supporto Motore va controllato PRIMA di
+          # "motore", altrimenti "supporto motore" verrebbe intercettato
+          # dal ramo Motore.
+          if c == "supporto motore":
+            lista = [
+                p for p in pezzi
+                if p.get("Prodotto")
+                and "supporto" in _normalizza_testo_filtro(p.get("Prodotto"))
+                and "motore" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+            return filtra_per_materiale_configurazione("supporto motore", lista)
+
+          if c == "motore":
+            return [
+                p for p in pezzi
+                if p.get("Prodotto")
+                and _normalizza_testo_filtro(p.get("Prodotto")) == "motore"
+            ]
+
+          if c == "corona":
+            lista = [
+                p for p in pezzi
+                if p.get("Prodotto")
+                and "corona" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+            return filtra_per_materiale_configurazione("corona", lista)
+
+          if c in {"pignoni", "pignone"}:
+            lista = [
+                p for p in pezzi
+                if p.get("Prodotto")
+                and (
+                    "pignon" in _normalizza_testo_filtro(p.get("Prodotto"))
+                    or "pignone" in _normalizza_testo_filtro(p.get("Prodotto"))
+                )
+            ]
+            return filtra_per_materiale_configurazione("pignoni", lista)
+
+          if c == "telaio":
+            lista = [
+                p for p in pezzi
+                if p.get("Prodotto")
+                and "telaio" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+            filtrata = filtra_per_materiale_configurazione("telaio", lista)
+
+            # Alcuni telai del catalogo possono non avere Sidewinder /
+            # Anglewinder nel campo Materiale. In quel caso non svuotiamo
+            # la tendina: restano disponibili i telai della categoria.
+            return filtrata if filtrata else lista
+
+          if c in {"assale anteriore", "assale posteriore"}:
+            return [
+                p for p in pezzi
+                if p.get("Prodotto")
+                and "assale" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+
+          # "Cerchi Anteriori" e "Cerchi Posteriori": il campo è plurale,
+          # quindi cercare "cerchio" non è sufficiente.
+          if c in {"cerchi anteriori", "cerchi posteriori"}:
+            return [
+                p for p in pezzi
+                if p.get("Prodotto")
+                and "cerch" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+
+          if c == "pickup":
+            return [
+                p for p in pezzi
+                if p.get("Prodotto")
+                and "pickup" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+
+          # "Viti Carrozzeria": gestiamo esplicitamente "viti", non "vite".
+          if c == "viti carrozzeria":
+            return [
+                p for p in pezzi
+                if p.get("Prodotto")
+                and "vit" in _normalizza_testo_filtro(p.get("Prodotto"))
+                and "carrozz" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+
+          # Qualsiasi campo non gestito esplicitamente non deve mostrare
+          # componenti casuali del catalogo: restituiamo lista vuota.
           return []
+
 
         def render_select_componente(campo, sub_pezzi_list, key_prefix):
           opzioni = []
@@ -1413,7 +1527,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                       key=f"misura_assale_posteriore_{model_safe_key}"
                   )
               else:
-                sub_pezzi = helper_filtra_pezzi(campo)
+                sub_pezzi = helper_filtra_pezzi(campo, pezzi)
                 scelte_utente[campo] = render_select_componente(campo, sub_pezzi, "slotit")
 
           st.write("### 🔩 Sospensioni")
@@ -1492,7 +1606,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                       key=f"giri_motore_nsr_{model_safe_key}",
                   )
                 else:
-                  sub_pezzi = helper_filtra_pezzi(campo)
+                  sub_pezzi = helper_filtra_pezzi(campo, pezzi)
                   scelte_utente[campo] = render_select_componente(campo, sub_pezzi, "nsr")
 
             st.write("### 🔩 Sospensioni")
@@ -1537,7 +1651,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                       key=f"giri_motore_thunderslot_{model_safe_key}",
                   )
                 else:
-                  sub_pezzi = helper_filtra_pezzi(campo)
+                  sub_pezzi = helper_filtra_pezzi(campo, pezzi)
                   scelte_utente[campo] = render_select_componente(campo, sub_pezzi, "thunder")
 
             st.write("### 🔩 Sospensioni Thunderslot")
@@ -1611,7 +1725,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                       key=f"giri_motore_scaleauto_{model_safe_key}",
                   )
                 else:
-                  sub_pezzi = helper_filtra_pezzi(campo)
+                  sub_pezzi = helper_filtra_pezzi(campo, pezzi)
                   scelte_utente[campo] = render_select_componente(campo, sub_pezzi, "scaleauto")
 
             st.write("### 🔩 Sospensioni Scaleauto")
