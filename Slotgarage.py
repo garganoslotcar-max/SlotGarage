@@ -3,6 +3,11 @@ import json
 import os
 import time
 import tempfile
+import streamlit as st
+import json
+import os
+import re
+import unicodedata
 from urllib.parse import urlparse
 from fpdf import FPDF
 import requests
@@ -444,10 +449,16 @@ def process_pending_garage():
     return
 
   try:
+    dettagli_pending = pending.get("dettagli_setup", {})
+    telaio_catalogo_id = trova_telaio_catalogo_id(
+        dettagli_pending.get("Telaio") if isinstance(dettagli_pending, dict) else None
+    )
+
     record_garage = {
         "nome_configurazione": nome,
         "modello_nome": modello,
-        "dettagli_setup": serialize_details(pending.get("dettagli_setup", {})),
+        "dettagli_setup": serialize_details(dettagli_pending),
+        "telaio_catalogo_id": telaio_catalogo_id,
         "user_id": user.id,
     }
     if pending.get("is_update"):
@@ -558,6 +569,29 @@ produttori = get_data("Produttori")
 categorie = get_data("Categorie")
 modelli = get_data("MODELLI")
 catalogo_componenti = get_data("CatalogoComponenti")
+
+
+def trova_telaio_catalogo_id(telaio):
+    """Restituisce l'id di CatalogoComponenti del telaio selezionato."""
+    if not telaio:
+        return None
+
+    valore = str(telaio).strip().casefold()
+
+    for componente in catalogo_componenti or []:
+        if not componente:
+            continue
+        if str(componente.get("Prodotto") or "").strip().casefold() != "telaio":
+            continue
+
+        materiale = str(componente.get("Materiale") or "").strip()
+        misure = str(componente.get("Misure") or "").strip()
+        nome_catalogo = f"{materiale} - {misure}" if materiale and misure else (materiale or misure)
+
+        if nome_catalogo.strip().casefold() == valore:
+            return componente.get("id")
+
+    return None
 
 if not produttori and not modelli:
   st.warning(
@@ -1083,26 +1117,132 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
         scelte_utente = {}
         model_safe_key = selected_model_name.replace(" ", "_").replace(".", "_")
 
+        # ------------------------------------------------------------------
+        # FILTRO SUPPORTO MOTORE / CONFIGURAZIONE PER PRODUTTORE + CATEGORIA
+        # ------------------------------------------------------------------
+        # Il telaio NON viene filtrato qui: il collegamento telaio ->
+        # CatalogoComponenti.id e' gia' gestito separatamente.
+        #
+        # Regole richieste:
+        # NSR:
+        #   GT3      -> ANGLEWINDER
+	#   HYPERCAR -> SIDEWINDER
+        #   CLASSIC  -> SIDEWINDER
+        #   F1 86/89 -> IN LINEA
+        #   F1 2022  -> IN LINEA
+        #   MOSLER   -> ANGLEWINDER
+       
+        #
+        # Slot.it:
+        #   Hypercar -> ANGLEWINDER
+        #   CLASSIC  -> SIDEWINDER
+        #   GT3      -> SIDEWINDER
+        #   DTM      -> IN LINEA
+        #   Gruppo C -> IN LINEA
+        #
+        # Il filtro usa id_Produttori e category_id gia' presenti in "pezzi",
+        # quindi non puo' pescare componenti di un altro produttore.
+        def _normalizza_testo_filtro(valore):
+          if valore is None:
+            return ""
+          testo = str(valore).strip().casefold()
+          testo = unicodedata.normalize("NFKD", testo)
+          testo = "".join(ch for ch in testo if not unicodedata.combining(ch))
+          testo = testo.replace("-", " ").replace("_", " ")
+          return " ".join(testo.split())
+
+        MATERIALE_PER_PRODUTTORE_CATEGORIA = {
+          1: {  # NSR
+            "gt3": "anglewinder",
+            "hypercar": "sidewinder",
+            "classic": "sidewinder",
+            "f1 86/89": "in linea",
+            "f1 2022": "in linea",
+            "f1 22": "in linea",
+            "f122": "in linea",
+            "mosler": "anglewinder",
+          },
+          2: {  # Slot.it
+            "hypercar": "anglewinder",
+            "classic": "sidewinder",
+            "gt3": "sidewinder",
+            "dtm": "in linea",
+            "gruppo c": "in linea",
+            "gruppoc": "in linea",
+          },
+        }
+
+        def materiale_richiesto_per_categoria():
+          if not prod_id_selezionato or not category_id:
+            return None
+
+          prod_id = int(prod_id_selezionato) if str(prod_id_selezionato).isdigit() else prod_id_selezionato
+          regole_produttore = MATERIALE_PER_PRODUTTORE_CATEGORIA.get(prod_id)
+          if not regole_produttore:
+            return None
+
+          categoria_norm = _normalizza_testo_filtro(selected_cat_name)
+
+          # Prima prova il nome completo.
+          materiale = regole_produttore.get(categoria_norm)
+          if materiale:
+            return materiale
+
+          # Alias tolleranti per eventuali differenze minime nel catalogo.
+          if categoria_norm.startswith("f1 86"):
+            return regole_produttore.get("f1 86/89")
+          if categoria_norm in {"f1 2022", "f1 22", "f122"}:
+            return regole_produttore.get("f1 2022") or regole_produttore.get("f122")
+          if categoria_norm in {"gruppo c", "gruppoc"}:
+            return regole_produttore.get("gruppo c") or regole_produttore.get("gruppoc")
+
+          return None
+
+        def filtra_per_materiale_configurazione(campo, lista_pezzi):
+          # Il telaio rimane completamente libero: e' gestito dalla logica
+          # gia' esistente e dal telaio_catalogo_id.
+          if "telaio" in _normalizza_testo_filtro(campo):
+            return lista_pezzi
+
+          materiale_richiesto = materiale_richiesto_per_categoria()
+          if not materiale_richiesto:
+            return lista_pezzi
+
+          target = _normalizza_testo_filtro(materiale_richiesto)
+          filtrati = []
+
+          for p in lista_pezzi:
+            materiale = _normalizza_testo_filtro(p.get("Materiale"))
+            if not materiale:
+              continue
+
+            # Accetta sia "Anglewinder" sia eventuali descrizioni piu'
+            # lunghe che iniziano/contengono il materiale di montaggio.
+            if target in materiale:
+              filtrati.append(p)
+
+          return filtrati
+
         def helper_filtra_pezzi(campo):
           c_low = campo.lower()
           if "motore" in c_low and "supporto" not in c_low:
-            return [p for p in pezzi if p and p.get("Prodotto") and "motore" in p.get("Prodotto").lower() and "supporto" not in p.get("Prodotto").lower()]
+            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "motore" in p.get("Prodotto").lower() and "supporto" not in p.get("Prodotto").lower()])
           elif "supporto" in c_low and "assale" not in c_low:
-            return [p for p in pezzi if p and p.get("Prodotto") and "supporto" in p.get("Prodotto").lower()]
+            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "supporto" in p.get("Prodotto").lower()])
           elif "corona" in c_low:
-            return [p for p in pezzi if p and p.get("Prodotto") and "corona" in p.get("Prodotto").lower()]
+            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "corona" in p.get("Prodotto").lower()])
           elif "pignoni" in c_low or "pignone" in c_low:
-            return [p for p in pezzi if p and p.get("Prodotto") and "pignon" in p.get("Prodotto").lower()]
+            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "pignon" in p.get("Prodotto").lower()])
           elif "telaio" in c_low:
-            return [p for p in pezzi if p and p.get("Prodotto") and "telaio" in p.get("Prodotto").lower()]
+            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "telaio" in p.get("Prodotto").lower()])
           elif "assale" in c_low:
-            return [p for p in pezzi if p and p.get("Prodotto") and "assale" in p.get("Prodotto").lower()]
+            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "assale" in p.get("Prodotto").lower()])
           elif "cerch" in c_low:
-            return [p for p in pezzi if p and p.get("Prodotto") and "cerch" in p.get("Prodotto").lower()]
+            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "cerch" in p.get("Prodotto").lower()])
           elif "pickup" in c_low:
-            return [p for p in pezzi if p and p.get("Prodotto") and "pickup" in p.get("Prodotto").lower()]
+            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and "pickup" in p.get("Prodotto").lower()])
           elif "viti carrozzeria" in c_low or "viti" in c_low:
-            return [p for p in pezzi if p and p.get("Prodotto") and ("viti" in p.get("Prodotto").lower() or "carrozzeria" in p.get("Prodotto").lower())]
+            return filtra_per_materiale_configurazione(campo, [p for p in pezzi if p and p.get("Prodotto") and ("viti" in p.get("Prodotto").lower() or "carrozzeria" in p.get("Prodotto").lower())])
           return []
 
         def render_select_componente(campo, sub_pezzi_list, key_prefix):
@@ -1683,10 +1823,15 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                   st.warning("Inserisci un nome per la configurazione.")
                 else:
                   try:
+                    telaio_catalogo_id = trova_telaio_catalogo_id(
+                        scelte_utente.get("Telaio")
+                    )
+
                     record_garage = {
                         "nome_configurazione": nome_configurazione_input,
                         "modello_nome": selected_model_name,
                         "dettagli_setup": serialize_details(scelte_utente),
+                        "telaio_catalogo_id": telaio_catalogo_id,
                         "user_id": st.session_state.user.id
                     }
                     supabase.table("IlMioGarage").update(record_garage).eq(
@@ -1721,10 +1866,15 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                   st.warning("Inserisci un nome per la configurazione prima di salvare nel Garage.")
                 else:
                   try:
+                    telaio_catalogo_id = trova_telaio_catalogo_id(
+                        scelte_utente.get("Telaio")
+                    )
+
                     record_garage = {
                         "nome_configurazione": nome_configurazione_input,
                         "modello_nome": selected_model_name,
                         "dettagli_setup": serialize_details(scelte_utente),
+                        "telaio_catalogo_id": telaio_catalogo_id,
                         "user_id": st.session_state.user.id
                     }
                     supabase.table("IlMioGarage").insert(record_garage).execute()
