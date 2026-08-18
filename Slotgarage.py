@@ -42,7 +42,6 @@ if "user" not in st.session_state:
 if "pending_garage_data" not in st.session_state:
   st.session_state.pending_garage_data = None
 
-# Funzione per completare automaticamente il salvataggio se l'utente si è loggato ora
 def process_pending_garage():
   if st.session_state.pending_garage_data and st.session_state.user:
     p = st.session_state.pending_garage_data
@@ -73,12 +72,9 @@ def process_pending_garage():
 
 process_pending_garage()
 
-# Funzione di supporto per mostrare il form di autenticazione e registrazione stabile
 def richiedi_autenticazione():
   st.warning("⚠️ Per procedere devi effettuare l'accesso o registrarti.")
-  
   tab_login, tab_reg = st.tabs(["Accedi", "Registrati"])
-  
   with tab_login:
     with st.form("modal_login_form_definitivo"):
       email_in = st.text_input("Email", key="modal_login_email_def")
@@ -146,7 +142,6 @@ if not supabase:
   st.stop()
 
 
-# --- CARICAMENTO DATI RESILIENTE (OTTIMIZZATO CON TTL 300s) ---
 @st.cache_data(ttl=300)
 def get_data(table_name):
   if not supabase:
@@ -172,7 +167,6 @@ if not produttori and not modelli:
     st.cache_data.clear()
     st.rerun()
 
-# --- INIZIALIZZAZIONE STATO PER MODIFICA E NAVIGAZIONE ---
 if "modifying_config_id" not in st.session_state:
   st.session_state.modifying_config_id = None
 if "modifying_data" not in st.session_state:
@@ -186,7 +180,6 @@ if "modifying_pulsante_data" not in st.session_state:
 if "active_tab" not in st.session_state:
   st.session_state.active_tab = "📋 Visualizza Modelli"
 
-# --- SEZIONE FILTRI E SELEZIONE ---
 st.header("🔍 Filtra Modello")
 
 produttori_filtrati_list = [
@@ -287,7 +280,6 @@ with col_f3:
 
 st.divider()
 
-# --- MENU DI NAVIGAZIONE GESTITO VIA STATO ---
 tabs_list = [
     "📋 Visualizza Modelli",
     "🚗 Il Mio Garage",
@@ -471,12 +463,11 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
       pdf.set_text_color(*text_dark)
       pdf.set_font("Helvetica", "", 8.5)
       
-      # MODIFICA APPLICATA: Pulizia etichette e abbreviazione automatica di "Sospensioni" in "Sosp."
+      # CORRETTO: Sostituito Sospensioni con Sosp. per evitare sovrapposizioni e allargata l'etichetta
       k_clean = str(k).replace("_", " ")
       k_clean = k_clean.replace("Sospensioni", "Sosp.")
       v_clean = str(v)
 
-      # MODIFICA APPLICATA: Larghezza etichetta portata a 42mm e valore spostato a x + 45 per distanziare i testi
       pdf.set_xy(x + 3, item_y)
       pdf.cell(42, 4.8, f"{k_clean}:", 0, 0)
 
@@ -529,8 +520,6 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
     return pdf_data.encode("latin1")
   return bytes(pdf_data)
 
-
-# --- GESTIONE SEZIONI (TAB) ---
 
 if st.session_state.active_tab == "📋 Visualizza Modelli":
   if selected_model_name != "Tutti":
@@ -971,7 +960,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                   key=f"th_sosp_post_{model_safe_key}"
               )
             with col_th_sos2:
-              tipo_molla_th_opts = ["Molle morbide", "Molle medie", silv := "Molle dure"] if 'silv' in locals() else ["Molle dure"]
               scelte_utente["Tipo_Sospensione_Posteriori"] = st.selectbox(
                   "Tipo Sospensione Posteriori",
                   ["Molle morbide", "Molle medie", "Molle dure"],
@@ -1057,7 +1045,8 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             key=f"nome_config_input_{model_safe_key}"
         )
 
-        col_act1, col_act2 = st.columns(2)
+        # Ripristinati tutti i pulsanti originali compreso il download del PDF al volo
+        col_act1, col_act2, col_act3 = st.columns(3)
         with col_act1:
           if st.button("💾 Salva nel Mio Garage", type="primary", key=f"btn_salva_garage_{model_safe_key}"):
             if not nome_config_input.strip():
@@ -1097,23 +1086,32 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                   st.error(f"Errore durante il salvataggio: {e}")
 
         with col_act2:
-          if st.button("📥 Scarica PDF al Volo", key=f"btn_pdf_volo_{model_safe_key}"):
-            try:
-              pdf_bytes = generate_pdf(
-                  nome_config_input,
-                  selected_model_name,
-                  scelte_utente,
-                  foto_url=foto_personalizzata_finale or default_foto_db
-              )
-              st.download_button(
-                  label="💾 Conferma Download PDF",
-                  data=pdf_bytes,
-                  file_name=f"{selected_model_name.replace(' ', '_')}_scheda_tecnica.pdf",
-                  mime="application/pdf",
-                  key=f"download_pdf_confirm_{model_safe_key}"
-              )
-            except Exception as e:
-              st.error(f"Errore nella generazione del PDF: {e}")
+          try:
+            pdf_bytes = generate_pdf(
+                nome_config_input,
+                selected_model_name,
+                scelte_utente,
+                foto_url=foto_personalizzata_finale or default_foto_db
+            )
+            st.download_button(
+                label="📥 Scarica PDF al Volo",
+                data=pdf_bytes,
+                file_name=f"{selected_model_name.replace(' ', '_')}_scheda_tecnica.pdf",
+                mime="application/pdf",
+                key=f"download_pdf_confirm_{model_safe_key}"
+            )
+          except Exception as e:
+            st.error(f"Errore generazione PDF: {e}")
+
+        with col_act3:
+          if st.session_state.modifying_config_id:
+            if st.button("❌ Annulla Modifica", key=f"btn_annulla_mod_{model_safe_key}"):
+              st.session_state.modifying_config_id = None
+              st.session_state.modifying_data = None
+              st.session_state.modifying_config_name = ""
+              if "modifying_model_name" in st.session_state:
+                del st.session_state.modifying_model_name
+              st.rerun()
 
   else:
     st.info("Seleziona un produttore e un modello specifico dai filtri in alto per visualizzare e configurare la scheda tecnica.")
@@ -1166,23 +1164,22 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
                 st.rerun()
 
             with col_g2:
-              if st.button("📄 Scarica PDF", key=f"pdf_garage_{setup.get('id')}_{idx}"):
-                try:
-                  pdf_bytes = generate_pdf(
-                      setup.get("nome_configurazione"),
-                      setup.get("modello_nome"),
-                      diz_dettagli,
-                      foto_url=foto_setup_url
-                  )
-                  st.download_button(
-                      label="💾 Scarica PDF Scheda",
-                      data=pdf_bytes,
-                      file_name=f"{setup.get('nome_configurazione').replace(' ', '_')}.pdf",
-                      mime="application/pdf",
-                      key=f"dl_pdf_garage_{setup.get('id')}_{idx}"
-                  )
-                except Exception as e:
-                  st.error(f"Errore PDF: {e}")
+              try:
+                pdf_bytes_garage = generate_pdf(
+                    setup.get("nome_configurazione"),
+                    setup.get("modello_nome"),
+                    diz_dettagli,
+                    foto_url=foto_setup_url
+                )
+                st.download_button(
+                    label="📄 Scarica PDF Scheda",
+                    data=pdf_bytes_garage,
+                    file_name=f"{setup.get('nome_configurazione').replace(' ', '_')}.pdf",
+                    mime="application/pdf",
+                    key=f"dl_pdf_garage_{setup.get('id')}_{idx}"
+                )
+              except Exception as e:
+                st.error(f"Errore PDF: {e}")
 
             with col_g3:
               if st.button("🗑️ Elimina", key=f"del_garage_{setup.get('id')}_{idx}"):
@@ -1296,7 +1293,7 @@ elif st.session_state.active_tab == "➕ Carica Modello":
                 "foto_url": finale_foto_url
             }
             supabase.table("MODELLI").insert(nuovo_record).execute()
-            st.success(f"Modello '{nuvo_modello if 'nuvo_modello' in locals() else nuovo_modello}' caricato con successo!")
+            st.success(f"Modello '{nuovo_modello}' caricato con successo!")
             st.cache_data.clear()
             st.rerun()
           except Exception as e:
