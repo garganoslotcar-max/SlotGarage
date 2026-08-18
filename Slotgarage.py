@@ -465,7 +465,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_xy(x, y)
     pdf.cell(w, 6, f"   {title}", ln=True, fill=True)
-    
+
     item_y = y + 7.5
     for k, v in items_dict.items():
       if not v or str(v).lower() == "no" or str(v).lower() == "nessuna":
@@ -473,7 +473,6 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
       pdf.set_text_color(*text_dark)
       pdf.set_font("Helvetica", "", 8.5)
       k_clean = str(k).replace("_", " ")
-      k_clean = k_clean.replace("Sospensioni", "Sosp.")
       v_clean = str(v)
 
       pdf.set_xy(x + 3, item_y)
