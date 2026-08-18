@@ -349,7 +349,7 @@ def upload_image_to_supabase(uploaded_file):
     return None
 
 
-def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
+def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_nome=""):
   pdf = FPDF(orientation="L", unit="mm", format="A4")
   pdf.add_page()
 
@@ -412,9 +412,11 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
 
   current_y += 4
 
-  col_w = 93
+  # Se il produttore è Thunderslot, aumentiamo la distanza tra le colonne per evitare sovrapposizioni
+  is_thunder = produttore_nome and produttore_nome.lower() == "thunderslot"
+  col_w = 90 if is_thunder else 93
   col1_x = 98
-  col2_x = 194
+  col2_x = 197 if is_thunder else 194
 
   # Lista normalizzata per il filtro delle chiavi di motore e pesi
   pesi_motore_keywords = [
@@ -1072,6 +1074,24 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
         st.divider()
 
+        # --- AGGIUNTA RICHIESTA: Altezza Telaio e Altezza boccole (per tutte le configurazioni) ---
+        st.write("### 📏 Altezze e Quote")
+        col_alt1, col_alt2 = st.columns(2)
+        with col_alt1:
+          scelte_utente["Altezza_Telaio"] = st.text_input(
+              "Altezza Telaio",
+              value=str(edit_data.get("Altezza_Telaio", "")) if edit_data else "",
+              key=f"altezza_telaio_{model_safe_key}"
+          )
+        with col_alt2:
+          scelte_utente["Altezza_boccole"] = st.text_input(
+              "Altezza boccole",
+              value=str(edit_data.get("Altezza_boccole", "")) if edit_data else "",
+              key=f"altezza_boccole_{model_safe_key}"
+          )
+
+        st.divider()
+
         if selected_prod_name == "Altri Produttori":
           pass
         elif selected_prod_name.lower() == "slot.it":
@@ -1152,6 +1172,23 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               ]
               scelte_utente["Distanziale_Pickup"] = render_select_componente("Distanziale_Pickup", lista_dist_pick, "sel_dist_pick")
 
+          # --- AGGIUNTA RICHIESTA: Distanziale alla corona e Distanziale alla ruota per NSR dopo i distanziali posteriori ---
+          if selected_prod_name.lower() == "nsr":
+            st.write("### 📏 Distanziali Specifici Posteriore (NSR)")
+            col_nsr_dc, col_nsr_dr = st.columns(2)
+            with col_nsr_dc:
+              scelte_utente["Distanziale_alla_corona"] = st.text_input(
+                  "Distanziale alla corona",
+                  value=str(edit_data.get("Distanziale_alla_corona", "")) if edit_data else "",
+                  key=f"nsr_dist_corona_{model_safe_key}"
+              )
+            with col_nsr_dr:
+              scelte_utente["Distanziale_alla_ruota"] = st.text_input(
+                  "Distanziale alla ruota",
+                  value=str(edit_data.get("Distanziale_alla_ruota", "")) if edit_data else "",
+                  key=f"nsr_dist_ruota_{model_safe_key}"
+              )
+
         st.divider()
 
         if selected_prod_name != "Altri Produttori":
@@ -1217,6 +1254,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 selected_model_name,
                 scelte_utente,
                 foto_url=foto_personalizzata_finale if foto_personalizzata_finale else default_foto_db,
+                produttore_nome=selected_prod_name,
             )
             st.download_button(
                 label="⬇️ Scarica PDF al volo",
@@ -1346,6 +1384,7 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
             dict_dettagli = {"Dettagli": dettagli_str}
 
           foto_auto_url = None
+          prod_nome_per_pdf = ""
           if (
               isinstance(dict_dettagli, dict)
               and dict_dettagli.get("foto_personalizzata_url")
@@ -1358,6 +1397,17 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
             foto_auto_url = (
                 match_modello.get("foto_url") if match_modello else None
             )
+          
+          # Troviamo il produttore associato per la corretta spaziatura del PDF Thunderslot
+          match_modello_obj = next((m for m in modelli if m and m.get("name") == conf_modello), None)
+          if match_modello_obj:
+            cat_id_m = match_modello_obj.get("category_id")
+            cat_obj_m = next((c for c in categorie if c and c.get("id") == cat_id_m), None)
+            if cat_obj_m:
+              brand_id_m = cat_obj_m.get("brand_it")
+              prod_obj_m = next((p for p in produttori if p and p.get("id") == brand_id_m), None)
+              if prod_obj_m:
+                prod_nome_per_pdf = prod_obj_m.get("name", "")
 
           col_info, col_btn_pdf, col_btn_mod, col_btn_del = st.columns(
               [4, 2, 2, 2]
@@ -1378,6 +1428,7 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
                       else {"Dettagli": dettagli_str}
                   ),
                   foto_url=foto_auto_url,
+                  produttore_nome=prod_nome_per_pdf,
               )
               st.download_button(
                   label="⬇️ PDF",
