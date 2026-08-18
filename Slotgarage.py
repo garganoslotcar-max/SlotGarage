@@ -1248,6 +1248,78 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
           return filtrati
 
+        def helper_filtra_pezzi_thunderslot(campo, pezzi):
+          """
+          Filtro dedicato a Thunderslot.
+
+          NON applica il filtro Sidewinder / Anglewinder / In linea.
+          I componenti arrivano gia' filtrati per produttore + categoria;
+          qui viene filtrata soltanto la tipologia del componente.
+          """
+          c_low = _normalizza_testo_filtro(campo)
+
+          if "motore" in c_low and "supporto" not in c_low:
+            return [
+                p for p in pezzi
+                if p and p.get("Prodotto")
+                and "motore" in _normalizza_testo_filtro(p.get("Prodotto"))
+                and "supporto" not in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+
+          if "supporto" in c_low and "motore" in c_low:
+            return [
+                p for p in pezzi
+                if p and p.get("Prodotto")
+                and "supporto" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+
+          if "corona" in c_low:
+            return [
+                p for p in pezzi
+                if p and p.get("Prodotto")
+                and "corona" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+
+          if "telaio" in c_low:
+            return [
+                p for p in pezzi
+                if p and p.get("Prodotto")
+                and "telaio" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+
+          if "assale" in c_low:
+            return [
+                p for p in pezzi
+                if p and p.get("Prodotto")
+                and "assale" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+
+          if "cerch" in c_low:
+            return [
+                p for p in pezzi
+                if p and p.get("Prodotto")
+                and "cerch" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+
+          if "pickup" in c_low:
+            return [
+                p for p in pezzi
+                if p and p.get("Prodotto")
+                and "pickup" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+
+          if "viti carrozzeria" in c_low or "viti" in c_low:
+            return [
+                p for p in pezzi
+                if p and p.get("Prodotto")
+                and (
+                    "viti" in _normalizza_testo_filtro(p.get("Prodotto"))
+                    or "carrozzeria" in _normalizza_testo_filtro(p.get("Prodotto"))
+                )
+            ]
+
+          return []
+
         def helper_filtra_pezzi(campo, pezzi):
           """
           FILTRO DEFINITIVO COMPONENTI.
@@ -1651,7 +1723,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                       key=f"giri_motore_thunderslot_{model_safe_key}",
                   )
                 else:
-                  sub_pezzi = helper_filtra_pezzi(campo, pezzi)
+                  sub_pezzi = helper_filtra_pezzi_thunderslot(campo, pezzi)
                   scelte_utente[campo] = render_select_componente(campo, sub_pezzi, "thunder")
 
             st.write("### 🔩 Sospensioni Thunderslot")
