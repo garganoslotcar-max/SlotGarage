@@ -567,3 +567,737 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
       st.subheader(f"Configurazione: {selected_model_name}")
 
       default_foto_db = (
+          modello_selezionato.get("foto_url") if modello_selezionato else None
+      )
+      if default_foto_db:
+        try:
+          st.image(
+              default_foto_db,
+              caption=f"Foto di default: {selected_model_name}",
+              width=250,
+          )
+        except Exception:
+          pass
+
+      st.markdown("### 📸 Foto Personalizzata del Tuo Modello (Opzionale)")
+      col_foto_up1, col_foto_up2 = st.columns(2)
+      with col_foto_up1:
+        file_foto_pers = st.file_uploader(
+            "Carica immagine dal dispositivo",
+            type=["jpg", "jpeg", "png"],
+            key="file_foto_pers_setup",
+        )
+      with col_foto_up2:
+        url_foto_pers = st.text_input(
+            "O inserisci URL immagine personalizzata",
+            value=(
+                str(edit_data.get("foto_personalizzata_url", ""))
+                if edit_data and "foto_personalizzata_url" in edit_data
+                else ""
+            ),
+            key="url_foto_pers_setup",
+        )
+
+      foto_personalizzata_finale = url_foto_pers
+      if file_foto_pers is not None:
+        with st.spinner("Caricamento immagine nel cloud in corso..."):
+          uploaded_cloud_url = upload_image_to_supabase(file_foto_pers)
+          if uploaded_cloud_url:
+            foto_personalizzata_finale = uploaded_cloud_url
+            st.success("Immagine caricata con successo nel cloud!")
+      elif (
+          not url_foto_pers
+          and edit_data
+          and "foto_personalizzata_url" in edit_data
+      ):
+        foto_personalizzata_finale = edit_data.get("foto_personalizzata_url")
+
+      if foto_personalizzata_finale:
+        try:
+          st.image(
+              foto_personalizzata_finale,
+              caption="Anteprima Foto Personalizzata",
+              width=200,
+          )
+        except Exception:
+          pass
+
+      st.divider()
+
+      if selected_prod_name != "Tutti":
+        st.write(f"### ⚙️ Setup Avanzato - {selected_prod_name}")
+
+        pezzi = []
+        for p in catalogo_componenti:
+          if p and p.get("id_Produttori") == prod_id_selezionato:
+            cat_componente = (
+                p.get("category_id")
+                if p.get("category_id") is not None
+                else p.get("categoria")
+            )
+            if cat_componente is None:
+              pezzi.append(p)
+            elif str(cat_componente) == str(category_id):
+              pezzi.append(p)
+
+        scelte_utente = {}
+        model_safe_key = selected_model_name.replace(" ", "_").replace(".", "_")
+
+        def helper_filtra_pezzi(campo):
+          c_low = campo.lower()
+          if "motore" in c_low and "supporto" not in c_low:
+            return [p for p in pezzi if p and p.get("Prodotto") and "motore" in p.get("Prodotto").lower() and "supporto" not in p.get("Prodotto").lower()]
+          elif "supporto" in c_low and "assale" not in c_low:
+            return [p for p in pezzi if p and p.get("Prodotto") and "supporto" in p.get("Prodotto").lower()]
+          elif "corona" in c_low:
+            return [p for p in pezzi if p and p.get("Prodotto") and "corona" in p.get("Prodotto").lower()]
+          elif "pignoni" in c_low or "pignone" in c_low:
+            return [p for p in pezzi if p and p.get("Prodotto") and "pignon" in p.get("Prodotto").lower()]
+          elif "telaio" in c_low:
+            return [p for p in pezzi if p and p.get("Prodotto") and "telaio" in p.get("Prodotto").lower()]
+          elif "assale" in c_low:
+            return [p for p in pezzi if p and p.get("Prodotto") and "assale" in p.get("Prodotto").lower()]
+          elif "cerch" in c_low:
+            return [p for p in pezzi if p and p.get("Prodotto") and "cerch" in p.get("Prodotto").lower()]
+          elif "pickup" in c_low:
+            return [p for p in pezzi if p and p.get("Prodotto") and "pickup" in p.get("Prodotto").lower()]
+          elif "viti carrozzeria" in c_low or "viti" in c_low:
+            return [p for p in pezzi if p and p.get("Prodotto") and ("viti" in p.get("Prodotto").lower() or "carrozzeria" in p.get("Prodotto").lower())]
+          return []
+
+        def render_select_componente(campo, sub_pezzi_list, key_prefix):
+          opzioni = []
+          for p in sub_pezzi_list:
+            mat = p.get("Materiale")
+            mis = p.get("Misure")
+            parte_mat = str(mat).strip() if mat and str(mat).lower() != "none" else ""
+            parte_mis = str(mis).strip() if mis and str(mis).lower() != "none" else ""
+            str_opt = f"{parte_mat} - {parte_mis}" if parte_mat and parte_mis else (parte_mat or parte_mis)
+            if str_opt:
+              opzioni.append(str_opt)
+          
+          saved_val = edit_data.get(campo) if edit_data else None
+          def_idx = find_default_index(opzioni, selected_model_name, target_value=saved_val)
+          return st.selectbox(
+              campo,
+              opzioni if opzioni else ["Nessuna opzione"],
+              index=def_idx,
+              key=f"{key_prefix}_{campo}_{model_safe_key}",
+          )
+
+        if selected_prod_name == "Altri Produttori":
+          col_p1, col_p2, col_p3 = st.columns(3)
+          with col_p1:
+            scelte_utente["Peso_Carrozzeria"] = st.text_input(
+                "Peso Carrozzeria",
+                value=str(edit_data.get("Peso_Carrozzeria", "")) if edit_data else "",
+                key=f"peso_carrozzeria_altri_{model_safe_key}",
+            )
+          with col_p2:
+            scelte_utente["Peso_Totale"] = st.text_input(
+                "Peso Totale",
+                value=str(edit_data.get("Peso_Totale", "")) if edit_data else "",
+                key=f"peso_totale_altri_{model_safe_key}",
+            )
+          with col_p3:
+            scelte_utente["Misura_Assale_Posteriore"] = st.text_input(
+                "Misura Assale Posteriore",
+                value=str(edit_data.get("Misura_Assale_Posteriore", "")) if edit_data else "",
+                key=f"misura_assale_posteriore_{model_safe_key}"
+            )
+
+          altri_campi = [
+              "Motore",
+              "Supporto Motore",
+              "Corona",
+              "Giri Motore",
+              "Pignoni",
+              "Telaio",
+              "Assale Anteriore",
+              "Assale Posteriore",
+              "Cerchi Anteriori",
+              "Cerchi Posteriori",
+              "Pickup",
+              "Viti Carrozzeria",
+          ]
+
+          cols = st.columns(3)
+          for idx, campo in enumerate(altri_campi):
+            with cols[idx % 3]:
+              val_salvato_campo = str(edit_data.get(campo, "")) if edit_data else ""
+              scelte_utente[campo] = st.text_input(
+                  campo,
+                  value=val_salvato_campo,
+                  key=f"altri_txt_{campo}_{model_safe_key}"
+              )
+
+          st.write("### 🔩 Sospensioni")
+          sosp_altri_val = st.text_input(
+              "Sospensioni",
+              value=str(edit_data.get("Sospensioni", "")) if edit_data else "",
+              key=f"altri_sospensioni_{model_safe_key}"
+          )
+          scelte_utente["Sospensioni"] = sosp_altri_val
+
+          st.write("### 📏 Distanziali")
+          col_d1, col_d2, col_d3 = st.columns(3)
+          with col_d1:
+            scelte_utente["Distanziali_Anteriori"] = st.text_input(
+                "Distanziali anteriori",
+                value=str(edit_data.get("Distanziali_Anteriori", "")) if edit_data else "",
+                key=f"altri_dist_ant_{model_safe_key}"
+            )
+          with col_d2:
+            scelte_utente["Distanziali_Posteriori"] = st.text_input(
+                "Distanziali posteriori",
+                value=str(edit_data.get("Distanziali_Posteriori", "")) if edit_data else "",
+                key=f"altri_dist_post_{model_safe_key}"
+            )
+          with col_d3:
+            scelte_utente["Distanziali_Pickup"] = st.text_input(
+                "Distanziale Pickup",
+                value=str(edit_data.get("Distanziali_Pickup", "")) if edit_data else "",
+                key=f"altri_dist_pick_{model_safe_key}"
+            )
+
+          st.write("### 🔩 Supporto Assale")
+          scelte_utente["Tipo_Supporto"] = st.text_input(
+              "Tipo Supporto / Dettaglio Supporto",
+              value=str(edit_data.get("Tipo_Supporto", "")) if edit_data else "",
+              key=f"altri_tipo_supporto_{model_safe_key}"
+          )
+
+        elif selected_prod_name.lower() == "slot.it":
+          col1_slot, col2_slot, col3_slot = st.columns(3)
+          with col1_slot:
+            cat_slot_opts = ["Nessuna", "P1", "P2", "Prototipi", "Sport"]
+            def_cat_slot = edit_data.get("Categoria_SlotIt", "Nessuna") if edit_data else "Nessuna"
+            idx_cat_slot = cat_slot_opts.index(def_cat_slot) if def_cat_slot in cat_slot_opts else 0
+            scelte_utente["Categoria_SlotIt"] = st.selectbox(
+                "Categoria",
+                cat_slot_opts,
+                index=idx_cat_slot,
+                key=f"slotit_categoria_{model_safe_key}",
+            )
+          with col2_slot:
+            scelte_utente["Peso_Carrozzeria"] = st.text_input(
+                "Peso Carrozzeria",
+                value=str(edit_data.get("Peso_Carrozzeria", "")) if edit_data else "",
+                key=f"peso_carrozzeria_{model_safe_key}",
+            )
+          with col3_slot:
+            scelte_utente["Peso_Totale"] = st.text_input(
+                "Peso Totale",
+                value=str(edit_data.get("Peso_Totale", "")) if edit_data else "",
+                key=f"peso_totale_{model_safe_key}",
+            )
+
+          slotit_campi = [
+              "Motore",
+              "Giri Motore",
+              "Telaio",
+              "Supporto Motore",
+              "Corona",
+              "Pignoni",
+              "Assale Anteriore",
+              "Assale Posteriore",
+              "Cerchi Anteriori",
+              "Cerchi Posteriori",
+              "Pickup",
+              "Viti Carrozzeria",
+              "Stopper",
+          ]
+
+          cols = st.columns(3)
+          for idx, campo in enumerate(slotit_campi):
+            with cols[idx % 3]:
+              if campo == "Giri Motore":
+                scelte_utente["Giri_Motore"] = st.text_input(
+                    "Giri Motore",
+                    value=str(edit_data.get("Giri_Motore", "")) if edit_data else "",
+                    key=f"giri_motore_slotit_{model_safe_key}",
+                )
+              elif campo == "Stopper":
+                col_stop_1, col_stop_2 = st.columns(2)
+                with col_stop_1:
+                  stopper_opts = ["No", "Sì"]
+                  def_stop = edit_data.get("Stopper", "No") if edit_data else "No"
+                  idx_stop = stopper_opts.index(def_stop) if def_stop in stopper_opts else 0
+                  scelte_utente["Stopper"] = st.selectbox(
+                      "Stopper", stopper_opts, index=idx_stop, key=f"slotit_stopper_{model_safe_key}"
+                  )
+                with col_stop_2:
+                  scelte_utente["Misura_Assale_Posteriore"] = st.text_input(
+                      "Misura Assale Posteriore",
+                      value=str(edit_data.get("Misura_Assale_Posteriore", "")) if edit_data else "",
+                      key=f"misura_assale_posteriore_{model_safe_key}"
+                  )
+              else:
+                sub_pezzi = helper_filtra_pezzi(campo)
+                scelte_utente[campo] = render_select_componente(campo, sub_pezzi, "slotit")
+
+          st.write("### 🔩 Sospensioni")
+          col_viti, col_tipo_sosp = st.columns(2)
+          with col_viti:
+            sub_viti_sosp = [
+                p for p in pezzi if p and p.get("Prodotto") and p.get("Prodotto").strip().lower() == "viti metriche sospensioni"
+            ]
+            scelte_utente["Viti_Metriche_Sosp"] = render_select_componente("Viti_Metriche_Sospensioni", sub_viti_sosp, "slotit_viti")
+          with col_tipo_sosp:
+            tipo_sosp_opts = ["Molle", "Magneti"]
+            def_t_sosp = edit_data.get("Tipo_Sospensione", "Molle") if edit_data else "Molle"
+            idx_t_sosp = tipo_sosp_opts.index(def_t_sosp) if def_t_sosp in tipo_sosp_opts else 0
+            tipo_sosp_slotit = st.selectbox(
+                "Tipo Sospensione",
+                tipo_sosp_opts,
+                index=idx_t_sosp,
+                key=f"slotit_tipo_sospensione_{model_safe_key}",
+            )
+            scelte_utente["Tipo_Sospensione"] = tipo_sosp_slotit
+
+          if tipo_sosp_slotit == "Magneti":
+            sub_sosp = [p for p in pezzi if p and p.get("Prodotto") and p.get("Prodotto").strip().lower() == "sospensioni magnetiche"]
+          else:
+            sub_sosp = [p for p in pezzi if p and p.get("Prodotto") and p.get("Prodotto").strip().lower() == "sospensioni"]
+          
+          scelte_utente["Sospensioni"] = render_select_componente("Sospensioni", sub_sosp, "slotit_scelta_sosp")
+
+        else:
+          col_p1, col_p2, col_p3 = st.columns(3)
+          with col_p1:
+            scelte_utente["Peso_Carrozzeria"] = st.text_input(
+                "Peso Carrozzeria",
+                value=str(edit_data.get("Peso_Carrozzeria", "")) if edit_data else "",
+                key=f"peso_carrozzeria_{selected_prod_name}_{model_safe_key}",
+            )
+          with col_p2:
+            scelte_utente["Peso_Totale"] = st.text_input(
+                "Peso Totale",
+                value=str(edit_data.get("Peso_Totale", "")) if edit_data else "",
+                key=f"peso_totale_{selected_prod_name}_{model_safe_key}",
+            )
+          with col_p3:
+            scelte_utente["Misura_Assale_Posteriore"] = st.text_input(
+                "Misura Assale Posteriore",
+                value=str(edit_data.get("Misura_Assale_Posteriore", "")) if edit_data else "",
+                key=f"misura_assale_posteriore_{model_safe_key}"
+            )
+
+          if selected_prod_name.lower() == "nsr":
+            nsr_campi = [
+                "Motore",
+                "Supporto Motore",
+                "Corona",
+                "Giri Motore",
+                "Pignoni",
+                "Telaio",
+                "Assale Anteriore",
+                "Assale Posteriore",
+                "Cerchi Anteriori",
+                "Cerchi Posteriori",
+                "Pickup",
+                "Viti Carrozzeria",
+            ]
+            cols = st.columns(3)
+            for idx, campo in enumerate(nsr_campi):
+              with cols[idx % 3]:
+                if campo == "Giri Motore":
+                  scelte_utente["Giri_Motore"] = st.text_input(
+                      "Giri Motore",
+                      value=str(edit_data.get("Giri_Motore", "")) if edit_data else "",
+                      key=f"giri_motore_nsr_{model_safe_key}",
+                  )
+                else:
+                  sub_pezzi = helper_filtra_pezzi(campo)
+                  scelte_utente[campo] = render_select_componente(campo, sub_pezzi, "nsr")
+
+            st.write("### 🔩 Sospensioni")
+            sosp_nsr_opts = ["No", "Sì"]
+            def_sosp_nsr = edit_data.get("Sospensioni", "No") if edit_data else "No"
+            idx_sosp_nsr = sosp_nsr_opts.index(def_sosp_nsr) if def_sosp_nsr in sosp_nsr_opts else 0
+            sosp_nsr_attive = st.selectbox(
+                "Sospensioni",
+                sosp_nsr_opts,
+                index=idx_sosp_nsr,
+                key=f"nsr_sosp_sino_{model_safe_key}"
+            )
+            scelte_utente["Sospensioni"] = sosp_nsr_attive
+            if sosp_nsr_attive == "Sì":
+              molla_nsr_opts = ["Molle Hard", "Molle Medium", "Molle Soft"]
+              def_molla_nsr = edit_data.get("Tipo_Molla_NSR", "Molle Hard") if edit_data else "Molle Hard"
+              idx_molla_nsr = molla_nsr_opts.index(def_molla_nsr) if def_molla_nsr in molla_nsr_opts else 0
+              scelte_utente["Tipo_Molla_NSR"] = st.selectbox(
+                  "Tipo Molla",
+                  molla_nsr_opts,
+                  index=idx_molla_nsr,
+                  key=f"nsr_tipo_molla_{model_safe_key}",
+              )
+
+          elif selected_prod_name.lower() == "thunderslot":
+            thunder_campi = [
+                "Motore",
+                "Supporto Motore",
+                "Corona",
+                "Giri Motore",
+                "Telaio",
+                "Cerchi Anteriori",
+                "Cerchi Posteriori",
+                "Viti Carrozzeria",
+                "Assale",
+            ]
+            cols = st.columns(3)
+            for idx, campo in enumerate(thunder_campi):
+              with cols[idx % 3]:
+                if campo == "Giri Motore":
+                  scelte_utente["Giri_Motore"] = st.text_input(
+                      "Giri Motore",
+                      value=str(edit_data.get("Giri_Motore", "")) if edit_data else "",
+                      key=f"giri_motore_thunder_{model_safe_key}",
+                  )
+                else:
+                  sub_pezzi = helper_filtra_pezzi(campo)
+                  scelte_utente[campo] = render_select_componente(campo, sub_pezzi, "thunder")
+
+            st.write("### 🔩 Sospensioni")
+            col_th_sos1, col_th_sos2, col_th_sos3 = st.columns(3)
+            with col_th_sos1:
+              sosp_th_opts = ["No", "Sì"]
+              def_th_sos = edit_data.get("Sospensioni_ Posteriori", edit_data.get("Sospensioni", "No")) if edit_data else "No"
+              idx_th_sos = sosp_th_opts.index(def_th_sos) if def_th_sos in sosp_th_opts else 0
+              scelte_utente["Sospensioni_Posteriori"] = st.selectbox(
+                  "Sospensioni Posteriori",
+                  sosp_th_opts,
+                  index=idx_th_sos,
+                  key=f"th_sosp_post_{model_safe_key}"
+              )
+            with col_th_sos2:
+              tipo_molla_th_opts = ["Molle morbide", "Molle medie", silv := "Molle dure"] if 'silv' in locals() else ["Molle dure"]
+              scelte_utente["Tipo_Sospensione_Posteriori"] = st.selectbox(
+                  "Tipo Sospensione Posteriori",
+                  ["Molle morbide", "Molle medie", "Molle dure"],
+                  key=f"th_tipo_sosp_post_{model_safe_key}"
+              )
+            with col_th_sos3:
+              scelte_utente["Durezza_Molla_Posteriori"] = st.text_input(
+                  "Durezza Molla Posteriori",
+                  value=str(edit_data.get("Durezza_Molla_Posteriori", "")) if edit_data else "",
+                  key=f"th_dur_molla_post_{model_safe_key}"
+              )
+
+            col_th_lat1, col_th_lat2 = st.columns(2)
+            with col_th_lat1:
+              scelte_utente["Sospensioni_Laterali"] = st.selectbox(
+                  "Sospensioni Laterali",
+                  ["No", "Sì"],
+                  key=f"th_sosp_lat_{model_safe_key}"
+              )
+            with col_th_lat2:
+              scelte_utente["Tipo_Sospensione_Laterali"] = st.selectbox(
+                  "Tipo Sospensione Laterali",
+                  ["Molle morbide", "Molle medie", "Molle dure"],
+                  key=f"th_tipo_sosp_lat_{model_safe_key}"
+              )
+
+            col_th_ant1, col_th_ant2 = st.columns(2)
+            with col_th_ant1:
+              scelte_utente["Sospensioni_Anteriori"] = st.selectbox(
+                  "Sospensioni Anteriori",
+                  ["No", "Sì"],
+                  key=f"th_sosp_ant_{model_safe_key}"
+              )
+            with col_th_ant2:
+              scelte_utente["Tipo_Sospensione_Anteriori"] = st.selectbox(
+                  "Tipo Sospensione Anteriori",
+                  ["Molle morbide", "Molle medie", "Molle dure"],
+                  key=f"th_tipo_sosp_ant_{model_safe_key}"
+              )
+
+        st.divider()
+        st.write("### 📏 Distanziali e Supporto Assale")
+        col_sup1, col_sup2 = st.columns(2)
+        with col_sup1:
+          tipo_sup_opts = ["Bronzine", "Cuscinetti a sfera"]
+          def_t_sup = edit_data.get("Tipo_Supporto", "Bronzine") if edit_data else "Bronzine"
+          idx_t_sup = tipo_sup_opts.index(def_t_sup) if def_t_sup in tipo_sup_opts else 0
+          scelte_utente["Tipo_Supporto"] = st.selectbox(
+              "Tipo Supporto",
+              tipo_sup_opts,
+              index=idx_t_sup,
+              key=f"tipo_supporto_generico_{model_safe_key}"
+          )
+        with col_sup2:
+          sub_dett_sup = [p for p in pezzi if p and p.get("Prodotto") and ("supporto" in p.get("Prodotto").lower() or "bronz" in p.get("Prodotto").lower() or "cuscinett" in p.get("Prodotto").lower())]
+          scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", sub_dett_sup, "dettaglio_sup")
+
+        col_dist1, col_dist2, col_dist3 = st.columns(3)
+        with col_dist1:
+          sub_dist_ant = [p for p in pezzi if p and p.get("Prodotto") and "distanzial" in p.get("Prodotto").lower() and "anteri" in p.get("Prodotto").lower()]
+          scelte_utente["Distanziali_Ant."] = render_select_componente("Distanziali_Ant.", sub_dist_ant, "dist_ant")
+        with col_dist2:
+          sub_dist_post = [p for p in pezzi if p and p.get("Prodotto") and "distanzial" in p.get("Prodotto").lower() and "posteri" in p.get("Prodotto").lower()]
+          scelte_utente["Distanziali_Post."] = render_select_componente("Distanziali_Post.", sub_dist_post, "dist_post")
+        with col_dist3:
+          sub_pick = [p for p in pezzi if p and p.get("Prodotto") and "distanzial" in p.get("Prodotto").lower() and "pickup" in p.get("Prodotto").lower()]
+          scelte_utente["Distanziali_Pickup"] = render_select_componente("Distanziali_Pickup", sub_pick, "dist_pick")
+
+        st.divider()
+        st.write("### 📝 Note e Personalizzazioni")
+        note_utente = st.text_area(
+            "Note",
+            value=str(edit_data.get("Note", "")) if edit_data else "",
+            key=f"note_setup_{model_safe_key}"
+        )
+        scelte_utente["Note"] = note_utente
+        scelte_utente["foto_personalizzata_url"] = foto_personalizzata_finale
+
+        st.divider()
+        nome_config_input = st.text_input(
+            "Nome Configurazione",
+            value=st.session_state.get("modifying_config_name", f"Setup {selected_model_name}"),
+            key=f"nome_config_input_{model_safe_key}"
+        )
+
+        col_act1, col_act2 = st.columns(2)
+        with col_act1:
+          if st.button("💾 Salva nel Mio Garage", type="primary", key=f"btn_salva_garage_{model_safe_key}"):
+            if not nome_config_input.strip():
+              st.error("Inserisci un nome valido per la configurazione.")
+            else:
+              if not st.session_state.user:
+                st.session_state.pending_garage_data = {
+                    "nome_configurazione": nome_config_input,
+                    "modello_nome": selected_model_name,
+                    "dettagli_setup": scelte_utente,
+                    "is_update": bool(st.session_state.modifying_config_id),
+                    "config_id": st.session_state.modifying_config_id
+                }
+                richiedi_autenticazione()
+              else:
+                try:
+                  record_garage = {
+                      "nome_configurazione": nome_config_input,
+                      "modello_nome": selected_model_name,
+                      "dettagli_setup": str(scelte_utente),
+                      "user_id": st.session_state.user.id
+                  }
+                  if st.session_state.modifying_config_id:
+                    supabase.table("IlMioGarage").update(record_garage).eq("id", st.session_state.modifying_config_id).eq("user_id", st.session_state.user.id).execute()
+                    st.success(f"Configurazione '{nome_config_input}' aggiornata con successo!")
+                    st.session_state.modifying_config_id = None
+                    st.session_state.modifying_data = None
+                    st.session_state.modifying_config_name = ""
+                    if "modifying_model_name" in st.session_state:
+                      del st.session_state.modifying_model_name
+                  else:
+                    supabase.table("IlMioGarage").insert(record_garage).execute()
+                    st.success(f"Configurazione '{nome_config_input}' salvata con successo nel tuo Garage!")
+                  st.session_state.active_tab = "🚗 Il Mio Garage"
+                  st.rerun()
+                except Exception as e:
+                  st.error(f"Errore durante il salvataggio: {e}")
+
+        with col_act2:
+          if st.button("📥 Scarica PDF al Volo", key=f"btn_pdf_volo_{model_safe_key}"):
+            try:
+              pdf_bytes = generate_pdf(
+                  nome_config_input,
+                  selected_model_name,
+                  scelte_utente,
+                  foto_url=foto_personalizzata_finale or default_foto_db
+              )
+              st.download_button(
+                  label="💾 Conferma Download PDF",
+                  data=pdf_bytes,
+                  file_name=f"{selected_model_name.replace(' ', '_')}_scheda_tecnica.pdf",
+                  mime="application/pdf",
+                  key=f"download_pdf_confirm_{model_safe_key}"
+              )
+            except Exception as e:
+              st.error(f"Errore nella generazione del PDF: {e}")
+
+  else:
+    st.info("Seleziona un produttore e un modello specifico dai filtri in alto per visualizzare e configurare la scheda tecnica.")
+
+elif st.session_state.active_tab == "🚗 Il Mio Garage":
+  st.header("🚗 Il Mio Garage")
+  if not st.session_state.user:
+    st.warning("⚠️ Devi effettuare l'accesso per visualizzare e gestire i setup salvati nel tuo garage.")
+    richiedi_autenticazione()
+  else:
+    try:
+      response_garage = supabase.table("IlMioGarage").select("*").eq("user_id", st.session_state.user.id).execute()
+      miei_setup = response_garage.data if response_garage and response_garage.data else []
+
+      if not miei_setup:
+        st.info("Il tuo garage è ancora vuoto. Crea e salva una configurazione dalla sezione 'Visualizza Modelli'.")
+      else:
+        for idx, setup in enumerate(miei_setup):
+          with st.expander(f"🏎️ {setup.get('nome_configurazione')} — Modello: {setup.get('modello_nome')}"):
+            st.write(f"**Modello:** {setup.get('modello_nome')}")
+            
+            dettagli_raw = setup.get("dettagli_setup")
+            diz_dettagli = {}
+            if dettagli_raw:
+              try:
+                if isinstance(dettagli_raw, str):
+                  diz_dettagli = ast.literal_eval(dettagli_raw)
+                elif isinstance(dettagli_raw, dict):
+                  diz_dettagli = dettagli_raw
+              except Exception:
+                diz_dettagli = {"Nota": "Errore lettura dettagli"}
+
+            foto_setup_url = diz_dettagli.get("foto_personalizzata_url")
+            if foto_setup_url:
+              try:
+                st.image(foto_setup_url, width=200)
+              except Exception:
+                pass
+
+            st.json(diz_dettagli)
+
+            col_g1, col_g2, col_g3 = st.columns(3)
+            with col_g1:
+              if st.button("✏️ Modifica Setup", key=f"mod_garage_{setup.get('id')}_{idx}"):
+                st.session_state.modifying_config_id = setup.get("id")
+                st.session_state.modifying_data = diz_dettagli
+                st.session_state.modifying_config_name = setup.get("nome_configurazione")
+                st.session_state.modifying_model_name = setup.get("modello_nome")
+                st.session_state.active_tab = "📋 Visualizza Modelli"
+                st.rerun()
+
+            with col_g2:
+              if st.button("📄 Scarica PDF", key=f"pdf_garage_{setup.get('id')}_{idx}"):
+                try:
+                  pdf_bytes = generate_pdf(
+                      setup.get("nome_configurazione"),
+                      setup.get("modello_nome"),
+                      diz_dettagli,
+                      foto_url=foto_setup_url
+                  )
+                  st.download_button(
+                      label="💾 Scarica PDF Scheda",
+                      data=pdf_bytes,
+                      file_name=f"{setup.get('nome_configurazione').replace(' ', '_')}.pdf",
+                      mime="application/pdf",
+                      key=f"dl_pdf_garage_{setup.get('id')}_{idx}"
+                  )
+                except Exception as e:
+                  st.error(f"Errore PDF: {e}")
+
+            with col_g3:
+              if st.button("🗑️ Elimina", key=f"del_garage_{setup.get('id')}_{idx}"):
+                try:
+                  supabase.table("IlMioGarage").delete().eq("id", setup.get("id")).eq("user_id", st.session_state.user.id).execute()
+                  st.success("Configurazione eliminata con successo!")
+                  st.rerun()
+                except Exception as e:
+                  st.error(f"Errore durante l'eliminazione: {e}")
+
+    except Exception as e:
+      st.error(f"Errore nel caricamento del garage: {e}")
+
+elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
+  st.header("🎛️ Il Mio Pulsante (Controller)")
+  if not st.session_state.user:
+    st.warning("⚠️ Effettua l'accesso per gestire le configurazioni del tuo pulsante.")
+    richiedi_autenticazione()
+  else:
+    try:
+      resp_pulsante = supabase.table("IlMioPulsante").select("*").eq("user_id", st.session_state.user.id).execute()
+      salvati_pulsante = resp_pulsante.data if resp_pulsante and resp_pulsante.data else []
+
+      with st.form("form_gestione_pulsante"):
+        st.subheader("Configura il tuo controller")
+        p_nome = st.text_input("Nome Configurazione Pulsante", value=st.session_state.get("modifying_pulsante_data", {}).get("nome", ""))
+        p_curva = st.selectbox("Curva di Erogazione", ["Lineare", "Aggressiva", "Dolce", "Personalizzata"])
+        p_frenata = st.slider("Sensibilità Frenata", 1, 10, 5)
+        p_grilletto = st.slider("Corsa del Grilletto", 1, 10, 5)
+        p_note = st.text_area("Note sul Pulsante", value=st.session_state.get("modifying_pulsante_data", {}).get("note", ""))
+
+        submit_pulsante = st.form_submit_button("Salva Configurazione Pulsante")
+        if submit_pulsante:
+          dati_pulsante = {
+              "nome": p_nome,
+              "curva": p_curva,
+              "frenata": p_frenata,
+              "grilletto": p_grilletto,
+              "note": p_note,
+              "user_id": st.session_state.user.id
+          }
+          if st.session_state.modifying_pulsante_id:
+            supabase.table("IlMioPulsante").update(dati_pulsante).eq("id", st.session_state.modifying_pulsante_id).execute()
+            st.success("Configurazione pulsante aggiornata!")
+            st.session_state.modifying_pulsante_id = None
+            st.session_state.modifying_pulsante_data = None
+          else:
+            supabase.table("IlMioPulsante").insert(dati_pulsante).execute()
+            st.success("Configurazione pulsante salvata!")
+          st.rerun()
+
+      if salvati_pulsante:
+        st.divider()
+        st.subheader("I tuoi setup pulsante salvati")
+        for p_item in salvati_pulsante:
+          with st.expander(f"🎛️ {p_item.get('nome')} (Curva: {p_item.get('curva')})"):
+            st.json(p_item)
+            if st.button("Elimina Setup Pulsante", key=f"del_p_{p_item.get('id')}"):
+              supabase.table("IlMioPulsante").delete().eq("id", p_item.get("id")).execute()
+              st.rerun()
+
+    except Exception as e:
+      st.error(f"Errore nella sezione Il Mio Pulsante: {e}")
+
+elif st.session_state.active_tab == "➕ Carica Modello":
+  st.header("➕ Carica Nuovo Modello")
+  if not st.session_state.user:
+    st.warning("⚠️ Effettua l'accesso per poter caricare un nuovo modello nel sistema.")
+    richiedi_autenticazione()
+  else:
+    with st.form("form_carica_nuovo_modello"):
+      nuovo_modello = st.text_input("Nome del Modello")
+      carica_file_foto = st.file_uploader("Carica Foto Modello", type=["jpg", "jpeg", "png"])
+      foto_modello_url = st.text_input("O inserisci URL Immagine Modello")
+
+      prod_form_list = {
+          p.get("name"): p.get("id")
+          for p in produttori
+          if p and p.get("name") and p.get("id")
+      }
+      cat_form_list = {
+          c.get("name"): c.get("id")
+          for c in categorie
+          if c and c.get("name") and c.get("id")
+      }
+
+      scelta_produttore = st.selectbox(
+          "Produttore", list(prod_form_list.keys()) if prod_form_list else []
+      )
+      scelta_categoria = st.selectbox(
+          "Categoria", list(cat_form_list.keys()) if cat_form_list else []
+      )
+
+      submitted = st.form_submit_button("Salva nel Database")
+
+      if submitted:
+        if not nuovo_modello:
+          st.error("Inserisci il nome del modello.")
+        else:
+          try:
+            finale_foto_url = foto_modello_url
+            if carica_file_foto is not None:
+              uploaded_cloud_url = upload_image_to_supabase(carica_file_foto)
+              if uploaded_cloud_url:
+                finale_foto_url = uploaded_cloud_url
+
+            id_cat_scelta = cat_form_list.get(scelta_categoria)
+            nuovo_record = {
+                "name": nuovo_modello,
+                "category_id": id_cat_scelta,
+                "foto_url": finale_foto_url
+            }
+            supabase.table("MODELLI").insert(nuovo_record).execute()
+            st.success(f"Modello '{nuvo_modello if 'nuvo_modello' in locals() else nuovo_modello}' caricato con successo!")
+            st.cache_data.clear()
+            st.rerun()
+          except Exception as e:
+            st.error(f"Errore durante il caricamento del modello: {e}")
