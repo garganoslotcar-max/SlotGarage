@@ -416,7 +416,6 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
   col1_x = 98
   col2_x = 194
 
-  # Lista normalizzata per il filtro delle chiavi di motore e pesi
   pesi_motore_keywords = [
       "peso_carrozzeria",
       "peso_totale",
@@ -449,7 +448,6 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
       continue
     dettagli_filtrati[k] = v
 
-  # Divisione dinamica basata su normalizzazione
   left_items = {}
   right_items = {}
   for k, v in dettagli_filtrati.items():
