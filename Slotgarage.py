@@ -412,13 +412,11 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
 
   current_y += 4
 
-  # Se il produttore è Thunderslot, aumentiamo la distanza tra le colonne per evitare sovrapposizioni
   is_thunder = produttore_nome and produttore_nome.lower() == "thunderslot"
   col_w = 90 if is_thunder else 93
   col1_x = 98
   col2_x = 197 if is_thunder else 194
 
-  # Lista normalizzata per il filtro delle chiavi di motore e pesi
   pesi_motore_keywords = [
       "peso_carrozzeria",
       "peso_totale",
@@ -431,27 +429,18 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
   ]
 
   dettagli_filtrati = {}
+  chiavi_da_rimuovere = [
+      "distanziali_ant.", "distanziali_post.", "distanziali_anteriori", 
+      "distanziali_posteriori", "distanziale_anteriore", "distanziale_posteriore"
+  ]
+
   for k, v in dettagli.items():
     if k.lower() == "note" or k.lower() == "foto_personalizzata_url":
       continue
-    if k in ["Distanziali_Ant.", "Distanziali_Post."]:
-      continue
-    if k == "Distanziali_Pickup":
-      val_misura = dettagli.get("Distanziale_Pickup", "")
-      if (
-          str(v).lower() == "sì"
-          and val_misura
-          and str(val_misura).lower() != "nessun distanziale disponibile"
-      ):
-        dettagli_filtrati["Distanziale_Pickup"] = val_misura
-      else:
-        dettagli_filtrati["Distanziale_Pickup"] = v
-      continue
-    if k == "Distanziale_Pickup":
+    if k.lower() in chiavi_da_rimuovere:
       continue
     dettagli_filtrati[k] = v
 
-  # Divisione dinamica basata su normalizzazione
   left_items = {}
   right_items = {}
   for k, v in dettagli_filtrati.items():
@@ -742,16 +731,16 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           st.write("### 📏 Distanziali")
           col_d1, col_d2, col_d3 = st.columns(3)
           with col_d1:
-            scelte_utente["Distanziali_Anteriori"] = st.text_input(
-                "Distanziali anteriori",
-                value=str(edit_data.get("Distanziali_Anteriori", "")) if edit_data else "",
-                key=f"altri_dist_ant_{model_safe_key}"
+            scelte_utente["Distanziale_alla_corona"] = st.text_input(
+                "Distanziale alla corona",
+                value=str(edit_data.get("Distanziale_alla_corona", "")) if edit_data else "",
+                key=f"altri_dist_corona_{model_safe_key}"
             )
           with col_d2:
-            scelte_utente["Distanziali_Posteriori"] = st.text_input(
-                "Distanziali posteriori",
-                value=str(edit_data.get("Distanziali_Posteriori", "")) if edit_data else "",
-                key=f"altri_dist_post_{model_safe_key}"
+            scelte_utente["Distanziale_alla_ruota"] = st.text_input(
+                "Distanziale alla ruota",
+                value=str(edit_data.get("Distanziale_alla_ruota", "")) if edit_data else "",
+                key=f"altri_dist_ruota_{model_safe_key}"
             )
           with col_d3:
             scelte_utente["Distanziali_Pickup"] = st.text_input(
@@ -1074,7 +1063,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
         st.divider()
 
-        # --- AGGIUNTA RICHIESTA: Altezza Telaio e Altezza boccole (per tutte le configurazioni) ---
+        # --- ALTEZZE E QUOTE ---
         st.write("### 📏 Altezze e Quote")
         col_alt1, col_alt2 = st.columns(2)
         with col_alt1:
@@ -1119,41 +1108,17 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           col_d1, col_d2, col_d3 = st.columns(3)
 
           with col_d1:
-            da_opts = ["No", "Sì"]
-            def_da = edit_data.get("Distanziali_Anteriori", "No") if edit_data else "No"
-            idx_da = da_opts.index(def_da) if def_da in da_opts else 0
-            dist_ant_attive = st.selectbox(
-                "Distanziali anteriori",
-                da_opts,
-                index=idx_da,
-                key=f"dist_ant_si_no_{model_safe_key}",
+            scelte_utente["Distanziale_alla_corona"] = st.text_input(
+                "Distanziale alla corona",
+                value=str(edit_data.get("Distanziale_alla_corona", "")) if edit_data else "",
+                key=f"dist_corona_{model_safe_key}"
             )
-            scelte_utente["Distanziali_Anteriori"] = dist_ant_attive
-            if dist_ant_attive == "Sì":
-              lista_dist_ant = [
-                  p for p in pezzi
-                  if p and p.get("Prodotto") and "distanzial" in p.get("Prodotto").lower() and "pickup" not in p.get("Prodotto").lower()
-              ]
-              scelte_utente["Distanziale_Anteriore"] = render_select_componente("Distanziale_Anteriore", lista_dist_ant, "sel_dist_ant")
-
           with col_d2:
-            dp_opts = ["No", "Sì"]
-            def_dp = edit_data.get("Distanziali_Posteriori", "No") if edit_data else "No"
-            idx_dp = dp_opts.index(def_dp) if def_dp in dp_opts else 0
-            dist_post_attive = st.selectbox(
-                "Distanziali posteriori",
-                dp_opts,
-                index=idx_dp,
-                key=f"dist_post_si_no_{model_safe_key}",
+            scelte_utente["Distanziale_alla_ruota"] = st.text_input(
+                "Distanziale alla ruota",
+                value=str(edit_data.get("Distanziale_alla_ruota", "")) if edit_data else "",
+                key=f"dist_ruota_{model_safe_key}"
             )
-            scelte_utente["Distanziali_Posteriori"] = dist_post_attive
-            if dist_post_attive == "Sì":
-              lista_dist_post = [
-                  p for p in pezzi
-                  if p and p.get("Prodotto") and "distanzial" in p.get("Prodotto").lower() and "pickup" not in p.get("Prodotto").lower()
-              ]
-              scelte_utente["Distanziale_Posteriore"] = render_select_componente("Distanziale_Posteriore", lista_dist_post, "sel_dist_post")
-
           with col_d3:
             dpk_opts = ["No", "Sì"]
             def_dpk = edit_data.get("Distanziali_Pickup", "No") if edit_data else "No"
@@ -1171,23 +1136,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                   if p and p.get("Prodotto") and p.get("Prodotto").strip().lower() == "distanziale pickup"
               ]
               scelte_utente["Distanziale_Pickup"] = render_select_componente("Distanziale_Pickup", lista_dist_pick, "sel_dist_pick")
-
-          # --- AGGIUNTA RICHIESTA: Distanziale alla corona e Distanziale alla ruota per NSR dopo i distanziali posteriori ---
-          if selected_prod_name.lower() == "nsr":
-            st.write("### 📏 Distanziali Specifici Posteriore (NSR)")
-            col_nsr_dc, col_nsr_dr = st.columns(2)
-            with col_nsr_dc:
-              scelte_utente["Distanziale_alla_corona"] = st.text_input(
-                  "Distanziale alla corona",
-                  value=str(edit_data.get("Distanziale_alla_corona", "")) if edit_data else "",
-                  key=f"nsr_dist_corona_{model_safe_key}"
-              )
-            with col_nsr_dr:
-              scelte_utente["Distanziale_alla_ruota"] = st.text_input(
-                  "Distanziale alla ruota",
-                  value=str(edit_data.get("Distanziale_alla_ruota", "")) if edit_data else "",
-                  key=f"nsr_dist_ruota_{model_safe_key}"
-              )
 
         st.divider()
 
@@ -1398,7 +1346,6 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
                 match_modello.get("foto_url") if match_modello else None
             )
           
-          # Troviamo il produttore associato per la corretta spaziatura del PDF Thunderslot
           match_modello_obj = next((m for m in modelli if m and m.get("name") == conf_modello), None)
           if match_modello_obj:
             cat_id_m = match_modello_obj.get("category_id")
