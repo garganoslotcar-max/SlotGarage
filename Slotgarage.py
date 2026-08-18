@@ -350,177 +350,182 @@ def upload_image_to_supabase(uploaded_file):
 
 
 def generate_pdf(config_name, modello_nome, dettagli, foto_url=None):
-    pdf = FPDF(orientation="L", unit="mm", format="A4")
-    pdf.add_page()
+  pdf = FPDF(orientation="L", unit="mm", format="A4")
+  pdf.add_page()
 
-    bg_dark = (30, 32, 36)
-    accent_bar = (220, 50, 50)
-    text_dark = (40, 40, 40)
-    text_light = (255, 255, 255)
+  bg_dark = (30, 32, 36)
+  accent_bar = (220, 50, 50)
+  text_dark = (40, 40, 40)
+  text_light = (255, 255, 255)
 
-    pdf.set_fill_color(250, 252, 255)
-    pdf.rect(0, 0, 297, 210, "F")
+  pdf.set_fill_color(250, 252, 255)
+  pdf.rect(0, 0, 297, 210, "F")
 
+  pdf.set_fill_color(*bg_dark)
+  pdf.rect(0, 0, 297, 16, "F")
+  pdf.set_fill_color(*accent_bar)
+  pdf.rect(0, 16, 297, 2, "F")
+
+  pdf.set_text_color(*text_light)
+  pdf.set_font("Helvetica", "B", 10)
+
+  pdf.set_xy(10, 4.5)
+  pdf.cell(150, 7, f"SLOTGARAGE  |  SCHEDA: {config_name.upper()}", ln=0)
+
+  pdf.set_font("Helvetica", "I", 9)
+  pdf.set_xy(140, 4.5)
+  pdf.cell(147, 7, "Generato con Slotgarage di Palena Emanuele", ln=1, align="R")
+
+  left_x = 10
+  left_w = 85
+  current_y = 22
+
+  pdf.set_text_color(*text_dark)
+  pdf.set_font("Helvetica", "B", 10)
+  pdf.set_xy(left_x, current_y)
+  pdf.cell(left_w, 6, f"Modello: {modello_nome}", ln=True)
+  current_y += 7
+
+  if foto_url:
+    img_file_obj = None
+    try:
+      if foto_url.startswith("http"):
+        response_img = requests.get(foto_url, timeout=5)
+        if response_img.status_code == 200:
+          img_file_obj = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+          img_file_obj.write(response_img.content)
+          img_file_obj.close()
+          pdf.image(img_file_obj.name, x=left_x + 2, y=current_y, w=left_w - 4)
+          current_y += 48
+      else:
+        if os.path.exists(foto_url):
+          pdf.image(foto_url, x=left_x + 2, y=current_y, w=left_w - 4)
+          current_y += 48
+    except Exception:
+      pass
+    finally:
+      if img_file_obj and os.path.exists(img_file_obj.name):
+        try:
+          os.remove(img_file_obj.name)
+        except Exception:
+          pass
+
+  current_y += 4
+
+  col_w = 93
+  col1_x = 98
+  col2_x = 194
+
+  # Lista normalizzata per il filtro delle chiavi di motore e pesi
+  pesi_motore_keywords = [
+      "peso_carrozzeria",
+      "peso_totale",
+      "misura_assale_post.",
+      "giri_motore",
+      "motore",
+      "supporto_motore",
+      "corona",
+      "pignoni",
+  ]
+
+  dettagli_filtrati = {}
+  for k, v in dettagli.items():
+    if k.lower() == "note" or k.lower() == "foto_personalizzata_url":
+      continue
+    if k in ["Distanziali_Ant.", "Distanziali_Post."]:
+      continue
+    if k == "Distanziali_Pickup":
+      val_misura = dettagli.get("Distanziale_Pickup", "")
+      if (
+          str(v).lower() == "sì"
+          and val_misura
+          and str(val_misura).lower() != "nessun distanziale disponibile"
+      ):
+        dettagli_filtrati["Distanziale_Pickup"] = val_misura
+      else:
+        dettagli_filtrati["Distanziale_Pickup"] = v
+      continue
+    if k == "Distanziale_Pickup":
+      continue
+    dettagli_filtrati[k] = v
+
+  # Divisione dinamica basata su normalizzazione
+  left_items = {}
+  right_items = {}
+  for k, v in dettagli_filtrati.items():
+    k_norm = k.lower().replace(" ", "_")
+    if any(pk in k_norm for pk in pesi_motore_keywords):
+      left_items[k] = v
+    else:
+      right_items[k] = v
+
+  def draw_tech_section(x, y, w, title, items_dict):
     pdf.set_fill_color(*bg_dark)
-    pdf.rect(0, 0, 297, 16, "F")
-    pdf.set_fill_color(*accent_bar)
-    pdf.rect(0, 16, 297, 2, "F")
-
     pdf.set_text_color(*text_light)
-    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_xy(x, y)
+    pdf.cell(w, 6, f"   {title}", ln=True, fill=True)
 
-    pdf.set_xy(10, 4.5)
-    pdf.cell(150, 7, f"SLOTGARAGE  |  SCHEDA: {config_name.upper()}", ln=0)
+    item_y = y + 7.5
+    for k, v in items_dict.items():
+      if not v or str(v).lower() == "no" or str(v).lower() == "nessuna":
+        continue
+      pdf.set_text_color(*text_dark)
+      pdf.set_font("Helvetica", "", 8.5)
+      k_clean = str(k).replace("_", " ")
+      v_clean = str(v)
 
-    pdf.set_font("Helvetica", "I", 9)
-    pdf.set_xy(140, 4.5)
-    pdf.cell(147, 7, "Generato con Slotgarage di Palena Emanuele", ln=1, align="R")
+      pdf.set_xy(x + 3, item_y)
+      pdf.cell(34, 4.8, f"{k_clean}:", 0, 0)
 
-    left_x = 10
-    left_w = 85
-    current_y = 22
+      pdf.set_font("Helvetica", "B", 8.5)
+      pdf.set_xy(x + 37, item_y)
+
+      start_val_y = pdf.get_y()
+      pdf.multi_cell(w - 40, 4.2, f"{v_clean}")
+      end_val_y = pdf.get_y()
+
+      row_height = max(4.8, (end_val_y - start_val_y))
+      item_y += row_height + 0.8
+
+    return item_y - y
+
+  box_start_y = 24
+  h_col1 = draw_tech_section(
+      col1_x,
+      box_start_y,
+      col_w,
+      "MOTORE & PESI",
+      left_items if left_items else {"Info": "Nessun dato"},
+  )
+  h_col2 = draw_tech_section(
+      col2_x,
+      box_start_y,
+      col_w,
+      "Assetto",
+      right_items if right_items else dettagli_filtrati,
+  )
+
+  max_box_h = max(h_col1, h_col2)
+  next_y = box_start_y + max_box_h + 4
+
+  note_val = dettagli.get("Note", "")
+  if note_val and str(note_val).strip() != "":
+    pdf.set_fill_color(*bg_dark)
+    pdf.set_text_color(*text_light)
+    pdf.set_font("Helvetica", "B", 8.5)
+    pdf.set_xy(col1_x, next_y)
+    pdf.cell(189, 5, "   NOTE", ln=True, fill=True)
 
     pdf.set_text_color(*text_dark)
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.set_xy(left_x, current_y)
-    pdf.cell(left_w, 6, f"Modello: {modello_nome}", ln=True)
-    current_y += 7
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_xy(col1_x + 3, next_y + 5.5)
+    pdf.multi_cell(183, 4, str(note_val))
 
-    # immagine
-    if foto_url:
-        img_file_obj = None
-        try:
-            if foto_url.startswith("http"):
-                response_img = requests.get(foto_url, timeout=5)
-                if response_img.status_code == 200:
-                    img_file_obj = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-                    img_file_obj.write(response_img.content)
-                    img_file_obj.close()
-                    pdf.image(img_file_obj.name, x=left_x + 2, y=current_y, w=left_w - 4)
-                    current_y += 48
-            else:
-                if os.path.exists(foto_url):
-                    pdf.image(foto_url, x=left_x + 2, y=current_y, w=left_w - 4)
-                    current_y += 48
-        except Exception:
-            pass
-        finally:
-            if img_file_obj and os.path.exists(img_file_obj.name):
-                try:
-                    os.remove(img_file_obj.name)
-                except Exception:
-                    pass
-
-    current_y += 4
-
-    # --- COLONNE DINAMICHE ---
-    page_width = 297
-    page_margin = 10
-    column_gap = 12
-
-    col1_w = 90
-    col1_x = page_margin
-
-    col2_x = col1_x + col1_w + column_gap
-    col2_w = page_width - col2_x - page_margin
-
-    pesi_motore_keywords = [
-        "peso_carrozzeria",
-        "peso_totale",
-        "misura_assale_post.",
-        "giri_motore",
-        "motore",
-        "supporto_motore",
-        "corona",
-        "pignoni",
-    ]
-
-    dettagli_filtrati = {}
-    for k, v in dettagli.items():
-        if k.lower() == "note" or k.lower() == "foto_personalizzata_url":
-            continue
-        if k in ["Distanziali_Ant.", "Distanziali_Post."]:
-            continue
-        if k == "Distanziali_Pickup":
-            val_misura = dettagli.get("Distanziale_Pickup", "")
-            if (
-                str(v).lower() == "sì"
-                and val_misura
-                and str(val_misura).lower() != "nessun distanziale disponibile"
-            ):
-                dettagli_filtrati["Distanziale_Pickup"] = val_misura
-            else:
-                dettagli_filtrati["Distanziale_Pickup"] = v
-            continue
-        if k == "Distanziale_Pickup":
-            continue
-        dettagli_filtrati[k] = v
-
-    left_items = {}
-    right_items = {}
-    for k, v in dettagli_filtrati.items():
-        k_norm = k.lower().replace(" ", "_")
-        if any(pk in k_norm for pk in pesi_motore_keywords):
-            left_items[k] = v
-        else:
-            right_items[k] = v
-
-    def draw_tech_section(x, y, w, title, items_dict):
-        pdf.set_fill_color(*bg_dark)
-        pdf.set_text_color(*text_light)
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_xy(x, y)
-        pdf.cell(w, 6, f"   {title}", ln=True, fill=True)
-
-        item_y = y + 7.5
-        for k, v in items_dict.items():
-            if not v or str(v).lower() in ["no", "nessuna"]:
-                continue
-            pdf.set_text_color(*text_dark)
-            pdf.set_font("Helvetica", "", 8.5)
-            k_clean = str(k).replace("_", " ")
-            v_clean = str(v)
-
-            pdf.set_xy(x + 3, item_y)
-            pdf.cell(34, 4.8, f"{k_clean}:", 0, 0)
-
-            pdf.set_font("Helvetica", "B", 8.5)
-            pdf.set_xy(x + 37, item_y)
-
-            start_val_y = pdf.get_y()
-            pdf.multi_cell(w - 40, 4.2, f"{v_clean}")
-            end_val_y = pdf.get_y()
-
-            row_height = max(4.8, (end_val_y - start_val_y))
-            item_y += row_height + 0.8
-
-        return item_y - y
-
-    box_start_y = 24
-    h_col1 = draw_tech_section(col1_x, box_start_y, col1_w, "MOTORE & PESI", left_items)
-    h_col2 = draw_tech_section(col2_x, box_start_y, col2_w, "Assetto", right_items)
-
-    max_box_h = max(h_col1, h_col2)
-    next_y = box_start_y + max_box_h + 4
-
-    note_val = dettagli.get("Note", "")
-    if note_val and str(note_val).strip() != "":
-        pdf.set_fill_color(*bg_dark)
-        pdf.set_text_color(*text_light)
-        pdf.set_font("Helvetica", "B", 8.5)
-        pdf.set_xy(col1_x, next_y)
-        pdf.cell(page_width - 2 * page_margin, 5, "   NOTE", ln=True, fill=True)
-
-        pdf.set_text_color(*text_dark)
-        pdf.set_font("Helvetica", "", 8.5)
-        pdf.set_xy(col1_x + 3, next_y + 5.5)
-        pdf.multi_cell(page_width - 2 * page_margin - 6, 4, str(note_val))
-
-    pdf_data = pdf.output(dest="S")
-    if isinstance(pdf_data, str):
-        return pdf_data.encode("latin1")
-    return bytes(pdf_data)
-
+  pdf_data = pdf.output(dest="S")
+  if isinstance(pdf_data, str):
+    return pdf_data.encode("latin1")
+  return bytes(pdf_data)
 
 
 # --- GESTIONE SEZIONI (TAB) ---
