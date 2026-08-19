@@ -1380,60 +1380,53 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             ]
             return filtra_per_materiale_configurazione("pignoni", lista)
 
-         if c == "telaio":
-    lista = [
-        p for p in pezzi
-        if p.get("Prodotto")
-        and "telaio" in _normalizza_testo_filtro(p.get("Prodotto"))
-    ]
+          if c == "telaio":
+            lista = [
+                p for p in pezzi
+                if p.get("Prodotto")
+                and "telaio" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
 
-    if not lista:
-        return []
+            if not lista:
+              return []
 
-    modello = _normalizza_testo_filtro(selected_model_name)
+            modello = _normalizza_testo_filtro(selected_model_name)
 
-    # Se non è stato scelto un modello specifico,
-    # mostra i telai della categoria.
-    if not modello or modello == "tutti":
-        return lista
+            if not modello or modello == "tutti":
+              return lista
 
-    def testo_telaio(p):
-        materiale = str(p.get("Materiale") or "")
-        misure = str(p.get("Misure") or "")
-        return _normalizza_testo_filtro(
-            f"{materiale} {misure}"
-        )
+            def testo_telaio(p):
+              materiale = str(p.get("Materiale") or "")
+              misure = str(p.get("Misure") or "")
+              return _normalizza_testo_filtro(
+                f"{materiale} {misure}"
+              )
 
-    # 1. Cerca il nome completo del modello.
-    trovati = [
-        p for p in lista
-        if modello in testo_telaio(p)
-    ]
+            trovati = [
+                p for p in lista
+                if modello in testo_telaio(p)
+            ]
 
-    if trovati:
-        return trovati
+            if trovati:
+              return trovati
 
-    # 2. Se non trova il nome completo,
-    # cerca le singole parole significative del modello.
-    parole = [
-        parola for parola in modello.split()
-        if len(parola) > 2
-    ]
+            parole = [
+              parola for parola in modello.split()
+              if len(parola) > 2
+            ]
 
-    trovati = [
-        p for p in lista
-        if any(
-            parola in testo_telaio(p)
-            for parola in parole
-        )
-    ]
+            trovati = [
+              p for p in lista
+              if any(
+                parola in testo_telaio(p)
+                for parola in parole
+              )
+            ]
 
-    if trovati:
-        return trovati
+            if trovati:
+              return trovati
 
-    # Se non trova il modello, mantiene i telai della
-    # stessa categoria, senza applicare In linea/Sidewinder.
-    return lista
+            return lista
 
           if c in {"assale anteriore", "assale posteriore"}:
             return [
