@@ -1380,7 +1380,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             ]
             return filtra_per_materiale_configurazione("pignoni", lista)
 
-          if c == "telaio":
+           if c == "telaio":
             lista = [
                 p for p in pezzi
                 if p.get("Prodotto")
@@ -1423,7 +1423,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               )
             ]
 
-            if trovati:
+           if trovati:
               return trovati
 
             return lista
