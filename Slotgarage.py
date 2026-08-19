@@ -1208,7 +1208,8 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             - Supporto Motore
             - Pignoni
             - Corona
-            - Telaio
+
+          Il Telaio è escluso da questo filtro e viene cercato per modello.
 
           Tutti gli altri campi (Motore, Assali, Cerchi, Pickup,
           Viti Carrozzeria, ecc.) restano liberi e mostrano i componenti
@@ -1221,7 +1222,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             "pignoni",
             "pignone",
             "corona",
-            "telaio",
           }
 
           # Per tutti gli altri componenti NON applicare il filtro
@@ -1332,7 +1332,10 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               - Supporto Motore
               - Corona
               - Pignoni
-			  
+
+          Il Telaio NON viene filtrato per configurazione: viene cercato
+          in base al modello selezionato.
+
           NON viene applicata a:
               - Motore
               - Assale Anteriore/Posteriore
@@ -1380,16 +1383,20 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             ]
             return filtra_per_materiale_configurazione("pignoni", lista)
 
-           if c == "telaio":
+          if c == "telaio":
             lista = [
-                p for p in pezzi
-                if p.get("Prodotto")
-                and "telaio" in _normalizza_testo_filtro(p.get("Prodotto"))
+              p for p in pezzi
+              if p.get("Prodotto")
+              and "telaio" in _normalizza_testo_filtro(p.get("Prodotto"))
             ]
 
             if not lista:
               return []
 
+            # Il Telaio è un'eccezione: NON deve essere filtrato per
+            # In linea / Sidewinder / Anglewinder.
+            # Deve invece seguire la stessa logica di ricerca per MODELLO
+            # usata dal menu Modello.
             modello = _normalizza_testo_filtro(selected_model_name)
 
             if not modello or modello == "tutti":
@@ -1398,34 +1405,28 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             def testo_telaio(p):
               materiale = str(p.get("Materiale") or "")
               misure = str(p.get("Misure") or "")
-              return _normalizza_testo_filtro(
-                f"{materiale} {misure}"
-              )
+              return _normalizza_testo_filtro(f"{materiale} {misure}")
 
+            # Prima: nome completo del modello.
             trovati = [
-                p for p in lista
-                if modello in testo_telaio(p)
+              p for p in lista
+              if modello in testo_telaio(p)
             ]
-
             if trovati:
               return trovati
 
-            parole = [
-              parola for parola in modello.split()
-              if len(parola) > 2
-            ]
+            # Seconda possibilità: parole significative del modello.
+            parole = [w for w in modello.split() if len(w) > 2]
+            if parole:
+              trovati = [
+                p for p in lista
+                if any(w in testo_telaio(p) for w in parole)
+              ]
+              if trovati:
+                return trovati
 
-            trovati = [
-              p for p in lista
-              if any(
-                parola in testo_telaio(p)
-                for parola in parole
-              )
-            ]
-
-           if trovati:
-              return trovati
-
+            # Nessuna corrispondenza: non applicare un filtro meccanico
+            # al Telaio e non pescare telai di altre categorie/produttori.
             return lista
 
           if c in {"assale anteriore", "assale posteriore"}:
