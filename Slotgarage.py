@@ -1332,8 +1332,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               - Supporto Motore
               - Corona
               - Pignoni
-              - Telaio
-
+			  
           NON viene applicata a:
               - Motore
               - Assale Anteriore/Posteriore
@@ -1381,18 +1380,60 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             ]
             return filtra_per_materiale_configurazione("pignoni", lista)
 
-          if c == "telaio":
-            lista = [
-                p for p in pezzi
-                if p.get("Prodotto")
-                and "telaio" in _normalizza_testo_filtro(p.get("Prodotto"))
-            ]
-            filtrata = filtra_per_materiale_configurazione("telaio", lista)
+         if c == "telaio":
+    lista = [
+        p for p in pezzi
+        if p.get("Prodotto")
+        and "telaio" in _normalizza_testo_filtro(p.get("Prodotto"))
+    ]
 
-            # Alcuni telai del catalogo possono non avere Sidewinder /
-            # Anglewinder nel campo Materiale. In quel caso non svuotiamo
-            # la tendina: restano disponibili i telai della categoria.
-            return filtrata if filtrata else lista
+    if not lista:
+        return []
+
+    modello = _normalizza_testo_filtro(selected_model_name)
+
+    # Se non è stato scelto un modello specifico,
+    # mostra i telai della categoria.
+    if not modello or modello == "tutti":
+        return lista
+
+    def testo_telaio(p):
+        materiale = str(p.get("Materiale") or "")
+        misure = str(p.get("Misure") or "")
+        return _normalizza_testo_filtro(
+            f"{materiale} {misure}"
+        )
+
+    # 1. Cerca il nome completo del modello.
+    trovati = [
+        p for p in lista
+        if modello in testo_telaio(p)
+    ]
+
+    if trovati:
+        return trovati
+
+    # 2. Se non trova il nome completo,
+    # cerca le singole parole significative del modello.
+    parole = [
+        parola for parola in modello.split()
+        if len(parola) > 2
+    ]
+
+    trovati = [
+        p for p in lista
+        if any(
+            parola in testo_telaio(p)
+            for parola in parole
+        )
+    ]
+
+    if trovati:
+        return trovati
+
+    # Se non trova il modello, mantiene i telai della
+    # stessa categoria, senza applicare In linea/Sidewinder.
+    return lista
 
           if c in {"assale anteriore", "assale posteriore"}:
             return [
