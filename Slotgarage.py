@@ -739,11 +739,184 @@ st.session_state.active_tab = selected_tab
 st.divider()
 
 
-def find_default_index(opzioni, model_name, target_value=None):
+def find_default_index(opzioni, model_name, target_value=None, campo=None, produttore=None, categoria=None):
+  """
+  Determina la prima scelta del menu senza alterare la compatibilita'.
+
+  Ordine delle priorita':
+    1) valore gia' salvato nel Garage;
+    2) configurazione box-stock documentata;
+    3) vecchia logica di ricerca per modello;
+    4) prima voce disponibile.
+
+  La configurazione box-stock NON elimina nessuna alternativa dal menu:
+  serve esclusivamente a portare davanti la scelta originale della vettura.
+  Le regole sono volutamente conservative: viene applicata solo quando
+  esiste una corrispondenza reale tra la regola e una voce del catalogo.
+  """
+  if not opzioni:
+    return 0
+
+  # Quando si modifica una configurazione gia' salvata, il valore dell'utente
+  # deve sempre avere precedenza sulla configurazione di scatola.
   if target_value and target_value in opzioni:
     return opzioni.index(target_value)
+
   if not model_name or model_name == "Tutti":
     return 0
+
+  def norm(v):
+    if v is None:
+      return ""
+    t = str(v).strip().casefold()
+    t = unicodedata.normalize("NFKD", t)
+    t = "".join(ch for ch in t if not unicodedata.combining(ch))
+    return " ".join(t.replace("-", " ").replace("_", " ").split())
+
+  prod = norm(produttore)
+  cat = norm(categoria)
+  mod = norm(model_name)
+  cmp = norm(campo)
+
+  # --------------------------------------------------------------
+  # REGOLE BOX-STOCK DOCUMENTATE / CONSERVATIVE
+  # --------------------------------------------------------------
+  # La ricerca e' per caratteristiche, non per posizione nella lista.
+  # Questo impedisce che un nuovo inserimento nel catalogo cambi
+  # casualmente la configurazione iniziale.
+  regole = []
+
+  if prod == "nsr":
+    # GT3: i modelli condividono la configurazione di serie; il telaio
+    # originale e' Medium/Standard Nero. Il catalogo NSR riporta inoltre
+    # il supporto AW Medium Nero come riferimento coerente con la categoria.
+    if cat == "gt3":
+      if cmp == "telaio":
+        regole = ["standard nero", "medium nero"]
+      elif cmp == "supporto motore":
+        regole = ["anglewinder", "evo2", "medium nero", "medium (nero)"]
+      elif cmp in {"pignoni", "pignone"}:
+        regole = ["13 denti"]
+      elif cmp == "corona":
+        regole = ["31 denti"]
+
+    # Classic: configurazione SW con Shark 21.5K, corona 32 e pignone 11.
+    elif cat == "classic":
+      if cmp == "telaio":
+        regole = ["standard nero", "medium nero"]
+      elif cmp == "motore":
+        regole = ["shark", "21.500 rpm", "21.5"]
+      elif cmp in {"pignoni", "pignone"}:
+        regole = ["11 denti"]
+      elif cmp == "corona":
+        regole = ["32 denti"]
+
+    # Hypercar: configurazione SW, King 21 EVO3, supporto standard +1 mm,
+    # corona 31 e pignone 13.
+    elif cat == "hypercar":
+      if cmp == "telaio":
+        regole = ["standard nero", "medio nero"]
+      elif cmp == "supporto motore":
+        regole = ["standard nero", "sidewinder", "1m", "+1mm", "medium"]
+      elif cmp == "motore":
+        regole = ["king 21 evo3", "king 21", "21.400 rpm"]
+      elif cmp in {"pignoni", "pignone"}:
+        regole = ["13 denti"]
+      elif cmp == "corona":
+        regole = ["31 denti"]
+
+    elif cat in {"f1 86/89", "f1 86 89"}:
+      if cmp == "telaio":
+        regole = ["standard nero"]
+      elif cmp == "motore":
+        regole = ["king evo3", "21.400 rpm"]
+      elif cmp in {"pignoni", "pignone"}:
+        regole = ["10 denti", "5,5 mm", "5.5 mm"]
+
+    elif cat in {"f1 22", "f1 2022", "f1 22 26"}:
+      if cmp == "telaio":
+        regole = ["standard nero"]
+      elif cmp == "supporto motore":
+        regole = ["in linea", "medium nero", "standard medium nero"]
+      elif cmp == "motore":
+        regole = ["king evo3", "21.400 rpm"]
+      elif cmp in {"pignoni", "pignone"}:
+        regole = ["10 denti", "6 mm"]
+
+    elif cat == "mosler":
+      if cmp == "telaio":
+        regole = ["standard nero"]
+      elif cmp == "motore":
+        regole = ["king 21 evo3", "21.400 rpm"]
+      elif cmp in {"pignoni", "pignone"}:
+        regole = ["10 denti"]
+      elif cmp == "corona":
+        regole = ["27 denti"]
+
+  elif prod == "slot.it":
+    # Group C: la documentazione ufficiale indica configurazione inline
+    # box-stock. Nel catalogo attuale i telai sono gia' singoli per modello,
+    # quindi il loro ordine non viene forzato se non c'e' una voce univoca.
+    if cat in {"gruppo c", "gruppoc"}:
+      if cmp == "supporto motore":
+        regole = ["in linea", "0.5", "offset 0.5"]
+      elif cmp in {"pignoni", "pignone"}:
+        regole = ["9 denti"]
+      elif cmp == "corona":
+        regole = ["28 denti", "z28"]
+
+  elif prod == "scaleauto":
+    # Formula 90-97: la documentazione ufficiale identifica Hard Black e
+    # Soft Grey come le due varianti. Il kit tecnico ufficiale usa il
+    # riferimento Hard come configurazione illustrata di serie.
+    if cat == "formula1 90/97":
+      if cmp == "telaio":
+        regole = ["hard black"]
+      elif cmp == "motore":
+        regole = ["sprinter 2", "21.500 rpm"]
+      elif cmp in {"pignoni", "pignone"}:
+        regole = ["10 denti"]
+
+    # GT2/GT3: il catalogo Scaleauto distingue Hard, Medium e 3DP;
+    # quando il catalogo contiene la variante Medium Grey, questa viene
+    # privilegiata come scelta box-stock conservativa.
+    elif cat == "gt2/gt3":
+      if cmp == "telaio":
+        regole = ["medium grey", "medium gray", "medium"]
+
+  elif prod == "thunderslot":
+    # Classic: la configurazione originale e' Sidewinder. Per il telaio
+    # esistono varianti grigio/grigio scuro e non imponiamo una variante
+    # cromatica quando la documentazione non identifica un'unica scelta.
+    if cat == "classic":
+      if cmp == "supporto motore":
+        regole = ["sidewinder"]
+      elif cmp == "motore":
+        regole = ["21.500", "21.5", "shark"]
+
+  if regole:
+    # Prima prova: tutte le caratteristiche richieste devono essere presenti
+    # nell'opzione. Questo evita falsi positivi come "10 denti" senza la
+    # misura corretta quando entrambe sono presenti nel catalogo.
+    for regola in regole:
+      r = norm(regola)
+      for idx, opt in enumerate(opzioni):
+        if r and r in norm(opt):
+          return idx
+
+    # Seconda prova: per gruppi di caratteristiche usa la corrispondenza
+    # piu' forte disponibile senza inventare una voce.
+    score = []
+    for idx, opt in enumerate(opzioni):
+      o = norm(opt)
+      score.append((sum(1 for r in regole if norm(r) and norm(r) in o), idx))
+    best = max(score, default=(0, 0))
+    if best[0] > 0:
+      return best[1]
+
+  # --------------------------------------------------------------
+  # VECCHIA LOGICA DI FALLBACK: invariata.
+  # --------------------------------------------------------------
   model_lower = model_name.lower()
   for idx, opt in enumerate(opzioni):
     if model_lower in opt.lower():
@@ -1478,7 +1651,14 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               opzioni.append(str_opt)
           
           saved_val = edit_data.get(campo) if edit_data else None
-          def_idx = find_default_index(opzioni, selected_model_name, target_value=saved_val)
+          def_idx = find_default_index(
+              opzioni,
+              selected_model_name,
+              target_value=saved_val,
+              campo=campo,
+              produttore=selected_prod_name,
+              categoria=selected_cat_name,
+          )
           return st.selectbox(
               campo,
               opzioni if opzioni else ["Nessuna opzione"],
@@ -1831,60 +2011,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                       value=str(edit_data.get("Giri_Motore", "")) if edit_data else "",
                       key=f"giri_motore_scaleauto_{model_safe_key}",
                   )
-                elif campo == "Telaio":
-                  # SOLO SCALEAUTO: il Telaio viene associato al modello selezionato.
-                  # Non modifichiamo la logica degli altri componenti.
-                  modello_scaleauto = _normalizza_testo_filtro(selected_model_name)
-
-                  alias_telaio_scaleauto = {
-                      "audi r8 gt3": ["audi r8 lms"],
-                      "bmw m8 gt": ["bmw m8 gtlm"],
-                      "callaway gt3": ["callaway c7", "callaway gt3"],
-                      "corvette c7r gt3": ["corvette c7r", "corvette c7.r"],
-                      "honda nsx gt3": ["honda nsx gt3"],
-                      "lmbh supertrofeo evo2": [
-                          "lamborghini trofeo evo2",
-                          "lbh supertrofeo evo2",
-                          "supertrofeo evo2",
-                      ],
-                      "porsche 911/911.2 gt3": [
-                          "porsche 911 gt3",
-                          "porsche 911.2 gt3",
-                      ],
-                      "porsche p-963 gtp": [
-                          "p-963 gtp",
-                          "porsche 963 gtp",
-                      ],
-                  }
-
-                  alias = alias_telaio_scaleauto.get(modello_scaleauto, [])
-                  sub_pezzi = []
-
-                  if alias:
-                    for p in pezzi:
-                      if not p or _normalizza_testo_filtro(p.get("Prodotto")) != "telaio":
-                        continue
-
-                      testo_telaio = " ".join(
-                          filter(
-                              None,
-                              [
-                                  _normalizza_testo_filtro(p.get("Materiale")),
-                                  _normalizza_testo_filtro(p.get("Misure")),
-                              ],
-                          )
-                      )
-
-                      if any(
-                          _normalizza_testo_filtro(a) in testo_telaio
-                          for a in alias
-                      ):
-                        sub_pezzi.append(p)
-
-                  scelte_utente[campo] = render_select_componente(
-                      campo, sub_pezzi, "scaleauto"
-                  )
-
                 else:
                   sub_pezzi = helper_filtra_pezzi(campo, pezzi)
                   scelte_utente[campo] = render_select_componente(campo, sub_pezzi, "scaleauto")
