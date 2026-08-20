@@ -1467,130 +1467,135 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
 
 
-        def _riordina_box_stock(produttore, categoria, campo, lista):
+        def _indice_box_stock(opzioni, campo):
           """
-          PRIORITA BOX STOCK - SOLO RIORDINO.
-          Non filtra, non elimina e non modifica il matching Modello -> Telaio.
+          BOX STOCK: modifica SOLO l'indice iniziale del menu.
+          La lista dei componenti e soprattutto il matching Telaio
+          rimangono completamente invariati.
           """
-          if not lista:
-            return lista
+          if not opzioni:
+            return 0
 
-          def norm(v):
-            return re.sub(r"[^a-z0-9]+", "", str(v or "").casefold())
+          def n(v):
+            v = str(v or "").casefold()
+            v = unicodedata.normalize("NFKD", v)
+            return "".join(ch for ch in v if not unicodedata.combining(ch))
 
-          prod = norm(produttore)
-          cat = norm(categoria)
-          cmp = norm(campo)
+          prod = n(selected_prod_name)
+          cat = n(selected_cat_name)
+          c = n(campo)
 
-          def testo(p):
-            return norm(" ".join(
-              str(p.get(k, "") or "")
-              for k in ("Materiale", "Misure", "Prodotto", "Tipo")
-            ))
+          def primo(pred):
+            for i, x in enumerate(opzioni):
+              if pred(n(x)):
+                return i
+            return None
 
-          def prima(pred):
-            for i, p in enumerate(lista):
-              if pred(testo(p)):
-                return [p] + lista[:i] + lista[i+1:]
-            return lista
+          # NSR GT3: Box Stock AW = King 21 EVO/3.
+          # Il telaio NON viene ricercato: qui si riordina solamente
+          # quello che il vecchio sistema ha già trovato.
+          if prod == "nsr" and "gt3" in cat:
+            if c == "motore":
+              i = primo(lambda x: "21.4" in x or "21 4" in x or "21.5" in x or "215" in x)
+              if i is not None:
+                return i
+            if c in {"pignone", "pignoni"}:
+              i = primo(lambda x: "13" in x and ("denti" in x or "z13" in x))
+              if i is not None:
+                return i
+            if c == "corona":
+              i = primo(lambda x: "31" in x and ("denti" in x or "z31" in x))
+              if i is not None:
+                return i
+            if c == "telaio":
+              i = primo(lambda x: ("nero" in x or "black" in x) and
+                                  not ("verde" in x or "green" in x))
+              if i is not None:
+                return i
 
-          # ---------------- NSR ----------------
-          if prod == "nsr":
-            # GT3: il codice attuale usa Anglewinder.
-            # NSR documenta AW = King 21 EVO/3, 31/13.
-            if "gt3" in cat:
-              if cmp == "motore":
-                return prima(lambda t: (
-                  ("king21" in t or "kingevo3" in t) and "17" not in t
-                ))
-              if cmp in {"corona", "gear"}:
-                return prima(lambda t: "31" in t and ("denti" in t or "z31" in t))
-              if cmp in {"pignone", "pignoni"}:
-                return prima(lambda t: "13" in t and ("denti" in t or "z13" in t))
-              if cmp == "telaio":
-                # Per i GT3 NSR la configurazione box-stock documentata
-                # usa il telaio Medium/Black quando presente.
-                return prima(lambda t: (
-                  ("medium" in t and "black" in t)
-                  or ("standard" in t and "nero" in t)
-                  or ("medium" in t and "nero" in t)
-                ))
-              if cmp == "supportomotore":
-                return prima(lambda t: (
-                  "extra" in t and "hard" in t
-                  and ("red" in t or "rosso" in t)
-                ))
+          # NSR Hypercar: configurazione SW con King 21 EVO/3, 13/31.
+          if prod == "nsr" and "hypercar" in cat:
+            if c == "motore":
+              i = primo(lambda x: "21.4" in x or "21 4" in x or "21.5" in x or "215" in x)
+              if i is not None:
+                return i
+            if c in {"pignone", "pignoni"}:
+              i = primo(lambda x: "13" in x and ("denti" in x or "z13" in x))
+              if i is not None:
+                return i
+            if c == "corona":
+              i = primo(lambda x: "31" in x and ("denti" in x or "z31" in x))
+              if i is not None:
+                return i
 
-            # Hypercar: SW, King 21 EVO/3, 31/13.
-            if "hypercar" in cat:
-              if cmp == "motore":
-                return prima(lambda t: "king21" in t or "kingevo3" in t)
-              if cmp in {"corona", "gear"}:
-                return prima(lambda t: "31" in t and ("denti" in t or "z31" in t))
-              if cmp in {"pignone", "pignoni"}:
-                return prima(lambda t: "13" in t and ("denti" in t or "z13" in t))
-              if cmp == "supportomotore":
-                return prima(lambda t: (
-                  "extra" in t and "hard" in t
-                  and ("red" in t or "rosso" in t)
-                ))
+          # NSR Formula 86/89: IL, King EVO/3 21.400, 10/27.
+          if prod == "nsr" and ("f1 86/89" in cat or "formula 86/89" in cat):
+            if c == "motore":
+              i = primo(lambda x: "21.4" in x or "21 4" in x or "214" in x)
+              if i is not None:
+                return i
+            if c in {"pignone", "pignoni"}:
+              i = primo(lambda x: "10" in x and ("denti" in x or "z10" in x))
+              if i is not None:
+                return i
+            if c == "corona":
+              i = primo(lambda x: "27" in x and ("denti" in x or "z27" in x))
+              if i is not None:
+                return i
 
-            # Formula 86/89: IL, King EVO/3, 27/10.
-            if "f18689" in cat or "formula8689" in cat:
-              if cmp == "motore":
-                return prima(lambda t: "kingevo3" in t or "king21" in t)
-              if cmp in {"corona", "gear"}:
-                return prima(lambda t: "27" in t and ("denti" in t or "z27" in t))
-              if cmp in {"pignone", "pignoni"}:
-                return prima(lambda t: "10" in t and ("denti" in t or "z10" in t))
+          # NSR Formula 22: IL King EVO/3 21.400, 10/27.
+          if prod == "nsr" and ("f1 2022" in cat or "f1 22" in cat or "f122" in cat):
+            if c == "motore":
+              i = primo(lambda x: "21.4" in x or "21 4" in x or "214" in x)
+              if i is not None:
+                return i
+            if c in {"pignone", "pignoni"}:
+              i = primo(lambda x: "10" in x and ("denti" in x or "z10" in x))
+              if i is not None:
+                return i
+            if c == "corona":
+              i = primo(lambda x: "27" in x and ("denti" in x or "z27" in x))
+              if i is not None:
+                return i
 
-            # Classic: Shark 21.5 EVO.
-            if "classic" in cat and cmp == "motore":
-              return prima(lambda t: "shark215" in t or "shark21" in t)
+          # Slot.it Group C 2025 Box Stock:
+          # EVO 6 / inline 0.5 / MX16 / Z9 / bronze inline crown.
+          if prod in {"slot.it", "slotit"} and ("gruppo c" in cat or "gruppoc" in cat):
+            if c == "motore":
+              i = primo(lambda x: "mx16" in x or "v124" in x)
+              if i is not None:
+                return i
+            if c in {"pignone", "pignoni"}:
+              i = primo(lambda x: "9" in x and ("denti" in x or "z9" in x))
+              if i is not None:
+                return i
+            if c == "telaio":
+              i = primo(lambda x: "evo 6" in x or "evo6" in x)
+              if i is not None:
+                return i
 
-          # ---------------- SLOT.IT / GRUPPO C ----------------
-          if prod in {"slotit", "slot.it"} and "gruppoc" in cat:
-            if cmp == "motore":
-              return prima(lambda t: "mx16" in t or "v124" in t or "v123" in t)
-            if cmp in {"pignone", "pignoni"}:
-              return prima(lambda t: "9" in t and ("denti" in t or "z9" in t))
-            if cmp == "supportomotore":
-              return prima(lambda t: (
-                ("inline" in t or "in linea" in t)
-                and ("05" in t or "offset05" in t or "0.5" in t)
-              ))
-            if cmp == "telaio":
-              return prima(lambda t: "evo6" in t or "evo 6" in t)
-
-          # ---------------- SCALEAUTO GT3 1/32 ----------------
+          # Scaleauto GT3: box stock uses injected plastic chassis and
+          # SC-0011c / Tech-1 20k; only reorder when the option itself
+          # clearly identifies that product. No chassis-name matching here.
           if prod == "scaleauto" and "gt3" in cat:
-            if cmp == "motore":
-              return prima(lambda t: (
-                "sc0011c" in t or "tech1" in t or "20000" in t
-              ))
-            if cmp == "supportomotore":
-              return prima(lambda t: (
-                "rt3" in t or "sc6528c" in t
-              ))
-            if cmp in {"pignone", "pignoni"}:
-              return prima(lambda t: (
-                "sc1095e" in t or ("12" in t and "denti" in t)
-              ))
+            if c == "motore":
+              i = primo(lambda x: "sc0011c" in x or "tech 1" in x or "20000" in x)
+              if i is not None:
+                return i
+            if c in {"pignone", "pignoni"}:
+              i = primo(lambda x: "sc1095e" in x or ("12" in x and "denti" in x))
+              if i is not None:
+                return i
+            if c == "telaio":
+              i = primo(lambda x: "hard black" in x or "nero" in x)
+              if i is not None:
+                return i
 
-          # THUNDERSLOT: nessuna regola generica inventata.
-          return lista
-
+          # Thunderslot: non forziamo colori/materiali modello-specifici
+          # senza una fonte ufficiale univoca.
+          return None
 
         def render_select_componente(campo, sub_pezzi_list, key_prefix):
-          # SOLO riordino box-stock della lista già prodotta.
-          # Il matching Modello -> Telaio rimane invariato.
-          sub_pezzi_list = _riordina_box_stock(
-              selected_prod_name,
-              selected_cat_name,
-              campo,
-              sub_pezzi_list,
-          )
-
           opzioni = []
           for p in sub_pezzi_list:
             mat = p.get("Materiale")
@@ -1602,7 +1607,20 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               opzioni.append(str_opt)
           
           saved_val = edit_data.get(campo) if edit_data else None
-          def_idx = find_default_index(opzioni, selected_model_name, target_value=saved_val)
+
+          # Prima mantiene ESATTAMENTE la logica esistente.
+          def_idx = find_default_index(
+              opzioni, selected_model_name, target_value=saved_val
+          )
+
+          # Se non stiamo modificando una configurazione salvata,
+          # il Box Stock può solo sostituire l'indice iniziale.
+          # Non cambia la lista e non cambia il matching del Telaio.
+          if saved_val is None:
+            idx_box = _indice_box_stock(opzioni, campo)
+            if idx_box is not None:
+              def_idx = idx_box
+
           return st.selectbox(
               campo,
               opzioni if opzioni else ["Nessuna opzione"],
