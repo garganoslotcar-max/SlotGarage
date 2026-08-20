@@ -1580,27 +1580,35 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               misure = str(p.get("Misure") or "")
               return _normalizza_testo_filtro(f"{materiale} {misure}")
 
-            # Prima: nome completo del modello.
+            # IMPORTANTE:
+            # Il telaio deve essere associato al MODELLO in modo rigoroso.
+            # NON usare la ricerca per singole parole: può associare,
+            # ad esempio, un telaio "Audi" ad un altro modello Audi.
+            #
+            # La priorità box-stock viene applicata DOPO questo filtro,
+            # quindi può solo riordinare i telai già appartenenti al modello.
             trovati = [
               p for p in lista
-              if modello in testo_telaio(p)
+              if modello == testo_telaio(p)
             ]
             if trovati:
               return trovati
 
-            # Seconda possibilità: parole significative del modello.
-            parole = [w for w in modello.split() if len(w) > 2]
-            if parole:
-              trovati = [
-                p for p in lista
-                if any(w in testo_telaio(p) for w in parole)
-              ]
-              if trovati:
-                return trovati
+            # Seconda verifica rigorosa: confronto normalizzato della
+            # stringa completa contenuta nel materiale/misure.
+            # Nessun confronto per parole singole.
+            modello_compatto = modello.replace(" ", "")
+            trovati = [
+              p for p in lista
+              if modello_compatto
+              and modello_compatto == testo_telaio(p).replace(" ", "")
+            ]
+            if trovati:
+              return trovati
 
-            # Nessuna corrispondenza: non applicare un filtro meccanico
-            # al Telaio e non pescare telai di altre categorie/produttori.
-            return lista
+            # Se il nome del modello non è presente nel telaio, NON
+            # indovinare e soprattutto NON mostrare telai di altri modelli.
+            return []
 
           if c in {"assale anteriore", "assale posteriore"}:
             return [
