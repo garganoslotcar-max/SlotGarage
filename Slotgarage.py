@@ -1831,6 +1831,60 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                       value=str(edit_data.get("Giri_Motore", "")) if edit_data else "",
                       key=f"giri_motore_scaleauto_{model_safe_key}",
                   )
+                elif campo == "Telaio":
+                  # SOLO SCALEAUTO: il Telaio viene associato al modello selezionato.
+                  # Non modifichiamo la logica degli altri componenti.
+                  modello_scaleauto = _normalizza_testo_filtro(selected_model_name)
+
+                  alias_telaio_scaleauto = {
+                      "audi r8 gt3": ["audi r8 lms"],
+                      "bmw m8 gt": ["bmw m8 gtlm"],
+                      "callaway gt3": ["callaway c7", "callaway gt3"],
+                      "corvette c7r gt3": ["corvette c7r", "corvette c7.r"],
+                      "honda nsx gt3": ["honda nsx gt3"],
+                      "lmbh supertrofeo evo2": [
+                          "lamborghini trofeo evo2",
+                          "lbh supertrofeo evo2",
+                          "supertrofeo evo2",
+                      ],
+                      "porsche 911/911.2 gt3": [
+                          "porsche 911 gt3",
+                          "porsche 911.2 gt3",
+                      ],
+                      "porsche p-963 gtp": [
+                          "p-963 gtp",
+                          "porsche 963 gtp",
+                      ],
+                  }
+
+                  alias = alias_telaio_scaleauto.get(modello_scaleauto, [])
+                  sub_pezzi = []
+
+                  if alias:
+                    for p in pezzi:
+                      if not p or _normalizza_testo_filtro(p.get("Prodotto")) != "telaio":
+                        continue
+
+                      testo_telaio = " ".join(
+                          filter(
+                              None,
+                              [
+                                  _normalizza_testo_filtro(p.get("Materiale")),
+                                  _normalizza_testo_filtro(p.get("Misure")),
+                              ],
+                          )
+                      )
+
+                      if any(
+                          _normalizza_testo_filtro(a) in testo_telaio
+                          for a in alias
+                      ):
+                        sub_pezzi.append(p)
+
+                  scelte_utente[campo] = render_select_componente(
+                      campo, sub_pezzi, "scaleauto"
+                  )
+
                 else:
                   sub_pezzi = helper_filtra_pezzi(campo, pezzi)
                   scelte_utente[campo] = render_select_componente(campo, sub_pezzi, "scaleauto")
