@@ -530,6 +530,17 @@ with st.sidebar:
             st.rerun()
           except Exception as e:
             st.error(f"Errore: {e}")
+
+    with st.expander("📝 Registrati"):
+      with st.form("sb_reg_form_definitivo"):
+        email_reg_sb = st.text_input("Email", key="sb_reg_email_def")
+        pass_reg_sb = st.text_input("Password", type="password", key="sb_reg_password_def")
+        if st.form_submit_button("Crea Account", key="sb_reg_btn_def"):
+          try:
+            supabase.auth.sign_up({"email": email_reg_sb, "password": pass_reg_sb})
+            st.success("Registrazione completata! Ora puoi effettuare il login.")
+          except Exception as e:
+            st.error(f"Errore durante la registrazione: {e}")
   st.divider()
 
 # --- INTESTAZIONE CON LOGO E SCRITTA INGRANDITA E ABBASSATA ---
@@ -739,9 +750,70 @@ st.session_state.active_tab = selected_tab
 st.divider()
 
 
+def _boxstock_normalize(value):
+    """Normalizza una descrizione del catalogo senza alterarne il significato."""
+    if value is None:
+        return ""
+    s = str(value).strip().lower()
+    s = s.replace("–", "-").replace("—", "-").replace("’", "'")
+    s = re.sub(r"\\s+", " ", s)
+    s = re.sub(r"\\s*-\\s*", "-", s)
+    return s
+
+def _boxstock_exact_index(options, target):
+    """Restituisce solo una corrispondenza certa; mai una voce casuale."""
+    nt = _boxstock_normalize(target)
+    if not nt:
+        return None
+    normalized = [_boxstock_normalize(x) for x in options]
+    for i, value in enumerate(normalized):
+        if value == nt:
+            return i
+    # Secondo livello: tutte le parole significative del target devono essere
+    # presenti nella voce, senza scegliere semplicemente il primo risultato.
+    words = [w for w in re.split(r"[^a-z0-9.]+", nt) if len(w) > 1]
+    if words:
+        candidates = []
+        for i, value in enumerate(normalized):
+            if all(w in value for w in words):
+                candidates.append(i)
+        if len(candidates) == 1:
+            return candidates[0]
+    return None
+
 def find_default_index(opzioni, model_name, target_value=None):
-  if target_value and target_value in opzioni:
-    return opzioni.index(target_value)
+  def _match_key(v):
+    import re
+    import unicodedata
+    t = str(v or "").strip().casefold()
+    t = unicodedata.normalize("NFKD", t)
+    t = "".join(ch for ch in t if not unicodedata.combining(ch))
+    # Il catalogo può avere differenze solo tipografiche: trattini, spazi
+    # attorno alle misure e simboli non devono impedire l'abbinamento.
+    return re.sub(r"[^a-z0-9]+", "", t)
+
+  if target_value:
+    if target_value in opzioni:
+      return opzioni.index(target_value)
+    target_key = _match_key(target_value)
+    if target_key:
+      for idx, opt in enumerate(opzioni):
+        if _match_key(opt) == target_key:
+          return idx
+      # Secondo livello: il catalogo può contenere la stessa voce con
+      # una formattazione diversa (es. "da 17.25x10mm" / "17.25x10mm").
+      # Cerchiamo tutti i termini significativi del target nell'opzione,
+      # senza mai ricadere automaticamente sulla prima voce.
+      import re
+      target_words = [w for w in re.findall(r"[a-z0-9]+", target_key) if len(w) >= 2]
+      if target_words:
+        candidati = []
+        for idx, opt in enumerate(opzioni):
+          opt_key = _match_key(opt)
+          if all(w in opt_key for w in target_words):
+            candidati.append(idx)
+        if len(candidati) == 1:
+          return candidati[0]
   if not model_name or model_name == "Tutti":
     return 0
   model_lower = model_name.lower()
@@ -754,6 +826,123 @@ def find_default_index(opzioni, model_name, target_value=None):
     if any(w in opt_lower for w in words):
       return idx
   return 0
+
+
+def _boxstock_target(produttore, categoria, campo):
+  """
+  Valori Box Stock verificati manualmente.
+  Il valore e' confrontato con la stringa realmente mostrata dal catalogo
+  (Materiale - Misure). Se non e' presente tra le opzioni, non forza nulla.
+  Il Telaio e' volutamente escluso: continua a usare la logica modello -> telaio.
+  """
+  def _norm(v):
+    import unicodedata
+    t = str(v or "").strip().casefold()
+    t = unicodedata.normalize("NFKD", t)
+    t = "".join(ch for ch in t if not unicodedata.combining(ch))
+    t = t.replace("-", " ").replace("_", " ")
+    return " ".join(t.split())
+
+  p = _norm(produttore)
+  c = _norm(categoria)
+  f = _norm(campo)
+
+  defaults = {
+    ("nsr", "gt3", "motore"): "King - Evo3 - 21.400 rpm - Standard",
+    ("nsr", "gt3", "supporto motore"): "Anglewinder - Evo - Medium (Nero)",
+    ("nsr", "gt3", "corona"): "Anglewinder Alluminio - 31 denti 17.5mm",
+    ("nsr", "gt3", "pignoni"): "Anglewinder - 13 denti - 7.5m",
+    ("nsr", "gt3", "assale anteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
+    ("nsr", "gt3", "assale posteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
+    ("nsr", "gt3", "cerchi anteriori"): "Cerchi Anteriori Grandi No Air System da 17.25x8.2mm",
+    ("nsr", "gt3", "cerchi posteriori"): "Posteriori - Alluminio - No Air System - Standard - 17x8mm",
+
+    ("nsr", "hypercar", "motore"): "King - Evo3 - 21.400 rpm - Standard",
+    ("nsr", "hypercar", "supporto motore"): "NSR HYPERCAR - ExtraHard Rosso Sidewinder Offset - 1M",
+    ("nsr", "hypercar", "corona"): "Sidewinder Alluminio - 31 denti 16.8 mm",
+    ("nsr", "hypercar", "pignoni"): "Anglewinder - 13 denti - 7.5m",
+    ("nsr", "hypercar", "assale anteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
+    ("nsr", "hypercar", "assale posteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
+    ("nsr", "hypercar", "cerchi anteriori"): "Posteriori - Alluminio - No Air System - Standard - 17x8mm",
+    ("nsr", "hypercar", "cerchi posteriori"): "Cerchi Posteriori Grandi Air System da 17.25x10mm",
+
+    ("nsr", "f1 22", "motore"): "King - Evo3 - 21.400 rpm - Standard",
+    ("nsr", "f1 22", "supporto motore"): "in linea - NSR Formula 22 - Standard Medium Nero",
+    ("nsr", "f1 22", "corona"): "in Linea Evo Nera - 27 denti",
+    ("nsr", "f1 22", "pignoni"): "in linea - NSR Formula 22 - 10 denti - Ottone",
+    ("nsr", "f1 22", "assale anteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
+    ("nsr", "f1 22", "assale posteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
+    ("nsr", "f1 22", "cerchi anteriori"): "Cerchi Anteriori 16.5x8mm NO-AIR System",
+    ("nsr", "f1 22", "cerchi posteriori"): "Posteriori - Alluminio - Air System - Standard - 16x8mm",
+
+    # NSR CLASSIC - configurazione Box Stock verificata
+    ("nsr", "classic", "motore"): "Shark - Evo 21.500 rpm - Standard",
+    ("nsr", "classic", "supporto motore"): "Sidewinder - Evo - Extra Hard (Rosso)",
+    ("nsr", "classic", "corona"): "Sidewinder Alluminio - 32 denti 17.5mm",
+    ("nsr", "classic", "pignoni"): "Sidewinder - Ottone - 11 denti - 6.5m",
+    ("nsr", "classic", "assale anteriore"): '3/32" - Standard Acciaio Rettificato - 49mm',
+    ("nsr", "classic", "assale posteriore"): '3/32" - Standard Acciaio Rettificato - 48mm',
+    ("nsr", "classic", "cerchi anteriori"): "Anteriori - Alluminio - No Air System - Standard - 16x8mm",
+    ("nsr", "classic", "cerchi posteriori"): "Posteriori - Alluminio - Air System - Standard - 16x8mm",
+    ("nsr", "classic", "pickup"): "Standard - Lama lunga",
+    ("nsr", "classic", "dettaglio supporto"): 'Bronzine Standard da 3/32"',
+
+    # NSR MOSLER MT900R EVO 5 - configurazione Box Stock verificata
+    ("nsr", "mosler", "motore"): "King - Evo3 - 21.400 rpm - Standard",
+    ("nsr", "mosler", "supporto motore"): "Anglewinder - Evo - Extra Hard (Rosso)",
+    ("nsr", "mosler", "corona"): "Anglewinder Alluminio - 31 denti - 16.8mm",
+    ("nsr", "mosler", "pignoni"): "Anglewinder - 13 denti - 7.5m",
+    ("nsr", "mosler", "assale anteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
+    ("nsr", "mosler", "assale posteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
+    ("nsr", "mosler", "cerchi anteriori"): "Anteriori - Alluminio - No Air System - Standard - 16x8mm",
+    ("nsr", "mosler", "cerchi posteriori"): "Posteriori - Alluminio - Air System - Standard - 16x8mm",
+    ("nsr", "mosler", "pickup"): "Pickup Racing a Lama Lunga",
+    ("nsr", "mosler", "dettaglio supporto"): "Standard - Autolubrificanti",
+
+    # NSR ALTRI_MODELLI - stessa configurazione per Fiat 500, Abarth Punto S2000 e Renault Clio
+    # Il telaio resta escluso e continua a essere selezionato automaticamente per modello.
+    ("nsr", "altri modelli", "motore"): "King - Evo3 - 21.400 rpm - Standard",
+    ("nsr", "altri modelli", "supporto motore"): "Anglewinder - Evo - Extra Hard (Rosso)",
+    ("nsr", "altri modelli", "corona"): "Anglewinder Alluminio - 31 denti - 16.8mm",
+    ("nsr", "altri modelli", "pignoni"): "Anglewinder - 13 denti - 7.5m",
+    ("nsr", "altri modelli", "assale anteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
+    ("nsr", "altri modelli", "assale posteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
+    ("nsr", "altri modelli", "cerchi anteriori"): "Cerchi Anteriori Grandi No Air System da 17.25x8.2mm",
+    ("nsr", "altri modelli", "cerchi posteriori"): "Posteriori Grandi Air System - 17.25x10mm",
+    ("nsr", "altri modelli", "pickup"): "Black - Rally A stelo - Stelo Lungo",
+    ("nsr", "altri modelli", "dettaglio supporto"): "Standard - Autolubrificanti",
+
+    # NSR FORMULA 86/89 - configurazione Box Stock verificata
+    ("nsr", "f1 86/89", "motore"): "King - Evo3 - 21.400 rpm - Standard",
+    ("nsr", "f1 86/89", "supporto motore"): "Inline - Evo - Standard (Nero)",
+    ("nsr", "f1 86/89", "corona"): "in Linea Evo Nera - 27 denti",
+    ("nsr", "f1 86/89", "pignoni"): "in linea - NSR Formula 86/89 - 10 denti",
+    ("nsr", "f1 86/89", "assale anteriore"): '3/32" - Standard - Acciaio Rettificato - 60mm',
+    ("nsr", "f1 86/89", "assale posteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
+    ("nsr", "f1 86/89", "cerchi anteriori"): "Anteriori - Standard - No Air System - Formula - 13x8mm",
+    ("nsr", "f1 86/89", "cerchi posteriori"): "Posteriori Air System per Formula NSR - 13x10",
+    ("nsr", "f1 86/89", "pickup"): "Pickup Racing a Lama Corta",
+    ("nsr", "f1 86/89", "dettaglio supporto"): "Standard - Autolubrificanti",
+
+    ("slot.it", "gruppo c", "motore"): "Motore Cassa Corta V12/4 21k Universale",
+    ("slot.it", "gruppo c", "supporto motore"): "Supporto Motore Boxer-Flat in Linea 0.5mm Hard",
+    ("slot.it", "gruppo c", "corona"): "Corona in Linea Gialla 28 denti Bronzo",
+    ("slot.it", "gruppo c", "pignoni"): "Pignoni in Linea 9 denti 5.5mm",
+    ("slot.it", "gruppo c", "assale anteriore"): 'Assale 3/32" da 51mm',
+    ("slot.it", "gruppo c", "assale posteriore"): 'Assale 3/32" da 51mm',
+    ("slot.it", "gruppo c", "cerchi anteriori"): "Cerchi in Alluminio 15.8x8.2mm",
+    ("slot.it", "gruppo c", "cerchi posteriori"): "Cerchi in Alluminio 16.5x8mm",
+  }
+
+  # Alias per le diverse scritture della categoria F1 22.
+  if p == "nsr" and c in {"f1 2022", "f1 22", "f122"}:
+    c = "f1 22"
+  if p == "nsr" and c in {"altri modelli", "altri_modelli"}:
+    c = "altri modelli"
+  if p == "slot.it" and c == "gruppoc":
+    c = "gruppo c"
+
+  return defaults.get((p, c, f))
 
 
 def upload_image_to_supabase(uploaded_file):
@@ -1161,6 +1350,8 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             "f1 22": "in linea",
             "f122": "in linea",
             "mosler": "anglewinder",
+            "altri modelli": "anglewinder",
+            "altri_modelli": "anglewinder",
           },
           2: {  # Slot.it
             "hypercar": "anglewinder",
@@ -1305,7 +1496,10 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             return [
                 p for p in pezzi
                 if p and p.get("Prodotto")
-                and "pickup" in _normalizza_testo_filtro(p.get("Prodotto"))
+                and (
+                    "pickup" in _normalizza_testo_filtro(p.get("Prodotto"))
+                    or "pick up" in _normalizza_testo_filtro(p.get("Prodotto"))
+                )
             ]
 
           if "viti carrozzeria" in c_low or "viti" in c_low:
@@ -1449,7 +1643,10 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             return [
                 p for p in pezzi
                 if p.get("Prodotto")
-                and "pickup" in _normalizza_testo_filtro(p.get("Prodotto"))
+                and (
+                    "pickup" in _normalizza_testo_filtro(p.get("Prodotto"))
+                    or "pick up" in _normalizza_testo_filtro(p.get("Prodotto"))
+                )
             ]
 
           # "Viti Carrozzeria": gestiamo esplicitamente "viti", non "vite".
@@ -1466,160 +1663,79 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           return []
 
 
-
-        def _indice_box_stock(opzioni, campo):
-          """
-          BOX STOCK: modifica SOLO l'indice iniziale del menu.
-          La lista dei componenti e soprattutto il matching Telaio
-          rimangono completamente invariati.
-          """
-          if not opzioni:
-            return 0
-
-          def n(v):
-            v = str(v or "").casefold()
-            v = unicodedata.normalize("NFKD", v)
-            return "".join(ch for ch in v if not unicodedata.combining(ch))
-
-          prod = n(selected_prod_name)
-          cat = n(selected_cat_name)
-          c = n(campo)
-
-          def primo(pred):
-            for i, x in enumerate(opzioni):
-              if pred(n(x)):
-                return i
-            return None
-
-          # NSR GT3: Box Stock AW = King 21 EVO/3.
-          # Il telaio NON viene ricercato: qui si riordina solamente
-          # quello che il vecchio sistema ha già trovato.
-          if prod == "nsr" and "gt3" in cat:
-            if c == "motore":
-              i = primo(lambda x: "21.4" in x or "21 4" in x or "21.5" in x or "215" in x)
-              if i is not None:
-                return i
-            if c in {"pignone", "pignoni"}:
-              i = primo(lambda x: "13" in x and ("denti" in x or "z13" in x))
-              if i is not None:
-                return i
-            if c == "corona":
-              i = primo(lambda x: "31" in x and ("denti" in x or "z31" in x))
-              if i is not None:
-                return i
-            if c == "telaio":
-              i = primo(lambda x: ("nero" in x or "black" in x) and
-                                  not ("verde" in x or "green" in x))
-              if i is not None:
-                return i
-
-          # NSR Hypercar: configurazione SW con King 21 EVO/3, 13/31.
-          if prod == "nsr" and "hypercar" in cat:
-            if c == "motore":
-              i = primo(lambda x: "21.4" in x or "21 4" in x or "21.5" in x or "215" in x)
-              if i is not None:
-                return i
-            if c in {"pignone", "pignoni"}:
-              i = primo(lambda x: "13" in x and ("denti" in x or "z13" in x))
-              if i is not None:
-                return i
-            if c == "corona":
-              i = primo(lambda x: "31" in x and ("denti" in x or "z31" in x))
-              if i is not None:
-                return i
-
-          # NSR Formula 86/89: IL, King EVO/3 21.400, 10/27.
-          if prod == "nsr" and ("f1 86/89" in cat or "formula 86/89" in cat):
-            if c == "motore":
-              i = primo(lambda x: "21.4" in x or "21 4" in x or "214" in x)
-              if i is not None:
-                return i
-            if c in {"pignone", "pignoni"}:
-              i = primo(lambda x: "10" in x and ("denti" in x or "z10" in x))
-              if i is not None:
-                return i
-            if c == "corona":
-              i = primo(lambda x: "27" in x and ("denti" in x or "z27" in x))
-              if i is not None:
-                return i
-
-          # NSR Formula 22: IL King EVO/3 21.400, 10/27.
-          if prod == "nsr" and ("f1 2022" in cat or "f1 22" in cat or "f122" in cat):
-            if c == "motore":
-              i = primo(lambda x: "21.4" in x or "21 4" in x or "214" in x)
-              if i is not None:
-                return i
-            if c in {"pignone", "pignoni"}:
-              i = primo(lambda x: "10" in x and ("denti" in x or "z10" in x))
-              if i is not None:
-                return i
-            if c == "corona":
-              i = primo(lambda x: "27" in x and ("denti" in x or "z27" in x))
-              if i is not None:
-                return i
-
-          # Slot.it Group C 2025 Box Stock:
-          # EVO 6 / inline 0.5 / MX16 / Z9 / bronze inline crown.
-          if prod in {"slot.it", "slotit"} and ("gruppo c" in cat or "gruppoc" in cat):
-            if c == "motore":
-              i = primo(lambda x: "mx16" in x or "v124" in x)
-              if i is not None:
-                return i
-            if c in {"pignone", "pignoni"}:
-              i = primo(lambda x: "9" in x and ("denti" in x or "z9" in x))
-              if i is not None:
-                return i
-            if c == "telaio":
-              i = primo(lambda x: "evo 6" in x or "evo6" in x)
-              if i is not None:
-                return i
-
-          # Scaleauto GT3: box stock uses injected plastic chassis and
-          # SC-0011c / Tech-1 20k; only reorder when the option itself
-          # clearly identifies that product. No chassis-name matching here.
-          if prod == "scaleauto" and "gt3" in cat:
-            if c == "motore":
-              i = primo(lambda x: "sc0011c" in x or "tech 1" in x or "20000" in x)
-              if i is not None:
-                return i
-            if c in {"pignone", "pignoni"}:
-              i = primo(lambda x: "sc1095e" in x or ("12" in x and "denti" in x))
-              if i is not None:
-                return i
-            if c == "telaio":
-              i = primo(lambda x: "hard black" in x or "nero" in x)
-              if i is not None:
-                return i
-
-          # Thunderslot: non forziamo colori/materiali modello-specifici
-          # senza una fonte ufficiale univoca.
-          return None
-
         def render_select_componente(campo, sub_pezzi_list, key_prefix):
+          # Il Box Stock viene confrontato con Prodotto, Materiale, Misure e
+          # testo visualizzato. Questo è fondamentale per le righe inserite
+          # manualmente nel catalogo dove la descrizione corretta è in Prodotto.
           opzioni = []
+          match_values = []
+          boxstock_val = _boxstock_target(selected_prod_name, selected_cat_name, campo)
+
+          def _norm_match(v):
+            import unicodedata
+            s = str(v or "").strip().casefold()
+            s = unicodedata.normalize("NFKD", s)
+            s = "".join(ch for ch in s if not unicodedata.combining(ch))
+            s = s.replace("–", "-").replace("—", "-").replace("_", " ")
+            s = re.sub(r"\s*-\s*", "-", s)
+            s = re.sub(r"[^a-z0-9.]+", "", s)
+            return s
+
+          target_norm = _norm_match(boxstock_val)
+
           for p in sub_pezzi_list:
+            prodotto = str(p.get("Prodotto") or "").strip()
             mat = p.get("Materiale")
             mis = p.get("Misure")
             parte_mat = str(mat).strip() if mat and str(mat).lower() != "none" else ""
             parte_mis = str(mis).strip() if mis and str(mis).lower() != "none" else ""
-            str_opt = f"{parte_mat} - {parte_mis}" if parte_mat and parte_mis else (parte_mat or parte_mis)
+
+            if parte_mat and parte_mis:
+              str_opt = f"{parte_mat} - {parte_mis}"
+            elif parte_mat or parte_mis:
+              str_opt = parte_mat or parte_mis
+            else:
+              str_opt = prodotto
+
+            # Se la descrizione Box Stock è nella colonna Prodotto, mostriamo
+            # esattamente quella descrizione, invece della rappresentazione
+            # Materiale/Misure che potrebbe appartenere a un'altra variante.
+            if target_norm and _norm_match(prodotto) == target_norm:
+              str_opt = prodotto
+
             if str_opt:
               opzioni.append(str_opt)
-          
+              match_values.append((str_opt, prodotto, parte_mat, parte_mis))
+
           saved_val = edit_data.get(campo) if edit_data else None
+          target_for_default = saved_val if saved_val else boxstock_val
 
-          # Prima mantiene ESATTAMENTE la logica esistente.
-          def_idx = find_default_index(
-              opzioni, selected_model_name, target_value=saved_val
-          )
+          # Se il valore salvato è presente, rispettalo. Altrimenti seleziona
+          # il Box Stock solo quando una singola riga del catalogo corrisponde
+          # in modo certo a uno dei campi della riga.
+          def_idx = None
+          target_norm2 = _norm_match(target_for_default)
+          if target_norm2:
+            candidates = []
+            for idx, (display, prodotto, mat, mis) in enumerate(match_values):
+              vals = {
+                  _norm_match(display),
+                  _norm_match(prodotto),
+                  _norm_match(mat),
+                  _norm_match(mis),
+              }
+              vals.discard("")
+              if target_norm2 in vals:
+                candidates.append(idx)
+            if len(candidates) == 1:
+              def_idx = candidates[0]
 
-          # Se non stiamo modificando una configurazione salvata,
-          # il Box Stock può solo sostituire l'indice iniziale.
-          # Non cambia la lista e non cambia il matching del Telaio.
-          if saved_val is None:
-            idx_box = _indice_box_stock(opzioni, campo)
-            if idx_box is not None:
-              def_idx = idx_box
+          if def_idx is None:
+            def_idx = find_default_index(
+                opzioni,
+                selected_model_name,
+                target_value=target_for_default
+            )
 
           return st.selectbox(
               campo,
