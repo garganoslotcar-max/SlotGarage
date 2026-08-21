@@ -849,7 +849,7 @@ def _boxstock_target(produttore, categoria, campo):
 
   defaults = {
     ("nsr", "gt3", "motore"): "King - Evo3 - 21.400 rpm - Standard",
-    ("nsr", "gt3", "supporto motore"): "Anglewinder - Evo - Medium (Nero)",
+    ("nsr", "gt3", "supporto motore"): "Anglewinder - Evo - Extra Hard (Rosso)",
     ("nsr", "gt3", "corona"): "Anglewinder Alluminio - 31 denti 17.5mm",
     ("nsr", "gt3", "pignoni"): "Anglewinder - 13 denti - 7.5m",
     ("nsr", "gt3", "assale anteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
@@ -932,6 +932,39 @@ def _boxstock_target(produttore, categoria, campo):
     ("slot.it", "gruppo c", "assale posteriore"): 'Assale 3/32" da 51mm',
     ("slot.it", "gruppo c", "cerchi anteriori"): "Cerchi in Alluminio 15.8x8.2mm",
     ("slot.it", "gruppo c", "cerchi posteriori"): "Cerchi in Alluminio 16.5x8mm",
+
+    # SLOT.IT HYPERCAR LMP - configurazione Box Stock
+    ("slot.it", "hypercar lmp", "motore"): "Flat-6 Giallo 20.500 rpm Cassa Differenziata",
+    ("slot.it", "hypercar lmp", "supporto motore"): "Supporto Motore Anglewinder Lmp 1.0mm Offset Evo6",
+    ("slot.it", "hypercar lmp", "corona"): "Plastica Anglewinder gialla - 28 denti",
+    ("slot.it", "hypercar lmp", "pignoni"): "Pignoni Sidewinder 11 denti 6.5mm",
+    ("slot.it", "hypercar lmp", "assale anteriore"): 'Assale 3/32" da 54 mm',
+    ("slot.it", "hypercar lmp", "assale posteriore"): 'Assale 3/32" da 54 mm',
+    ("slot.it", "hypercar lmp", "cerchi anteriori"): "Cerchi in Plastica Neri da 17.3x8.2mm",
+    ("slot.it", "hypercar lmp", "cerchi posteriori"): "Cerchi in Alluminio 17.3x9.75mm a Mozzo Corto",
+    ("slot.it", "hypercar lmp", "pickup"): "Pickup a Vite con Lama Avanzata Vers. D",
+
+    # SLOT.IT GT3 - configurazione Box Stock
+    ("slot.it", "gt3", "motore"): "Motore Cassa Corta V12/4 23k Universale",
+    ("slot.it", "gt3", "pignoni"): "Pignoni Sidewinder 11 denti 6.5mm",
+    ("slot.it", "gt3", "supporto motore"): "Supporto Motore Sidewinder 1mm Offset Reverse Evo6",
+    ("slot.it", "gt3", "corona"): "Corona Sidewinder 32 denti - 18mm",
+    ("slot.it", "gt3", "assale anteriore"): 'Assale 3/32" da 51mm',
+    ("slot.it", "gt3", "assale posteriore"): 'Assale 3/32" da 51mm',
+    ("slot.it", "gt3", "pickup"): "Pickup Racing a Lama Lunga",
+    ("slot.it", "gt3", "cerchi anteriori"): "Cerchi in Plastica Neri da 17.3x8.2mm",
+    ("slot.it", "gt3", "cerchi posteriori"): "Cerchi in Alluminio 17.3x9.75mm a Mozzo Corto",
+
+    # SLOT.IT DTM - configurazione Box Stock
+    ("slot.it", "dtm", "motore"): "Motore Cassa Corta V12/4 21k Universale",
+    ("slot.it", "dtm", "pignoni"): "Pignoni in Linea 9 denti 5.5mm",
+    ("slot.it", "dtm", "corona"): "Corona in Linea Gialla 28 denti Bronzo",
+    ("slot.it", "dtm", "supporto motore"): "Supporto Motore Reverse in Linea 0.5mm Offset",
+    ("slot.it", "dtm", "pickup"): "Pickup a Vite con Lama Avanzata Vers. D",
+    ("slot.it", "dtm", "assale anteriore"): 'Assale 3/32" da 48 mm',
+    ("slot.it", "dtm", "assale posteriore"): 'Assale 3/32" da 48 mm',
+    ("slot.it", "dtm", "cerchi anteriori"): "Cerchi in Plastica Grigi da 15.8x8.2mm",
+    ("slot.it", "dtm", "cerchi posteriori"): "Cerchi in Alluminio 15.8x8.2mm Forati a Mozzo Corto",
   }
 
   # Alias per le diverse scritture della categoria F1 22.
@@ -1296,7 +1329,11 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             cat_componente = (
                 p.get("category_id")
                 if p.get("category_id") is not None
-                else p.get("categoria")
+                else (
+                    p.get("id_Categorie")
+                    if p.get("id_Categorie") is not None
+                    else p.get("categoria")
+                )
             )
             if cat_componente is None:
               pezzi.append(p)
@@ -1355,6 +1392,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           },
           2: {  # Slot.it
             "hypercar": "anglewinder",
+            "hypercar lmp": "anglewinder",
             "classic": "sidewinder",
             "gt3": "sidewinder",
             "dtm": "in linea",
@@ -1407,6 +1445,15 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           gia' filtrati per produttore + categoria.
           """
           campo_norm = _normalizza_testo_filtro(campo)
+
+          # SLOT.IT HYPERCAR LMP: configurazione generale Anglewinder,
+          # ma il Box Stock utilizza volutamente questo pignone Sidewinder.
+          if (
+              str(prod_id_selezionato) == "2"
+              and _normalizza_testo_filtro(selected_cat_name) == "hypercar lmp"
+              and campo_norm in {"pignoni", "pignone"}
+          ):
+            return lista_pezzi
 
           campi_con_filtro_materiale = {
             "supporto motore",
@@ -1607,6 +1654,15 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               if modello in testo_telaio(p)
             ]
             if trovati:
+              if str(selected_prod_name or "").strip().casefold() == "nsr":
+                def _telaio_nero_trovato(p):
+                  testo = _normalizza_testo_filtro(
+                      f"{p.get('Materiale') or ''} {p.get('Misure') or ''}"
+                  )
+                  return "standard nero" in testo or "nero" in testo
+                trovati = [p for p in trovati if _telaio_nero_trovato(p)] + [
+                    p for p in trovati if not _telaio_nero_trovato(p)
+                ]
               return trovati
 
             # Seconda possibilità: parole significative del modello.
@@ -1617,11 +1673,36 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 if any(w in testo_telaio(p) for w in parole)
               ]
               if trovati:
+                if str(selected_prod_name or "").strip().casefold() == "nsr":
+                  def _telaio_nero_parole(p):
+                    testo = _normalizza_testo_filtro(
+                        f"{p.get('Materiale') or ''} {p.get('Misure') or ''}"
+                    )
+                    return "standard nero" in testo or "nero" in testo
+                  trovati = [p for p in trovati if _telaio_nero_parole(p)] + [
+                      p for p in trovati if not _telaio_nero_parole(p)
+                  ]
                 return trovati
 
             # Nessuna corrispondenza: non applicare un filtro meccanico
             # al Telaio e non pescare telai di altre categorie/produttori.
-            return lista
+            risultato = lista
+
+            # NSR: il telaio nero / Standard (Nero) deve essere SEMPRE
+            # la prima scelta del menu. Non eliminiamo le altre durezze:
+            # restano disponibili per la selezione manuale.
+            if str(selected_prod_name or "").strip().casefold() == "nsr":
+              def _telaio_nero(p):
+                testo = _normalizza_testo_filtro(
+                    f"{p.get('Materiale') or ''} {p.get('Misure') or ''}"
+                )
+                return "standard nero" in testo or "nero" in testo
+
+              neri = [p for p in risultato if _telaio_nero(p)]
+              altri = [p for p in risultato if not _telaio_nero(p)]
+              risultato = neri + altri
+
+            return risultato
 
           if c in {"assale anteriore", "assale posteriore"}:
             return [
@@ -1633,21 +1714,56 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           # "Cerchi Anteriori" e "Cerchi Posteriori": il campo è plurale,
           # quindi cercare "cerchio" non è sufficiente.
           if c in {"cerchi anteriori", "cerchi posteriori"}:
-            return [
-                p for p in pezzi
-                if p.get("Prodotto")
-                and "cerch" in _normalizza_testo_filtro(p.get("Prodotto"))
-            ]
+            # Il catalogo usa sia Prodotto sia Materiale/Misure per
+            # identificare la posizione. Usiamo tutto il testo della riga:
+            # - Anteriori: escludiamo sempre ciò che è dichiarato Posteriore.
+            # - Posteriori: escludiamo sempre ciò che è dichiarato Anteriore.
+            # Se una voce non specifica la posizione, resta disponibile per
+            # non rompere le configurazioni Box Stock già funzionanti.
+            risultato = []
+            for p in pezzi:
+              if not p.get("Prodotto"):
+                continue
+              testo_cerchio = " ".join(
+                  str(p.get(k) or "")
+                  for k in ("Prodotto", "Materiale", "Misure")
+              )
+              testo_cerchio = _normalizza_testo_filtro(testo_cerchio)
+
+              if "cerch" not in testo_cerchio:
+                continue
+
+              if c == "cerchi anteriori":
+                if "posteriore" in testo_cerchio or "posteriori" in testo_cerchio:
+                  continue
+              else:
+                if "anteriore" in testo_cerchio or "anteriori" in testo_cerchio:
+                  continue
+
+              risultato.append(p)
+            return risultato
 
           if c == "pickup":
-            return [
-                p for p in pezzi
-                if p.get("Prodotto")
-                and (
-                    "pickup" in _normalizza_testo_filtro(p.get("Prodotto"))
-                    or "pick up" in _normalizza_testo_filtro(p.get("Prodotto"))
-                )
-            ]
+            risultato = []
+            for p in pezzi:
+              if not p.get("Prodotto"):
+                continue
+              testo_pickup = " ".join(
+                  str(p.get(k) or "")
+                  for k in ("Prodotto", "Materiale", "Misure")
+              )
+              testo_pickup = _normalizza_testo_filtro(testo_pickup)
+
+              if "pickup" not in testo_pickup and "pick up" not in testo_pickup:
+                continue
+
+              # I distanziali 4818/4819/4820 sono accessori tra telaio e
+              # pickup e NON sono pickup. Devono restare fuori da questo menu.
+              if "distanzial" in testo_pickup or "spacer" in testo_pickup:
+                continue
+
+              risultato.append(p)
+            return risultato
 
           # "Viti Carrozzeria": gestiamo esplicitamente "viti", non "vite".
           if c == "viti carrozzeria":
@@ -1683,6 +1799,13 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
           target_norm = _norm_match(boxstock_val)
 
+          # DEDUPLICAZIONE DELLE VOCI VISUALIZZATE.
+          # Non cancelliamo nulla dal CatalogoComponenti: se due righe
+          # producono la stessa identica scelta nel menu, la mostriamo una
+          # sola volta. Questo risolve i duplicati di F1 22, F1 86/89, GT3,
+          # ecc. senza alterare i dati del database.
+          chiavi_opzioni = set()
+
           for p in sub_pezzi_list:
             prodotto = str(p.get("Prodotto") or "").strip()
             mat = p.get("Materiale")
@@ -1704,6 +1827,10 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               str_opt = prodotto
 
             if str_opt:
+              chiave = _norm_match(str_opt)
+              if not chiave or chiave in chiavi_opzioni:
+                continue
+              chiavi_opzioni.add(chiave)
               opzioni.append(str_opt)
               match_values.append((str_opt, prodotto, parte_mat, parte_mis))
 
