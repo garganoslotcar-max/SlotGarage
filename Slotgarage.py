@@ -14,6 +14,7 @@ import requests
 import streamlit as st
 from datetime import datetime, date
 from supabase import create_client, ClientOptions
+import csv
 
 # --- CONFIGURAZIONE SUPABASE & SICUREZZA ---
 try:
@@ -25,13 +26,6 @@ except Exception:
 
 
 def init_connection():
-  """Create one Supabase client per Streamlit user session.
-
-  The original app cached the authenticated client globally with
-  ``st.cache_resource``. That can mix authentication state between browser
-  sessions. Keeping the client in session_state preserves the same API used by
-  the rest of the application while isolating auth state per user session.
-  """
   client = st.session_state.get("_supabase_client")
   if client is not None:
     return client
@@ -50,9 +44,6 @@ LOGO_PATH = "logo.png"
 
 
 # ===== SLOTGARAGE PRO V5 =====
-# Funzioni aggiuntive persistenti tramite Supabase.
-# Non sostituiscono i configuratori esistenti.
-
 def sg_parse_dict(value):
     if isinstance(value, dict):
         return value
@@ -68,8 +59,8 @@ def sg_parse_dict(value):
         try:
             obj = ast.literal_eval(value)
             return obj if isinstance(obj, dict) else {}
-        except Exception:
-            return {}
+        except (ValueError, SyntaxError, TypeError):
+            return {"raw": value}
     return {}
 
 def sg_config_label(row):
@@ -94,8 +85,9 @@ def sg_compare(a, b):
     aa, bb = sg_flatten(a), sg_flatten(b)
     diffs = []
     for key in sorted(set(aa) | set(bb), key=str.lower):
-        av, bv = aa.get(key, "—"), bb.get(key, "—")
-        if str(av) != str(bv):
+        av = str(aa.get(key, "—")).strip()
+        bv = str(bb.get(key, "—")).strip()
+        if av.casefold() != bv.casefold():
             diffs.append({"Parametro": key, "A": av, "B": bv})
     return diffs
 
@@ -204,8 +196,8 @@ def sg_pro_ui():
                     "Pista": t.get("pista"),
                     "Data": t.get("data_prova"),
                     "Giri": t.get("giri"),
-                    "Miglior tempo": f"{t.get('miglior_tempo'):.3f} s" if t.get("miglior_tempo") is not None else "—",
-                    "Media": f"{t.get('tempo_medio'):.3f} s" if t.get("tempo_medio") is not None else "—",
+                    "Miglior tempo": f"{t.get('miglior_tempo'):.3f} s" if t.get('miglior_tempo') is not None else "—",
+                    "Media": f"{t.get('tempo_medio'):.3f} s" if t.get('tempo_medio') is not None else "—",
                     "Pneumatici": t.get("pneumatici"),
                 } for t in tests], use_container_width=True, hide_index=True)
 
@@ -324,24 +316,28 @@ def sg_pro_ui():
 
 
 # ===== SLOTGARAGE V8 REFACTOR HELPERS =====
-# Refactoring conservativo: nessuna nuova funzione utente e nessun cambio grafico.
-# Questi helper centralizzano accesso dati e gestione errori della sezione
-# "Comparazione e Telemetria Modelli".
-
 def sg_current_user_id():
     user = st.session_state.get("user")
     return getattr(user, "id", None) if user else None
 
 def sg_db_select(table, *, user_id=None, order_column=None, desc=False):
-    query = supabase.table(table).select("*")
-    if user_id is not None:
-        query = query.eq("user_id", user_id)
-    if order_column:
-        query = query.order(order_column, desc=desc)
-    return query.execute().data or []
+    try:
+        query = supabase.table(table).select("*")
+        if user_id is not None:
+            query = query.eq("user_id", user_id)
+        if order_column:
+            query = query.order(order_column, desc=desc)
+        return query.execute().data or []
+    except Exception as e:
+        st.warning(f"Errore durante la lettura da {table}: {e}")
+        return []
 
 def sg_db_insert(table, payload):
-    return supabase.table(table).insert(payload).execute().data or []
+    try:
+        return supabase.table(table).insert(payload).execute().data or []
+    except Exception as e:
+        st.error(f"Errore durante l'inserimento in {table}: {e}")
+        return []
 
 def sg_load_telemetry_tests(user_id=None):
     return sg_db_select(
@@ -391,32 +387,34 @@ if "user" not in st.session_state:
 if "pending_garage_data" not in st.session_state:
   st.session_state.pending_garage_data = None
 
+# --- NUOVO STATO PER IL REGOLAMENTO ---
+if "regolamento_dati" not in st.session_state:
+    st.session_state.regolamento_dati = {}
+if "regolamento_attivo" not in st.session_state:
+    st.session_state.regolamento_attivo = False
+
 # --- SERIALIZZAZIONE COMPATIBILE DEI DETTAGLI ---
 def serialize_details(value):
-  """Store new setup data as JSON while remaining compatible with old rows."""
   if isinstance(value, str):
     return value
   return json.dumps(value or {}, ensure_ascii=False, separators=(",", ":"))
 
-
 def deserialize_details(value):
-  """Read JSON data and transparently support legacy Python-dict strings."""
-  if isinstance(value, dict):
-    return value
-  if value is None or value == "":
-    return {}
-  if isinstance(value, str):
-    try:
-      parsed = json.loads(value)
-      return parsed if isinstance(parsed, dict) else {"Dettagli": parsed}
-    except (json.JSONDecodeError, TypeError):
-      try:
-        parsed = ast.literal_eval(value)
-        return parsed if isinstance(parsed, dict) else {"Dettagli": parsed}
-      except (ValueError, SyntaxError, TypeError):
-        return {"Dettagli": value}
-  return {"Dettagli": value}
-
+    if isinstance(value, dict):
+        return value
+    if value is None or value == "":
+        return {}
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, dict) else {"Dettagli": parsed}
+        except (json.JSONDecodeError, TypeError):
+            try:
+                parsed = ast.literal_eval(value)
+                return parsed if isinstance(parsed, dict) else {"Dettagli": parsed}
+            except (ValueError, SyntaxError, TypeError):
+                return {"Dettagli": value}
+    return {"Dettagli": value}
 
 def clear_garage_edit_state():
   for key, value in {
@@ -427,59 +425,52 @@ def clear_garage_edit_state():
   }.items():
     st.session_state[key] = value
 
-
-# Funzione per completare automaticamente il salvataggio se l'utente si è loggato ora
 def process_pending_garage():
-  pending = st.session_state.get("pending_garage_data")
-  user = st.session_state.get("user")
-  if not pending or not user or supabase is None:
-    return
+    pending = st.session_state.get("pending_garage_data")
+    user = st.session_state.get("user")
+    if not pending or not user or supabase is None:
+        return
 
-  nome = str(pending.get("nome_configurazione") or "").strip()
-  modello = str(pending.get("modello_nome") or "").strip()
-  if not nome:
-    st.warning("Inserisci un nome per la configurazione prima di salvarla nel Garage.")
-    st.session_state.pending_garage_data = None
-    st.session_state.active_tab = "🚗 Il Mio Garage"
-    return
-  if not modello:
-    st.warning("Seleziona un modello prima di salvare la configurazione.")
-    st.session_state.pending_garage_data = None
-    st.session_state.active_tab = "📋 Visualizza Modelli"
-    return
+    nome = str(pending.get("nome_configurazione") or "").strip()
+    modello = str(pending.get("modello_nome") or "").strip()
+    if not nome or not modello:
+        st.warning("Nome o modello mancanti per il salvataggio.")
+        st.session_state.pending_garage_data = None
+        st.session_state.active_tab = "🚗 Il Mio Garage"
+        return
 
-  try:
-    dettagli_pending = pending.get("dettagli_setup", {})
-    telaio_catalogo_id = trova_telaio_catalogo_id(
-        dettagli_pending.get("Telaio") if isinstance(dettagli_pending, dict) else None
-    )
+    try:
+        dettagli_pending = pending.get("dettagli_setup", {})
+        telaio_catalogo_id = trova_telaio_catalogo_id(
+            dettagli_pending.get("Telaio") if isinstance(dettagli_pending, dict) else None
+        )
 
-    record_garage = {
-        "nome_configurazione": nome,
-        "modello_nome": modello,
-        "dettagli_setup": serialize_details(dettagli_pending),
-        "telaio_catalogo_id": telaio_catalogo_id,
-        "user_id": user.id,
-    }
-    if pending.get("is_update"):
-      supabase.table("IlMioGarage").update(record_garage).eq(
-          "id", pending.get("config_id")
-      ).eq("user_id", user.id).execute()
-      st.success(f"Configurazione '{nome}' aggiornata con successo dopo il login!")
-      clear_garage_edit_state()
-    else:
-      supabase.table("IlMioGarage").insert(record_garage).execute()
-      st.success(f"Configurazione '{nome}' salvata con successo nel tuo Garage dopo il login!")
+        record_garage = {
+            "nome_configurazione": nome,
+            "modello_nome": modello,
+            "dettagli_setup": serialize_details(dettagli_pending),
+            "telaio_catalogo_id": telaio_catalogo_id,
+            "user_id": user.id,
+        }
+        if pending.get("is_update"):
+            supabase.table("IlMioGarage").update(record_garage).eq(
+                "id", pending.get("config_id")
+            ).eq("user_id", user.id).execute()
+            st.success(f"Configurazione '{nome}' aggiornata con successo dopo il login!")
+            clear_garage_edit_state()
+        else:
+            supabase.table("IlMioGarage").insert(record_garage).execute()
+            st.success(f"Configurazione '{nome}' salvata con successo nel tuo Garage dopo il login!")
 
-    st.session_state.pending_garage_data = None
-    st.session_state.active_tab = "🚗 Il Mio Garage"
-    st.rerun()
-  except Exception as e:
-    st.error(f"Errore durante il salvataggio post-login: {e}")
+    except Exception as e:
+        st.error(f"Errore durante il salvataggio post-login: {e}")
+    finally:
+        st.session_state.pending_garage_data = None
+        st.session_state.active_tab = "🚗 Il Mio Garage"
+        st.rerun()
 
 process_pending_garage()
 
-# Funzione di supporto per mostrare il form di autenticazione e registrazione stabile
 def richiedi_autenticazione():
   st.warning("⚠️ Per procedere devi effettuare l'accesso o registrarti.")
   
@@ -583,7 +574,6 @@ catalogo_componenti = get_data("CatalogoComponenti")
 
 
 def trova_telaio_catalogo_id(telaio):
-    """Restituisce l'id di CatalogoComponenti del telaio selezionato."""
     if not telaio:
         return None
 
@@ -625,6 +615,8 @@ if "modifying_pulsante_data" not in st.session_state:
   st.session_state.modifying_pulsante_data = None
 if "active_tab" not in st.session_state:
   st.session_state.active_tab = "📋 Visualizza Modelli"
+if "configura_regolamento_target" not in st.session_state:
+  st.session_state.configura_regolamento_target = None
 
 # --- SEZIONE FILTRI E SELEZIONE ---
 st.header("🔍 Filtra Modello")
@@ -751,7 +743,6 @@ st.divider()
 
 
 def _boxstock_normalize(value):
-    """Normalizza una descrizione del catalogo senza alterarne il significato."""
     if value is None:
         return ""
     s = str(value).strip().lower()
@@ -761,7 +752,6 @@ def _boxstock_normalize(value):
     return s
 
 def _boxstock_exact_index(options, target):
-    """Restituisce solo una corrispondenza certa; mai una voce casuale."""
     nt = _boxstock_normalize(target)
     if not nt:
         return None
@@ -769,8 +759,6 @@ def _boxstock_exact_index(options, target):
     for i, value in enumerate(normalized):
         if value == nt:
             return i
-    # Secondo livello: tutte le parole significative del target devono essere
-    # presenti nella voce, senza scegliere semplicemente il primo risultato.
     words = [w for w in re.split(r"[^a-z0-9.]+", nt) if len(w) > 1]
     if words:
         candidates = []
@@ -782,59 +770,43 @@ def _boxstock_exact_index(options, target):
     return None
 
 def find_default_index(opzioni, model_name, target_value=None):
-  def _match_key(v):
-    import re
-    import unicodedata
-    t = str(v or "").strip().casefold()
-    t = unicodedata.normalize("NFKD", t)
-    t = "".join(ch for ch in t if not unicodedata.combining(ch))
-    # Il catalogo può avere differenze solo tipografiche: trattini, spazi
-    # attorno alle misure e simboli non devono impedire l'abbinamento.
-    return re.sub(r"[^a-z0-9]+", "", t)
+    if not opzioni:
+        return None
 
-  if target_value:
-    if target_value in opzioni:
-      return opzioni.index(target_value)
-    target_key = _match_key(target_value)
-    if target_key:
-      for idx, opt in enumerate(opzioni):
-        if _match_key(opt) == target_key:
-          return idx
-      # Secondo livello: il catalogo può contenere la stessa voce con
-      # una formattazione diversa (es. "da 17.25x10mm" / "17.25x10mm").
-      # Cerchiamo tutti i termini significativi del target nell'opzione,
-      # senza mai ricadere automaticamente sulla prima voce.
-      import re
-      target_words = [w for w in re.findall(r"[a-z0-9]+", target_key) if len(w) >= 2]
-      if target_words:
-        candidati = []
+    def _match_key(v):
+        import re, unicodedata
+        t = str(v or "").strip().casefold()
+        t = unicodedata.normalize("NFKD", t)
+        t = "".join(ch for ch in t if not unicodedata.combining(ch))
+        return re.sub(r"[^a-z0-9]+", "", t)
+
+    if target_value:
+        target_key = _match_key(target_value)
         for idx, opt in enumerate(opzioni):
-          opt_key = _match_key(opt)
-          if all(w in opt_key for w in target_words):
-            candidati.append(idx)
-        if len(candidati) == 1:
-          return candidati[0]
-  if not model_name or model_name == "Tutti":
-    return 0
-  model_lower = model_name.lower()
-  for idx, opt in enumerate(opzioni):
-    if model_lower in opt.lower():
-      return idx
-  words = [w for w in model_lower.split() if len(w) > 2]
-  for idx, opt in enumerate(opzioni):
-    opt_lower = opt.lower()
-    if any(w in opt_lower for w in words):
-      return idx
-  return 0
+            if _match_key(opt) == target_key:
+                return idx
+        parole = [w for w in re.findall(r"[a-z0-9]+", target_key) if len(w) >= 2]
+        if parole:
+            candidati = [idx for idx, opt in enumerate(opzioni)
+                         if all(p in _match_key(opt) for p in parole)]
+            if len(candidati) == 1:
+                return candidati[0]
 
+    if model_name and model_name != "Tutti":
+        model_key = _match_key(model_name)
+        for idx, opt in enumerate(opzioni):
+            if model_key in _match_key(opt):
+                return idx
+        parole = [w for w in re.findall(r"[a-z0-9]+", model_key) if len(w) > 2]
+        if parole:
+            candidati = [idx for idx, opt in enumerate(opzioni)
+                         if all(p in _match_key(opt) for p in parole)]
+            if len(candidati) == 1:
+                return candidati[0]
+
+    return 0 if opzioni else None
 
 def _boxstock_target(produttore, categoria, campo):
-  """
-  Valori Box Stock verificati manualmente.
-  Il valore e' confrontato con la stringa realmente mostrata dal catalogo
-  (Materiale - Misure). Se non e' presente tra le opzioni, non forza nulla.
-  Il Telaio e' volutamente escluso: continua a usare la logica modello -> telaio.
-  """
   def _norm(v):
     import unicodedata
     t = str(v or "").strip().casefold()
@@ -848,6 +820,7 @@ def _boxstock_target(produttore, categoria, campo):
   f = _norm(campo)
 
   defaults = {
+    # NSR GT3
     ("nsr", "gt3", "motore"): "King - Evo3 - 21.400 rpm - Standard",
     ("nsr", "gt3", "supporto motore"): "Anglewinder - Evo - Extra Hard (Rosso)",
     ("nsr", "gt3", "corona"): "Anglewinder Alluminio - 31 denti 17.5mm",
@@ -856,16 +829,23 @@ def _boxstock_target(produttore, categoria, campo):
     ("nsr", "gt3", "assale posteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
     ("nsr", "gt3", "cerchi anteriori"): "Cerchi Anteriori Grandi No Air System da 17.25x8.2mm",
     ("nsr", "gt3", "cerchi posteriori"): "Posteriori - Alluminio - No Air System - Standard - 17x8mm",
+    ("nsr", "gt3", "forcella"): "1234",
+    ("nsr", "gt3", "gomme anteriori"): "NSR 5200 16x8",
+    ("nsr", "gt3", "gomme posteriori"): "NSR 5279Z 19.5x11",
 
+    # NSR HYPERCAR
     ("nsr", "hypercar", "motore"): "King - Evo3 - 21.400 rpm - Standard",
     ("nsr", "hypercar", "supporto motore"): "NSR HYPERCAR - ExtraHard Rosso Sidewinder Offset - 1M",
     ("nsr", "hypercar", "corona"): "Sidewinder Alluminio - 31 denti 16.8 mm",
     ("nsr", "hypercar", "pignoni"): "Anglewinder - 13 denti - 7.5m",
     ("nsr", "hypercar", "assale anteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
     ("nsr", "hypercar", "assale posteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
-    ("nsr", "hypercar", "cerchi anteriori"): "Posteriori - Alluminio - No Air System - Standard - 17x8mm",
-    ("nsr", "hypercar", "cerchi posteriori"): "Cerchi Posteriori Grandi Air System da 17.25x10mm",
+    ("nsr", "hypercar", "cerchi anteriori"): "Anteriori Grandi No Air System da 17.25x8mm",
+    ("nsr", "hypercar", "cerchi posteriori"): "Posteriori Grandi Air System da 17.25x10mm",
+    ("nsr", "hypercar", "gomme anteriori"): "NSR 5200 16x8",
+    ("nsr", "hypercar", "gomme posteriori"): "NSR 5266Z 20x11",
 
+    # NSR F1 22
     ("nsr", "f1 22", "motore"): "King - Evo3 - 21.400 rpm - Standard",
     ("nsr", "f1 22", "supporto motore"): "in linea - NSR Formula 22 - Standard Medium Nero",
     ("nsr", "f1 22", "corona"): "in Linea Evo Nera - 27 denti",
@@ -874,20 +854,24 @@ def _boxstock_target(produttore, categoria, campo):
     ("nsr", "f1 22", "assale posteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
     ("nsr", "f1 22", "cerchi anteriori"): "Cerchi Anteriori 16.5x8mm NO-AIR System",
     ("nsr", "f1 22", "cerchi posteriori"): "Posteriori - Alluminio - Air System - Standard - 16x8mm",
+    ("nsr", "f1 22", "gomme anteriori"): "NSR 5296N 19.5x9.5",
+    ("nsr", "f1 22", "gomme posteriori"): "NSR 5294Z 19x13",
 
-    # NSR CLASSIC - configurazione Box Stock verificata
+    # NSR CLASSIC
     ("nsr", "classic", "motore"): "Shark - Evo 21.500 rpm - Standard",
     ("nsr", "classic", "supporto motore"): "Sidewinder - Evo - Extra Hard (Rosso)",
     ("nsr", "classic", "corona"): "Sidewinder Alluminio - 32 denti 17.5mm",
-    ("nsr", "classic", "pignoni"): "Sidewinder - Ottone - 11 denti - 6.5m",
+    ("nsr", "classic", "pignoni"): "Sidewinder - Ottone - 11 denti - 6.5mm",
     ("nsr", "classic", "assale anteriore"): '3/32" - Standard Acciaio Rettificato - 49mm',
-    ("nsr", "classic", "assale posteriore"): '3/32" - Standard Acciaio Rettificato - 48mm',
+    ("nsr", "classic", "assale posteriore"): '3/32" - Standard Acciaio Rettificato - 49mm',
     ("nsr", "classic", "cerchi anteriori"): "Anteriori - Alluminio - No Air System - Standard - 16x8mm",
     ("nsr", "classic", "cerchi posteriori"): "Posteriori - Alluminio - Air System - Standard - 16x8mm",
-    ("nsr", "classic", "pickup"): "Standard - Lama lunga",
+    ("nsr", "classic", "pickup"): "Standard - Lama corta",
     ("nsr", "classic", "dettaglio supporto"): 'Bronzine Standard da 3/32"',
+    ("nsr", "classic", "gomme anteriori"): "NSR 5200 16x8",
+    ("nsr", "classic", "gomme posteriori"): "NSR 5271WRE 19.5x11",
 
-    # NSR MOSLER MT900R EVO 5 - configurazione Box Stock verificata
+    # NSR MOSLER
     ("nsr", "mosler", "motore"): "King - Evo3 - 21.400 rpm - Standard",
     ("nsr", "mosler", "supporto motore"): "Anglewinder - Evo - Extra Hard (Rosso)",
     ("nsr", "mosler", "corona"): "Anglewinder Alluminio - 31 denti - 16.8mm",
@@ -898,21 +882,23 @@ def _boxstock_target(produttore, categoria, campo):
     ("nsr", "mosler", "cerchi posteriori"): "Posteriori - Alluminio - Air System - Standard - 16x8mm",
     ("nsr", "mosler", "pickup"): "Pickup Racing a Lama Lunga",
     ("nsr", "mosler", "dettaglio supporto"): "Standard - Autolubrificanti",
+    ("nsr", "mosler", "gomme posteriori"): "NSR 5279Z 19.5x11",
 
-    # NSR ALTRI_MODELLI - stessa configurazione per Fiat 500, Abarth Punto S2000 e Renault Clio
-    # Il telaio resta escluso e continua a essere selezionato automaticamente per modello.
+    # NSR ALTRI MODELLI
     ("nsr", "altri modelli", "motore"): "King - Evo3 - 21.400 rpm - Standard",
     ("nsr", "altri modelli", "supporto motore"): "Anglewinder - Evo - Extra Hard (Rosso)",
     ("nsr", "altri modelli", "corona"): "Anglewinder Alluminio - 31 denti - 16.8mm",
     ("nsr", "altri modelli", "pignoni"): "Anglewinder - 13 denti - 7.5m",
     ("nsr", "altri modelli", "assale anteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
     ("nsr", "altri modelli", "assale posteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
-    ("nsr", "altri modelli", "cerchi anteriori"): "Cerchi Anteriori Grandi No Air System da 17.25x8.2mm",
-    ("nsr", "altri modelli", "cerchi posteriori"): "Posteriori Grandi Air System - 17.25x10mm",
+    ("nsr", "altri modelli", "cerchi anteriori"): "Anteriori Grandi No Air System - da 17.25x8mm",
+    ("nsr", "altri modelli", "cerchi posteriori"): "Posteriori Grandi Air System da 17.25x10mm",
+    ("nsr", "altri modelli", "forcella"): "1234",
     ("nsr", "altri modelli", "pickup"): "Black - Rally A stelo - Stelo Lungo",
     ("nsr", "altri modelli", "dettaglio supporto"): "Standard - Autolubrificanti",
+    ("nsr", "altri modelli", "gomme posteriori"): "NSR 5271WRE 19.5x11",
 
-    # NSR FORMULA 86/89 - configurazione Box Stock verificata
+    # NSR F1 86/89
     ("nsr", "f1 86/89", "motore"): "King - Evo3 - 21.400 rpm - Standard",
     ("nsr", "f1 86/89", "supporto motore"): "Inline - Evo - Standard (Nero)",
     ("nsr", "f1 86/89", "corona"): "in Linea Evo Nera - 27 denti",
@@ -921,9 +907,12 @@ def _boxstock_target(produttore, categoria, campo):
     ("nsr", "f1 86/89", "assale posteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
     ("nsr", "f1 86/89", "cerchi anteriori"): "Anteriori - Standard - No Air System - Formula - 13x8mm",
     ("nsr", "f1 86/89", "cerchi posteriori"): "Posteriori Air System per Formula NSR - 13x10",
-    ("nsr", "f1 86/89", "pickup"): "Pickup Racing a Lama Corta",
+    ("nsr", "f1 86/89", "pickup"): "Advanced - Racing - A vite - Lama Corta",
     ("nsr", "f1 86/89", "dettaglio supporto"): "Standard - Autolubrificanti",
+    ("nsr", "f1 86/89", "gomme anteriori"): "NSR 5290 16x8",
+    ("nsr", "f1 86/89", "gomme posteriori"): "NSR 5287Z 19.5x13",
 
+    # SLOT.IT
     ("slot.it", "gruppo c", "motore"): "Motore Cassa Corta V12/4 21k Universale",
     ("slot.it", "gruppo c", "supporto motore"): "Supporto Motore Boxer-Flat in Linea 0.5mm Hard",
     ("slot.it", "gruppo c", "corona"): "Corona in Linea Gialla 28 denti Bronzo",
@@ -932,8 +921,10 @@ def _boxstock_target(produttore, categoria, campo):
     ("slot.it", "gruppo c", "assale posteriore"): 'Assale 3/32" da 51mm',
     ("slot.it", "gruppo c", "cerchi anteriori"): "Cerchi in Alluminio 15.8x8.2mm",
     ("slot.it", "gruppo c", "cerchi posteriori"): "Cerchi in Alluminio 16.5x8mm",
+    ("slot.it", "gruppo c", "pickup"): "Pickup Standard",
+    ("slot.it", "gruppo c", "gomme anteriori"): "PT15",
+    ("slot.it", "gruppo c", "gomme posteriori"): "PT1207",
 
-    # SLOT.IT HYPERCAR LMP - configurazione Box Stock
     ("slot.it", "hypercar lmp", "motore"): "Flat-6 Giallo 20.500 rpm Cassa Differenziata",
     ("slot.it", "hypercar lmp", "supporto motore"): "Supporto Motore Anglewinder Lmp 1.0mm Offset Evo6",
     ("slot.it", "hypercar lmp", "corona"): "Plastica Anglewinder gialla - 28 denti",
@@ -943,8 +934,9 @@ def _boxstock_target(produttore, categoria, campo):
     ("slot.it", "hypercar lmp", "cerchi anteriori"): "Cerchi in Plastica Neri da 17.3x8.2mm",
     ("slot.it", "hypercar lmp", "cerchi posteriori"): "Cerchi in Alluminio 17.3x9.75mm a Mozzo Corto",
     ("slot.it", "hypercar lmp", "pickup"): "Pickup a Vite con Lama Avanzata Vers. D",
+    ("slot.it", "hypercar lmp", "gomme anteriori"): "PT15",
+    ("slot.it", "hypercar lmp", "gomme posteriori"): "PT1207",
 
-    # SLOT.IT GT3 - configurazione Box Stock
     ("slot.it", "gt3", "motore"): "Motore Cassa Corta V12/4 23k Universale",
     ("slot.it", "gt3", "pignoni"): "Pignoni Sidewinder 11 denti 6.5mm",
     ("slot.it", "gt3", "supporto motore"): "Supporto Motore Sidewinder 1mm Offset Reverse Evo6",
@@ -954,8 +946,9 @@ def _boxstock_target(produttore, categoria, campo):
     ("slot.it", "gt3", "pickup"): "Pickup Racing a Lama Lunga",
     ("slot.it", "gt3", "cerchi anteriori"): "Cerchi in Plastica Neri da 17.3x8.2mm",
     ("slot.it", "gt3", "cerchi posteriori"): "Cerchi in Alluminio 17.3x9.75mm a Mozzo Corto",
+    ("slot.it", "gt3", "gomme anteriori"): "PT15",
+    ("slot.it", "gt3", "gomme posteriori"): "PT1207",
 
-    # SLOT.IT DTM - configurazione Box Stock
     ("slot.it", "dtm", "motore"): "Motore Cassa Corta V12/4 21k Universale",
     ("slot.it", "dtm", "pignoni"): "Pignoni in Linea 9 denti 5.5mm",
     ("slot.it", "dtm", "corona"): "Corona in Linea Gialla 28 denti Bronzo",
@@ -965,52 +958,70 @@ def _boxstock_target(produttore, categoria, campo):
     ("slot.it", "dtm", "assale posteriore"): 'Assale 3/32" da 48 mm',
     ("slot.it", "dtm", "cerchi anteriori"): "Cerchi in Plastica Grigi da 15.8x8.2mm",
     ("slot.it", "dtm", "cerchi posteriori"): "Cerchi in Alluminio 15.8x8.2mm Forati a Mozzo Corto",
+    ("slot.it", "dtm", "gomme anteriori"): "PT15",
+    ("slot.it", "dtm", "gomme posteriori"): "PT1207",
+
+    # THUNDERSLOT
+    ("thunderslot", "classic", "motore"): "Motor Mach 21500 rpm at 12 volts 175g/m Doppio albero",
+    ("thunderslot", "classic", "supporto motore"): "Grey Hard",
+    ("thunderslot", "classic", "corona"): "SW Corona Thunderslot",
+    ("thunderslot", "classic", "pignoni"): "11 denti (bianco)",
+    ("thunderslot", "classic", "telaio"): "Hard Grey",
+    ("thunderslot", "classic", "cerchi anteriori"): "RMR003AL",
+    ("thunderslot", "classic", "cerchi posteriori"): "RMR003AL",
+    ("thunderslot", "classic", "pickup"): "Tutti i Pick-up Thunderslot",
+    ("thunderslot", "classic", "viti carrozzeria"): "SC2.5HEX",
+    ("thunderslot", "classic", "sospensioni"): "SUSK005/M",
+    ("thunderslot", "classic", "dettaglio supporto"): "Bronzine/Cuscinetti Thunderslot",
+    ("thunderslot", "classic", "assale"): "3/32 Assale Thunderslot",
+    ("thunderslot", "classic", "gomme anteriori"): "TYR003FR",
+    ("thunderslot", "classic", "gomme posteriori"): "TYR004R",
   }
 
-  # Alias per le diverse scritture della categoria F1 22.
+  # Normalizza eventuali alias di categoria
   if p == "nsr" and c in {"f1 2022", "f1 22", "f122"}:
     c = "f1 22"
   if p == "nsr" and c in {"altri modelli", "altri_modelli"}:
     c = "altri modelli"
   if p == "slot.it" and c == "gruppoc":
     c = "gruppo c"
+  if p == "thunderslot" and c == "classic":
+    c = "classic"
 
   return defaults.get((p, c, f))
 
 
 def upload_image_to_supabase(uploaded_file):
-  """Upload a validated image and return its public URL."""
-  if uploaded_file is None or supabase is None:
-    return None
+    if uploaded_file is None or supabase is None:
+        return None
 
-  allowed_types = {"image/jpeg": ".jpg", "image/png": ".png"}
-  max_bytes = 10 * 1024 * 1024
-  content_type = (uploaded_file.type or "").lower()
-  if content_type not in allowed_types:
-    st.error("Formato immagine non supportato. Usa JPG o PNG.")
-    return None
+    allowed_types = {"image/jpeg": ".jpg", "image/png": ".png"}
+    max_bytes = 10 * 1024 * 1024
+    content_type = (uploaded_file.type or "").lower()
+    if content_type not in allowed_types:
+        st.error("Formato immagine non supportato. Usa JPG o PNG.")
+        return None
 
-  file_bytes = uploaded_file.getvalue()
-  if len(file_bytes) > max_bytes:
-    st.error("L'immagine è troppo grande. Il limite è di 10 MB.")
-    return None
+    file_bytes = uploaded_file.getvalue()
+    if len(file_bytes) > max_bytes:
+        st.error("L'immagine è troppo grande. Il limite è di 10 MB.")
+        return None
 
-  file_ext = allowed_types[content_type]
-  file_name = f"car_{int(time.time())}_{os.urandom(8).hex()}{file_ext}"
-  try:
-    supabase.storage.from_("immagini-garage").upload(
-        path=file_name,
-        file=file_bytes,
-        file_options={"content-type": content_type, "upsert": "false"},
-    )
-    return supabase.storage.from_("immagini-garage").get_public_url(file_name)
-  except Exception as e:
-    st.error(f"Errore durante il caricamento dell'immagine nel cloud: {e}")
-    return None
+    file_ext = allowed_types[content_type]
+    file_name = f"car_{int(time.time())}_{os.urandom(8).hex()}{file_ext}"
+    try:
+        supabase.storage.from_("immagini-garage").upload(
+            path=file_name,
+            file=file_bytes,
+            file_options={"content-type": content_type, "upsert": "false"},
+        )
+        return supabase.storage.from_("immagini-garage").get_public_url(file_name)
+    except Exception as e:
+        st.error(f"Errore durante il caricamento dell'immagine nel cloud: {e}")
+        return None
 
 
 def validate_image_url(url):
-  """Allow only normal HTTP(S) image URLs for previews/PDF generation."""
   if not url:
     return None
   url = str(url).strip()
@@ -1066,7 +1077,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
       safe_foto_url = validate_image_url(foto_url)
       if safe_foto_url:
         response_img = requests.get(
-            safe_foto_url, timeout=5, allow_redirects=True,
+            safe_foto_url, timeout=10, allow_redirects=True,
             headers={"User-Agent": "SlotGarage/1.0"}
         )
         content_type = (response_img.headers.get("Content-Type") or "").lower()
@@ -1099,7 +1110,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
   pesi_motore_keywords = [
       "peso_carrozzeria",
       "peso_totale",
-      "misura_assale_post.",
+      "carreggiata_post.",
       "giri_motore",
       "motore",
       "supporto_motore",
@@ -1146,13 +1157,6 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
       pdf.set_text_color(*text_dark)
       pdf.set_font("Helvetica", "", 8.5)
 
-      # Etichette compatte per le sospensioni Thunderslot nel PDF.
-      # Manteniamo invariati i nomi interni dei dati e interveniamo solo
-      # sulla visualizzazione, così non cambiano salvataggio, modifica o
-      # compatibilita con i dati gia presenti.
-      # Alias per la stampa: i dati possono arrivare dal DB sia con underscore
-      # sia con spazi (es. "Tipo Sospensione Posteriori"). Normalizziamo
-      # prima la chiave, così l'etichetta compatta viene applicata sempre.
       label_aliases = {
           "tipo_sospensione_posteriori": "Tipo Sosp. Post.",
           "tipo_sospensione_laterali": "Tipo Sosp. Lat.",
@@ -1163,14 +1167,14 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
           "sospensioni_posteriori": "Sospensioni Post.",
           "sospensioni_laterali": "Sospensioni Lat.",
           "sospensioni_anteriori": "Sospensioni Ant.",
+          "gomme anteriori": "Gomme Anteriori",
+          "gomme posteriori": "Gomme Posteriori",
       }
       k_str = str(k).strip()
       k_norm = "_".join(k_str.lower().replace("-", " ").split())
       k_clean = label_aliases.get(k_norm, k_str.replace("_", " "))
       v_clean = str(v)
 
-      # La colonna delle etichette viene dimensionata separatamente da quella
-      # dei valori, così le etichette lunghe non invadono più la seconda colonna.
       pdf.set_xy(x + 3, item_y)
       pdf.cell(label_width, 4.8, f"{k_clean}:", 0, 0)
 
@@ -1226,7 +1230,121 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
   return bytes(pdf_data)
 
 
-# --- GESTIONE SEZIONI (TAB) ---
+# ===== FUNZIONI DI NORMALIZZAZIONE =====
+def _normalizza_testo_filtro(valore):
+    if valore is None:
+        return ""
+    testo = str(valore).strip().casefold()
+    testo = unicodedata.normalize("NFKD", testo)
+    testo = "".join(ch for ch in testo if not unicodedata.combining(ch))
+    testo = testo.replace("-", " ").replace("_", " ")
+    return " ".join(testo.split())
+
+def _forcella_nsr_abilitata():
+    if str(selected_prod_name or "").strip().casefold() != "nsr":
+        return False
+
+    mod = str(selected_model_name or "").strip().casefold()
+
+    # Modelli che NON hanno la forcella
+    modelli_senza_forcella = [
+        "mclaren 720s",
+        "corvette c8.r",
+        "mercedes amg",
+        "mercedes-amg",
+    ]
+
+    for senza in modelli_senza_forcella:
+        if senza in mod:
+            return False
+
+    mod_compatto = re.sub(r"[^a-z0-9]+", "", mod)
+    modelli_forcella = (
+        "corvette c6.r",
+        "corvette c7.r",
+        "asv gt3",
+        "audi r8 lms",
+        "bmw z4",
+        "porsche 997 gt3",
+        "porsche 997",
+    )
+    return any(
+        re.sub(r"[^a-z0-9]+", "", nome) in mod_compatto
+        for nome in modelli_forcella
+    )
+
+
+# ============================================================
+# FUNZIONI REGOLAMENTO - SOLUZIONE DEFINITIVA (LEGGE DA CSV)
+# ============================================================
+
+def _norm_regola(valore):
+    import unicodedata
+    if valore is None:
+        return ""
+    testo = str(valore).strip().casefold()
+    testo = unicodedata.normalize("NFKD", testo)
+    testo = "".join(ch for ch in testo if not unicodedata.combining(ch))
+    testo = testo.replace("–", "-").replace("—", "-").replace("_", " ")
+    return " ".join(testo.split())
+
+def _carica_regole_semplici(prod_id, cat_id):
+    """Carica le regole dal file CSV regolamento.csv."""
+    try:
+        csv_path = os.path.join(os.path.dirname(__file__), "regolamento.csv")
+        
+        if not os.path.exists(csv_path):
+            st.warning(f"⚠️ File regolamento.csv non trovato in {csv_path}. Creane uno con le tue regole.")
+            st.info("📌 Il file deve avere colonne: id_produttori,id_categorie,campo,valoreregola")
+            return {}
+        
+        regole_per_campo = {}
+        mappa_campi = {
+            "motore": "Motore",
+            "supporto motore": "Supporto Motore",
+            "corona": "Corona",
+            "pignoni": "Pignoni",
+            "pignone": "Pignoni",
+            "assale anteriore": "Assale Anteriore",
+            "assale posteriore": "Assale Posteriore",
+            "cerchi anteriori": "Cerchi Anteriori",
+            "cerchi posteriori": "Cerchi Posteriori",
+            "pickup": "Pickup",
+            "forcella": "Forcella",
+            "gomme anteriori": "Gomme Anteriori",
+            "gomme posteriori": "Gomme Posteriori",
+        }
+        
+        with open(csv_path, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if str(row.get("id_produttori")) == str(prod_id) and str(row.get("id_categorie")) == str(cat_id):
+                    campo = row.get("campo")
+                    valore = row.get("valoreregola")
+                    if campo and valore:
+                        campo_norm = campo.lower().strip()
+                        campo_originale = mappa_campi.get(campo_norm, campo)
+                        if campo_originale not in regole_per_campo:
+                            regole_per_campo[campo_originale] = []
+                        if valore not in regole_per_campo[campo_originale]:
+                            regole_per_campo[campo_originale].append(valore)
+        
+        if regole_per_campo:
+            st.session_state.regolamento_dati = regole_per_campo
+            st.session_state.regolamento_attivo = True
+            st.success(f"✅ Caricate {sum(len(v) for v in regole_per_campo.values())} regole da CSV")
+            st.write("**Regole caricate:**", regole_per_campo)
+        else:
+            st.warning(f"⚠️ Nessuna regola trovata nel CSV per produttore {prod_id} e categoria {cat_id}")
+        
+        return regole_per_campo
+    except Exception as e:
+        st.error(f"❌ Errore durante il caricamento del CSV: {e}")
+        return {}
+
+# ============================================================
+# GESTIONE SEZIONI (TAB)
+# ============================================================
 
 if st.session_state.active_tab == "📋 Visualizza Modelli":
   if selected_model_name != "Tutti":
@@ -1261,6 +1379,33 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
         )
 
       st.subheader(f"Configurazione: {selected_model_name}")
+
+      model_safe_key = re.sub(r"[^a-zA-Z0-9_]+", "_", str(selected_model_name)).strip("_") or "modello"
+
+      _reg_target = (str(prod_id_selezionato), str(category_id), str(selected_model_name))
+      if st.session_state.get("configura_regolamento_target") not in (None, _reg_target):
+        st.session_state.configura_regolamento_target = None
+
+      _reg_attivo = st.session_state.get("configura_regolamento_target") == _reg_target
+      
+      # I BOTTONI per attivare/disattivare il regolamento
+      col_reg1, col_reg2 = st.columns([1, 1])
+      with col_reg1:
+          if not _reg_attivo:
+              if st.button("📖 Configura da Regolamento", key=f"config_reg_{model_safe_key}"):
+                  st.session_state.configura_regolamento_target = _reg_target
+                  # Carica le regole dal CSV
+                  _carica_regole_semplici(prod_id_selezionato, category_id)
+                  st.rerun()
+          else:
+              st.success("✅ Configurazione da Regolamento attiva")
+      with col_reg2:
+          if _reg_attivo:
+              if st.button("↩️ Torna a Box Stock", key=f"boxstock_reg_{model_safe_key}"):
+                  st.session_state.configura_regolamento_target = None
+                  st.session_state.regolamento_attivo = False
+                  st.session_state.regolamento_dati = {}
+                  st.rerun()
 
       default_foto_db = (
           modello_selezionato.get("foto_url") if modello_selezionato else None
@@ -1324,61 +1469,29 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
         st.write(f"### ⚙️ Setup Avanzato - {selected_prod_name}")
 
         pezzi = []
+        pezzi_produttore = []
         for p in catalogo_componenti:
-          if p and p.get("id_Produttori") == prod_id_selezionato:
-            cat_componente = (
-                p.get("category_id")
-                if p.get("category_id") is not None
-                else (
-                    p.get("id_Categorie")
-                    if p.get("id_Categorie") is not None
-                    else p.get("categoria")
-                )
-            )
-            if cat_componente is None:
-              pezzi.append(p)
-            elif str(cat_componente) == str(category_id):
-              pezzi.append(p)
+          if not p or p.get("id_Produttori") != prod_id_selezionato:
+            continue
+
+          pezzi_produttore.append(p)
+
+          cat_componente = (
+              p.get("category_id")
+              if p.get("category_id") is not None
+              else (
+                  p.get("id_Categorie")
+                  if p.get("id_Categorie") is not None
+                  else p.get("categoria")
+              )
+          )
+          if cat_componente is None or str(cat_componente) == str(category_id):
+            pezzi.append(p)
 
         scelte_utente = {}
-        model_safe_key = selected_model_name.replace(" ", "_").replace(".", "_")
-
-        # ------------------------------------------------------------------
-        # FILTRO SUPPORTO MOTORE / CONFIGURAZIONE PER PRODUTTORE + CATEGORIA
-        # ------------------------------------------------------------------
-        # Il telaio NON viene filtrato qui: il collegamento telaio ->
-        # CatalogoComponenti.id e' gia' gestito separatamente.
-        #
-        # Regole richieste:
-        # NSR:
-        #   GT3      -> ANGLEWINDER
-	#   HYPERCAR -> SIDEWINDER
-        #   CLASSIC  -> SIDEWINDER
-        #   F1 86/89 -> IN LINEA
-        #   F1 2022  -> IN LINEA
-        #   MOSLER   -> ANGLEWINDER
-       
-        #
-        # Slot.it:
-        #   Hypercar -> ANGLEWINDER
-        #   CLASSIC  -> SIDEWINDER
-        #   GT3      -> SIDEWINDER
-        #   DTM      -> IN LINEA
-        #   Gruppo C -> IN LINEA
-        #
-        # Il filtro usa id_Produttori e category_id gia' presenti in "pezzi",
-        # quindi non puo' pescare componenti di un altro produttore.
-        def _normalizza_testo_filtro(valore):
-          if valore is None:
-            return ""
-          testo = str(valore).strip().casefold()
-          testo = unicodedata.normalize("NFKD", testo)
-          testo = "".join(ch for ch in testo if not unicodedata.combining(ch))
-          testo = testo.replace("-", " ").replace("_", " ")
-          return " ".join(testo.split())
 
         MATERIALE_PER_PRODUTTORE_CATEGORIA = {
-          1: {  # NSR
+          1: {
             "gt3": "anglewinder",
             "hypercar": "sidewinder",
             "classic": "sidewinder",
@@ -1390,7 +1503,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             "altri modelli": "anglewinder",
             "altri_modelli": "anglewinder",
           },
-          2: {  # Slot.it
+          2: {
             "hypercar": "anglewinder",
             "hypercar lmp": "anglewinder",
             "classic": "sidewinder",
@@ -1412,12 +1525,10 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
           categoria_norm = _normalizza_testo_filtro(selected_cat_name)
 
-          # Prima prova il nome completo.
           materiale = regole_produttore.get(categoria_norm)
           if materiale:
             return materiale
 
-          # Alias tolleranti per eventuali differenze minime nel catalogo.
           if categoria_norm.startswith("f1 86"):
             return regole_produttore.get("f1 86/89")
           if categoria_norm in {"f1 2022", "f1 22", "f122"}:
@@ -1428,26 +1539,8 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           return None
 
         def filtra_per_materiale_configurazione(campo, lista_pezzi):
-          """
-          Applica il filtro Anglewinder / Sidewinder / In linea
-          SOLTANTO ai campi per i quali la configurazione del motore
-          deve determinare il componente.
-
-          Campi filtrati:
-            - Supporto Motore
-            - Pignoni
-            - Corona
-
-          Il Telaio è escluso da questo filtro e viene cercato per modello.
-
-          Tutti gli altri campi (Motore, Assali, Cerchi, Pickup,
-          Viti Carrozzeria, ecc.) restano liberi e mostrano i componenti
-          gia' filtrati per produttore + categoria.
-          """
           campo_norm = _normalizza_testo_filtro(campo)
 
-          # SLOT.IT HYPERCAR LMP: configurazione generale Anglewinder,
-          # ma il Box Stock utilizza volutamente questo pignone Sidewinder.
           if (
               str(prod_id_selezionato) == "2"
               and _normalizza_testo_filtro(selected_cat_name) == "hypercar lmp"
@@ -1462,8 +1555,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             "corona",
           }
 
-          # Per tutti gli altri componenti NON applicare il filtro
-          # Anglewinder / Sidewinder / In linea.
           if campo_norm not in campi_con_filtro_materiale:
             return lista_pezzi
 
@@ -1479,120 +1570,53 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             if not materiale:
               continue
 
-            # Accetta sia "Anglewinder" sia eventuali descrizioni piu'
-            # lunghe che contengono il materiale di montaggio.
             if target in materiale:
               filtrati.append(p)
 
           return filtrati
 
         def helper_filtra_pezzi_thunderslot(campo, pezzi):
-          """
-          Filtro dedicato a Thunderslot.
-
-          NON applica il filtro Sidewinder / Anglewinder / In linea.
-          I componenti arrivano gia' filtrati per produttore + categoria;
-          qui viene filtrata soltanto la tipologia del componente.
-          """
           c_low = _normalizza_testo_filtro(campo)
-
+          if not pezzi:
+              return []
           if "motore" in c_low and "supporto" not in c_low:
-            return [
-                p for p in pezzi
-                if p and p.get("Prodotto")
-                and "motore" in _normalizza_testo_filtro(p.get("Prodotto"))
-                and "supporto" not in _normalizza_testo_filtro(p.get("Prodotto"))
-            ]
-
+              return [p for p in pezzi if p and p.get("Prodotto") 
+                      and "motore" in _normalizza_testo_filtro(p.get("Prodotto"))
+                      and "supporto" not in _normalizza_testo_filtro(p.get("Prodotto"))]
           if "supporto" in c_low and "motore" in c_low:
-            return [
-                p for p in pezzi
-                if p and p.get("Prodotto")
-                and "supporto" in _normalizza_testo_filtro(p.get("Prodotto"))
-            ]
-
+              return [p for p in pezzi if p and p.get("Prodotto") 
+                      and "supporto" in _normalizza_testo_filtro(p.get("Prodotto"))]
           if "corona" in c_low:
-            return [
-                p for p in pezzi
-                if p and p.get("Prodotto")
-                and "corona" in _normalizza_testo_filtro(p.get("Prodotto"))
-            ]
-
+              return [p for p in pezzi if p and p.get("Prodotto") 
+                      and "corona" in _normalizza_testo_filtro(p.get("Prodotto"))]
           if "telaio" in c_low:
-            return [
-                p for p in pezzi
-                if p and p.get("Prodotto")
-                and "telaio" in _normalizza_testo_filtro(p.get("Prodotto"))
-            ]
-
+              return [p for p in pezzi if p and p.get("Prodotto") 
+                      and "telaio" in _normalizza_testo_filtro(p.get("Prodotto"))]
           if "assale" in c_low:
-            return [
-                p for p in pezzi
-                if p and p.get("Prodotto")
-                and "assale" in _normalizza_testo_filtro(p.get("Prodotto"))
-            ]
-
+              return [p for p in pezzi if p and p.get("Prodotto") 
+                      and "assale" in _normalizza_testo_filtro(p.get("Prodotto"))]
           if "cerch" in c_low:
-            return [
-                p for p in pezzi
-                if p and p.get("Prodotto")
-                and "cerch" in _normalizza_testo_filtro(p.get("Prodotto"))
-            ]
-
+              return [p for p in pezzi if p and p.get("Prodotto") 
+                      and "cerch" in _normalizza_testo_filtro(p.get("Prodotto"))]
           if "pickup" in c_low:
-            return [
-                p for p in pezzi
-                if p and p.get("Prodotto")
-                and (
-                    "pickup" in _normalizza_testo_filtro(p.get("Prodotto"))
-                    or "pick up" in _normalizza_testo_filtro(p.get("Prodotto"))
-                )
-            ]
-
+              return [p for p in pezzi if p and p.get("Prodotto") 
+                      and ("pickup" in _normalizza_testo_filtro(p.get("Prodotto"))
+                      or "pick up" in _normalizza_testo_filtro(p.get("Prodotto")))]
           if "viti carrozzeria" in c_low or "viti" in c_low:
-            return [
-                p for p in pezzi
-                if p and p.get("Prodotto")
-                and (
-                    "viti" in _normalizza_testo_filtro(p.get("Prodotto"))
-                    or "carrozzeria" in _normalizza_testo_filtro(p.get("Prodotto"))
-                )
-            ]
-
-          return []
+              return [p for p in pezzi if p and p.get("Prodotto") 
+                      and ("viti" in _normalizza_testo_filtro(p.get("Prodotto"))
+                      or "carrozzeria" in _normalizza_testo_filtro(p.get("Prodotto")))]
+          return pezzi
 
         def helper_filtra_pezzi(campo, pezzi):
-          """
-          FILTRO DEFINITIVO COMPONENTI.
-
-          Prima 'pezzi' è già filtrato per PRODUTTORE + CATEGORIA.
-          Qui filtriamo SOLO la tipologia del componente.
-
-          La configurazione Sidewinder / Anglewinder / In linea viene
-          applicata ESCLUSIVAMENTE a:
-              - Supporto Motore
-              - Corona
-              - Pignoni
-
-          Il Telaio NON viene filtrato per configurazione: viene cercato
-          in base al modello selezionato.
-
-          NON viene applicata a:
-              - Motore
-              - Assale Anteriore/Posteriore
-              - Cerchi Anteriori/Posteriori
-              - Pickup
-              - Viti Carrozzeria
-          """
           c = _normalizza_testo_filtro(campo)
+          if not pezzi:
+              return []
 
-          # IMPORTANTISSIMO: Supporto Motore va controllato PRIMA di
-          # "motore", altrimenti "supporto motore" verrebbe intercettato
-          # dal ramo Motore.
           if c == "supporto motore":
             lista = [
                 p for p in pezzi
-                if p.get("Prodotto")
+                if p and p.get("Prodotto")
                 and "supporto" in _normalizza_testo_filtro(p.get("Prodotto"))
                 and "motore" in _normalizza_testo_filtro(p.get("Prodotto"))
             ]
@@ -1601,14 +1625,14 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           if c == "motore":
             return [
                 p for p in pezzi
-                if p.get("Prodotto")
+                if p and p.get("Prodotto")
                 and _normalizza_testo_filtro(p.get("Prodotto")) == "motore"
             ]
 
           if c == "corona":
             lista = [
                 p for p in pezzi
-                if p.get("Prodotto")
+                if p and p.get("Prodotto")
                 and "corona" in _normalizza_testo_filtro(p.get("Prodotto"))
             ]
             return filtra_per_materiale_configurazione("corona", lista)
@@ -1616,7 +1640,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           if c in {"pignoni", "pignone"}:
             lista = [
                 p for p in pezzi
-                if p.get("Prodotto")
+                if p and p.get("Prodotto")
                 and (
                     "pignon" in _normalizza_testo_filtro(p.get("Prodotto"))
                     or "pignone" in _normalizza_testo_filtro(p.get("Prodotto"))
@@ -1627,17 +1651,13 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           if c == "telaio":
             lista = [
               p for p in pezzi
-              if p.get("Prodotto")
+              if p and p.get("Prodotto")
               and "telaio" in _normalizza_testo_filtro(p.get("Prodotto"))
             ]
 
             if not lista:
               return []
 
-            # Il Telaio è un'eccezione: NON deve essere filtrato per
-            # In linea / Sidewinder / Anglewinder.
-            # Deve invece seguire la stessa logica di ricerca per MODELLO
-            # usata dal menu Modello.
             modello = _normalizza_testo_filtro(selected_model_name)
 
             if not modello or modello == "tutti":
@@ -1648,7 +1668,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               misure = str(p.get("Misure") or "")
               return _normalizza_testo_filtro(f"{materiale} {misure}")
 
-            # Prima: nome completo del modello.
             trovati = [
               p for p in lista
               if modello in testo_telaio(p)
@@ -1665,7 +1684,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 ]
               return trovati
 
-            # Seconda possibilità: parole significative del modello.
             parole = [w for w in modello.split() if len(w) > 2]
             if parole:
               trovati = [
@@ -1684,13 +1702,8 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                   ]
                 return trovati
 
-            # Nessuna corrispondenza: non applicare un filtro meccanico
-            # al Telaio e non pescare telai di altre categorie/produttori.
             risultato = lista
 
-            # NSR: il telaio nero / Standard (Nero) deve essere SEMPRE
-            # la prima scelta del menu. Non eliminiamo le altre durezze:
-            # restano disponibili per la selezione manuale.
             if str(selected_prod_name or "").strip().casefold() == "nsr":
               def _telaio_nero(p):
                 testo = _normalizza_testo_filtro(
@@ -1704,25 +1717,42 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
             return risultato
 
-          if c in {"assale anteriore", "assale posteriore"}:
-            return [
+          if c == "forcella":
+            risultato_forcelle = [
                 p for p in pezzi
-                if p.get("Prodotto")
+                if p and p.get("Prodotto")
+                and "forcell" in _normalizza_testo_filtro(p.get("Prodotto"))
+            ]
+
+            if not risultato_forcelle:
+              risultato_forcelle = [
+                  p for p in pezzi_produttore
+                  if p and p.get("Prodotto")
+                  and "forcell" in _normalizza_testo_filtro(p.get("Prodotto"))
+              ]
+
+            return risultato_forcelle
+
+          if c in {"assale anteriore", "assale posteriore"}:
+            risultato_assali = [
+                p for p in pezzi
+                if p and p.get("Prodotto")
                 and "assale" in _normalizza_testo_filtro(p.get("Prodotto"))
             ]
 
-          # "Cerchi Anteriori" e "Cerchi Posteriori": il campo è plurale,
-          # quindi cercare "cerchio" non è sufficiente.
+            if not risultato_assali:
+              risultato_assali = [
+                  p for p in pezzi_produttore
+                  if p and p.get("Prodotto")
+                  and "assale" in _normalizza_testo_filtro(p.get("Prodotto"))
+              ]
+
+            return risultato_assali
+
           if c in {"cerchi anteriori", "cerchi posteriori"}:
-            # Il catalogo usa sia Prodotto sia Materiale/Misure per
-            # identificare la posizione. Usiamo tutto il testo della riga:
-            # - Anteriori: escludiamo sempre ciò che è dichiarato Posteriore.
-            # - Posteriori: escludiamo sempre ciò che è dichiarato Anteriore.
-            # Se una voce non specifica la posizione, resta disponibile per
-            # non rompere le configurazioni Box Stock già funzionanti.
             risultato = []
             for p in pezzi:
-              if not p.get("Prodotto"):
+              if not p or not p.get("Prodotto"):
                 continue
               testo_cerchio = " ".join(
                   str(p.get(k) or "")
@@ -1746,7 +1776,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           if c == "pickup":
             risultato = []
             for p in pezzi:
-              if not p.get("Prodotto"):
+              if not p or not p.get("Prodotto"):
                 continue
               testo_pickup = " ".join(
                   str(p.get(k) or "")
@@ -1757,119 +1787,168 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               if "pickup" not in testo_pickup and "pick up" not in testo_pickup:
                 continue
 
-              # I distanziali 4818/4819/4820 sono accessori tra telaio e
-              # pickup e NON sono pickup. Devono restare fuori da questo menu.
               if "distanzial" in testo_pickup or "spacer" in testo_pickup:
                 continue
 
               risultato.append(p)
             return risultato
 
-          # "Viti Carrozzeria": gestiamo esplicitamente "viti", non "vite".
           if c == "viti carrozzeria":
             return [
                 p for p in pezzi
-                if p.get("Prodotto")
+                if p and p.get("Prodotto")
                 and "vit" in _normalizza_testo_filtro(p.get("Prodotto"))
                 and "carrozz" in _normalizza_testo_filtro(p.get("Prodotto"))
             ]
 
-          # Qualsiasi campo non gestito esplicitamente non deve mostrare
-          # componenti casuali del catalogo: restituiamo lista vuota.
+          # ---- AGGIUNTA PER LE GOMME ----
+          if c in {"gomme anteriori", "gomme anteriore"}:
+              result = [
+                  p for p in pezzi
+                  if p and p.get("Prodotto")
+                  and "gomme anteriori" in _normalizza_testo_filtro(p.get("Prodotto"))
+              ]
+              # Fallback: cerca "gomme" senza specificare anteriore/posteriore
+              if not result:
+                  result = [
+                      p for p in pezzi
+                      if p and p.get("Prodotto")
+                      and "gomme" in _normalizza_testo_filtro(p.get("Prodotto"))
+                      and "posteriori" not in _normalizza_testo_filtro(p.get("Prodotto"))
+                  ]
+              return result
+
+          if c in {"gomme posteriori", "gomme posteriore"}:
+              result = [
+                  p for p in pezzi
+                  if p and p.get("Prodotto")
+                  and "gomme posteriori" in _normalizza_testo_filtro(p.get("Prodotto"))
+              ]
+              if not result:
+                  result = [
+                      p for p in pezzi
+                      if p and p.get("Prodotto")
+                      and "gomme" in _normalizza_testo_filtro(p.get("Prodotto"))
+                      and "anteriori" not in _normalizza_testo_filtro(p.get("Prodotto"))
+                  ]
+              return result
+
           return []
 
+        def _testo_catalogo_regola(p):
+          return " ".join(
+              str(p.get(k) or "")
+              for k in ("Prodotto", "Materiale", "Misure", "Tipo")
+          )
 
+        # ============================================================
+        # FUNZIONE RENDER_SELECT_COMPONENTE MODIFICATA
+        # ============================================================
         def render_select_componente(campo, sub_pezzi_list, key_prefix):
-          # Il Box Stock viene confrontato con Prodotto, Materiale, Misure e
-          # testo visualizzato. Questo è fondamentale per le righe inserite
-          # manualmente nel catalogo dove la descrizione corretta è in Prodotto.
-          opzioni = []
-          match_values = []
-          boxstock_val = _boxstock_target(selected_prod_name, selected_cat_name, campo)
+            # SE IL REGOLAMENTO È ATTIVO E IL CAMPO HA REGOLE
+            if st.session_state.regolamento_attivo and campo in st.session_state.regolamento_dati:
+                opzioni = st.session_state.regolamento_dati[campo]
+                saved_val = edit_data.get(campo) if edit_data else None
+                idx = 0
+                if saved_val and saved_val in opzioni:
+                    idx = opzioni.index(saved_val)
+                return st.selectbox(
+                    campo,
+                    opzioni,
+                    index=idx,
+                    key=f"reg_{campo}_{model_safe_key}",
+                )
+            
+            # ALTRIMENTI USA IL COMPORTAMENTO ORIGINALE (BOX STOCK)
+            opzioni = []
+            match_values = []
+            boxstock_val = _boxstock_target(selected_prod_name, selected_cat_name, campo)
 
-          def _norm_match(v):
-            import unicodedata
-            s = str(v or "").strip().casefold()
-            s = unicodedata.normalize("NFKD", s)
-            s = "".join(ch for ch in s if not unicodedata.combining(ch))
-            s = s.replace("–", "-").replace("—", "-").replace("_", " ")
-            s = re.sub(r"\s*-\s*", "-", s)
-            s = re.sub(r"[^a-z0-9.]+", "", s)
-            return s
+            # COSTRUISCI LE OPZIONI DAL CATALOGO
+            for p in sub_pezzi_list:
+                prodotto = str(p.get("Prodotto") or "").strip()
+                mat = p.get("Materiale")
+                mis = p.get("Misure")
+                parte_mat = str(mat).strip() if mat and str(mat).lower() != "none" else ""
+                parte_mis = str(mis).strip() if mis and str(mis).lower() != "none" else ""
 
-          target_norm = _norm_match(boxstock_val)
+                if parte_mat and parte_mis:
+                    str_opt = f"{parte_mat} - {parte_mis}"
+                elif parte_mat or parte_mis:
+                    str_opt = parte_mat or parte_mis
+                else:
+                    str_opt = prodotto
 
-          # DEDUPLICAZIONE DELLE VOCI VISUALIZZATE.
-          # Non cancelliamo nulla dal CatalogoComponenti: se due righe
-          # producono la stessa identica scelta nel menu, la mostriamo una
-          # sola volta. Questo risolve i duplicati di F1 22, F1 86/89, GT3,
-          # ecc. senza alterare i dati del database.
-          chiavi_opzioni = set()
+                if str_opt and str_opt not in opzioni:
+                    opzioni.append(str_opt)
+                    match_values.append((str_opt, prodotto, parte_mat, parte_mis))
 
-          for p in sub_pezzi_list:
-            prodotto = str(p.get("Prodotto") or "").strip()
-            mat = p.get("Materiale")
-            mis = p.get("Misure")
-            parte_mat = str(mat).strip() if mat and str(mat).lower() != "none" else ""
-            parte_mis = str(mis).strip() if mis and str(mis).lower() != "none" else ""
+            # SE IL CATALOGO È VUOTO, USA IL VALORE BOX STOCK COME UNICA OPZIONE
+            if not opzioni and boxstock_val:
+                saved_val = edit_data.get(campo) if edit_data else None
+                default_val = saved_val if saved_val else boxstock_val
+                return st.selectbox(
+                    campo,
+                    [default_val],
+                    index=0,
+                    key=f"{key_prefix}_{campo}_{model_safe_key}",
+                )
+            
+            # SE IL CATALOGO HA OPZIONI, TROVA L'INDICE DEL VALORE BOX STOCK
+            saved_val = edit_data.get(campo) if edit_data else None
+            target_for_default = saved_val if saved_val else boxstock_val
+            
+            def_idx = 0
+            if target_for_default and target_for_default in opzioni:
+                def_idx = opzioni.index(target_for_default)
+            elif boxstock_val and boxstock_val in opzioni:
+                def_idx = opzioni.index(boxstock_val)
 
-            if parte_mat and parte_mis:
-              str_opt = f"{parte_mat} - {parte_mis}"
-            elif parte_mat or parte_mis:
-              str_opt = parte_mat or parte_mis
-            else:
-              str_opt = prodotto
+            # SE OPZIONI È VUOTA, MOSTRA UN PLACEHOLDER
+            if not opzioni:
+                opzioni = ["Nessuna opzione"]
+                def_idx = 0
 
-            # Se la descrizione Box Stock è nella colonna Prodotto, mostriamo
-            # esattamente quella descrizione, invece della rappresentazione
-            # Materiale/Misure che potrebbe appartenere a un'altra variante.
-            if target_norm and _norm_match(prodotto) == target_norm:
-              str_opt = prodotto
-
-            if str_opt:
-              chiave = _norm_match(str_opt)
-              if not chiave or chiave in chiavi_opzioni:
-                continue
-              chiavi_opzioni.add(chiave)
-              opzioni.append(str_opt)
-              match_values.append((str_opt, prodotto, parte_mat, parte_mis))
-
-          saved_val = edit_data.get(campo) if edit_data else None
-          target_for_default = saved_val if saved_val else boxstock_val
-
-          # Se il valore salvato è presente, rispettalo. Altrimenti seleziona
-          # il Box Stock solo quando una singola riga del catalogo corrisponde
-          # in modo certo a uno dei campi della riga.
-          def_idx = None
-          target_norm2 = _norm_match(target_for_default)
-          if target_norm2:
-            candidates = []
-            for idx, (display, prodotto, mat, mis) in enumerate(match_values):
-              vals = {
-                  _norm_match(display),
-                  _norm_match(prodotto),
-                  _norm_match(mat),
-                  _norm_match(mis),
-              }
-              vals.discard("")
-              if target_norm2 in vals:
-                candidates.append(idx)
-            if len(candidates) == 1:
-              def_idx = candidates[0]
-
-          if def_idx is None:
-            def_idx = find_default_index(
+            return st.selectbox(
+                campo,
                 opzioni,
-                selected_model_name,
-                target_value=target_for_default
+                index=def_idx,
+                key=f"{key_prefix}_{campo}_{model_safe_key}",
             )
 
-          return st.selectbox(
-              campo,
-              opzioni if opzioni else ["Nessuna opzione"],
-              index=def_idx,
-              key=f"{key_prefix}_{campo}_{model_safe_key}",
-          )
+        # --------------------------------------------
+        # CONFIGURAZIONE PER I DIVERSI PRODUTTORI
+        # --------------------------------------------
+
+        # Se il regolamento è attivo, mostriamo la tabella di confronto
+        if _reg_attivo:
+          st.caption("Confronto configurazione: Box Stock vs Regolamento")
+          confronto_campi = [
+              "Motore", "Supporto Motore", "Corona", "Pignoni",
+              "Assale Anteriore", "Assale Posteriore",
+              "Cerchi Anteriori", "Cerchi Posteriori", "Pickup", "Forcella",
+              "Gomme Anteriori", "Gomme Posteriori"
+          ]
+          righe_confronto = []
+          for _campo_confronto in confronto_campi:
+            _stock = _boxstock_target(
+                selected_prod_name, selected_cat_name, _campo_confronto
+            )
+            # Prendi le regole dallo stato
+            reg_text = "Nessuna regola"
+            if _campo_confronto in st.session_state.regolamento_dati:
+                reg_text = " / ".join(st.session_state.regolamento_dati[_campo_confronto])
+            righe_confronto.append({
+                "Componente": _campo_confronto,
+                "Box Stock": _stock or "—",
+                "Regolamento": reg_text,
+            })
+          if righe_confronto:
+            st.dataframe(
+                righe_confronto,
+                use_container_width=True,
+                hide_index=True,
+              )
 
         if selected_prod_name == "Altri Produttori":
           col_p1, col_p2, col_p3 = st.columns(3)
@@ -1886,10 +1965,10 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 key=f"peso_totale_altri_{model_safe_key}",
             )
           with col_p3:
-            scelte_utente["Misura_Assale_Posteriore"] = st.text_input(
-                "Misura Assale Posteriore",
-                value=str(edit_data.get("Misura_Assale_Posteriore", "")) if edit_data else "",
-                key=f"misura_assale_posteriore_{model_safe_key}"
+            scelte_utente["Carreggiata_Posteriore"] = st.text_input(
+                "Carreggiata Posteriore",
+                value=str(edit_data.get("Carreggiata_Posteriore", edit_data.get("Misura_Assale_Posteriore", ""))) if edit_data else "",
+                key=f"carreggiata_posteriore_{model_safe_key}"
             )
 
           altri_campi = [
@@ -1953,6 +2032,22 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               key=f"altri_tipo_supporto_{model_safe_key}"
           )
 
+          # Gomme per Altri Produttori (solo input text)
+          st.write("### 🏁 Gomme")
+          col_gomme1, col_gomme2 = st.columns(2)
+          with col_gomme1:
+              scelte_utente["Gomme Anteriori"] = st.text_input(
+                  "Gomme Anteriori",
+                  value=str(edit_data.get("Gomme Anteriori", "")) if edit_data else "",
+                  key=f"gomme_ant_altri_{model_safe_key}"
+              )
+          with col_gomme2:
+              scelte_utente["Gomme Posteriori"] = st.text_input(
+                  "Gomme Posteriori",
+                  value=str(edit_data.get("Gomme Posteriori", "")) if edit_data else "",
+                  key=f"gomme_post_altri_{model_safe_key}"
+              )
+
         elif selected_prod_name.lower() == "slot.it":
           col1_slot, col2_slot, col3_slot = st.columns(3)
           with col1_slot:
@@ -2013,10 +2108,10 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                       "Stopper", stopper_opts, index=idx_stop, key=f"slotit_stopper_{model_safe_key}"
                   )
                 with col_stop_2:
-                  scelte_utente["Misura_Assale_Posteriore"] = st.text_input(
-                      "Misura Assale Posteriore",
-                      value=str(edit_data.get("Misura_Assale_Posteriore", "")) if edit_data else "",
-                      key=f"misura_assale_posteriore_{model_safe_key}"
+                  scelte_utente["Carreggiata_Posteriore"] = st.text_input(
+                      "Carreggiata Posteriore",
+                      value=str(edit_data.get("Carreggiata_Posteriore", edit_data.get("Misura_Assale_Posteriore", ""))) if edit_data else "",
+                      key=f"carreggiata_posteriore_{model_safe_key}"
                   )
               else:
                 sub_pezzi = helper_filtra_pezzi(campo, pezzi)
@@ -2051,6 +2146,16 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
           scelte_utente["Sospensioni"] = render_select_componente("Sospensioni", sub_sosp, "slotit_scelta_sosp")
 
+          # ---- GOMME PER SLOT.IT ----
+          st.write("### 🏁 Gomme")
+          col_gomme1, col_gomme2 = st.columns(2)
+          with col_gomme1:
+              sub_pezzi_gomme_ant = helper_filtra_pezzi("gomme anteriori", pezzi)
+              scelte_utente["Gomme Anteriori"] = render_select_componente("Gomme Anteriori", sub_pezzi_gomme_ant, "gomme_ant_slotit")
+          with col_gomme2:
+              sub_pezzi_gomme_post = helper_filtra_pezzi("gomme posteriori", pezzi)
+              scelte_utente["Gomme Posteriori"] = render_select_componente("Gomme Posteriori", sub_pezzi_gomme_post, "gomme_post_slotit")
+
         else:
           col_p1, col_p2, col_p3 = st.columns(3)
           with col_p1:
@@ -2066,10 +2171,10 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 key=f"peso_totale_{selected_prod_name}_{model_safe_key}",
             )
           with col_p3:
-            scelte_utente["Misura_Assale_Posteriore"] = st.text_input(
-                "Misura Assale Posteriore",
-                value=str(edit_data.get("Misura_Assale_Posteriore", "")) if edit_data else "",
-                key=f"misura_assale_posteriore_{model_safe_key}"
+            scelte_utente["Carreggiata_Posteriore"] = st.text_input(
+                "Carreggiata Posteriore",
+                value=str(edit_data.get("Carreggiata_Posteriore", edit_data.get("Misura_Assale_Posteriore", ""))) if edit_data else "",
+                key=f"carreggiata_posteriore_{model_safe_key}"
             )
 
           if selected_prod_name.lower() == "nsr":
@@ -2078,6 +2183,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 "Supporto Motore",
                 "Corona",
                 "Giri Motore",
+                *(["Forcella"] if _forcella_nsr_abilitata() else []),
                 "Pignoni",
                 "Telaio",
                 "Assale Anteriore",
@@ -2120,7 +2226,25 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                   key=f"nsr_tipo_molla_{model_safe_key}",
               )
 
+            # ---- GOMME PER NSR ----
+            st.write("### 🏁 Gomme")
+            col_gomme1, col_gomme2 = st.columns(2)
+            with col_gomme1:
+                sub_pezzi_gomme_ant = helper_filtra_pezzi("gomme anteriori", pezzi)
+                scelte_utente["Gomme Anteriori"] = render_select_componente("Gomme Anteriori", sub_pezzi_gomme_ant, "gomme_ant_nsr")
+            with col_gomme2:
+                sub_pezzi_gomme_post = helper_filtra_pezzi("gomme posteriori", pezzi)
+                scelte_utente["Gomme Posteriori"] = render_select_componente("Gomme Posteriori", sub_pezzi_gomme_post, "gomme_post_nsr")
+
           elif selected_prod_name.lower() == "thunderslot":
+            thunder_components = [
+                p for p in catalogo_componenti
+                if p and p.get("id_Produttori") == prod_id_selezionato
+            ]
+            
+            if not thunder_components:
+                st.warning("Nessun componente Thunderslot trovato nel catalogo.")
+            
             thunder_campi = [
                 "Motore",
                 "Supporto Motore",
@@ -2135,16 +2259,48 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
             cols = st.columns(3)
             for idx, campo in enumerate(thunder_campi):
-              with cols[idx % 3]:
-                if campo == "Giri Motore":
-                  scelte_utente["Giri_Motore"] = st.text_input(
-                      "Giri Motore",
-                      value=str(edit_data.get("Giri_Motore", "")) if edit_data else "",
-                      key=f"giri_motore_thunderslot_{model_safe_key}",
-                  )
-                else:
-                  sub_pezzi = helper_filtra_pezzi_thunderslot(campo, pezzi)
-                  scelte_utente[campo] = render_select_componente(campo, sub_pezzi, "thunder")
+                with cols[idx % 3]:
+                    if campo == "Giri Motore":
+                        scelte_utente["Giri_Motore"] = st.text_input(
+                            "Giri Motore",
+                            value=str(edit_data.get("Giri_Motore", "")) if edit_data else "",
+                            key=f"giri_motore_thunderslot_{model_safe_key}",
+                        )
+                    else:
+                        filtered = helper_filtra_pezzi_thunderslot(campo, thunder_components)
+                        
+                        if not filtered:
+                            filtered = thunder_components
+                        
+                        opzioni = []
+                        for p in filtered:
+                            mat = str(p.get("Materiale") or "").strip()
+                            mis = str(p.get("Misure") or "").strip()
+                            if mat and mis:
+                                opzioni.append(f"{mat} - {mis}")
+                            elif mat:
+                                opzioni.append(mat)
+                            elif p.get("Prodotto"):
+                                opzioni.append(str(p.get("Prodotto")).strip())
+                            else:
+                                opzioni.append("Componente senza nome")
+                        
+                        opzioni = list(dict.fromkeys(opzioni))
+                        
+                        if not opzioni:
+                            opzioni = ["Nessun componente disponibile"]
+                        
+                        saved_val = edit_data.get(campo) if edit_data else None
+                        idx_default = 0
+                        if saved_val and saved_val in opzioni:
+                            idx_default = opzioni.index(saved_val)
+                        
+                        scelte_utente[campo] = st.selectbox(
+                            campo,
+                            opzioni,
+                            index=idx_default,
+                            key=f"thunder_{campo}_{model_safe_key}",
+                        )
 
             st.write("### 🔩 Sospensioni Thunderslot")
             col_sosp1, col_sosp2, col_sosp3 = st.columns(3)
@@ -2191,6 +2347,16 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                     )
                     scelte_utente[f"Durezza_Molla_{tipo_sosp}"] = durezza_molla
 
+            # ---- GOMME PER THUNDERSLOT ----
+            st.write("### 🏁 Gomme")
+            col_gomme1, col_gomme2 = st.columns(2)
+            with col_gomme1:
+                sub_pezzi_gomme_ant = helper_filtra_pezzi("gomme anteriori", pezzi)
+                scelte_utente["Gomme Anteriori"] = render_select_componente("Gomme Anteriori", sub_pezzi_gomme_ant, "gomme_ant_thunder")
+            with col_gomme2:
+                sub_pezzi_gomme_post = helper_filtra_pezzi("gomme posteriori", pezzi)
+                scelte_utente["Gomme Posteriori"] = render_select_componente("Gomme Posteriori", sub_pezzi_gomme_post, "gomme_post_thunder")
+
           elif selected_prod_name.lower() == "scaleauto":
             scaleauto_campi = [
                 "Motore",
@@ -2217,8 +2383,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                       key=f"giri_motore_scaleauto_{model_safe_key}",
                   )
                 elif campo == "Telaio":
-                  # SOLO SCALEAUTO: il Telaio viene associato al modello selezionato.
-                  # Non modifichiamo la logica degli altri componenti.
                   modello_scaleauto = _normalizza_testo_filtro(selected_model_name)
 
                   alias_telaio_scaleauto = {
@@ -2296,6 +2460,16 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                   key=f"scaleauto_tipo_molla_{model_safe_key}",
               )
 
+            # ---- GOMME PER SCALEAUTO ----
+            st.write("### 🏁 Gomme")
+            col_gomme1, col_gomme2 = st.columns(2)
+            with col_gomme1:
+                sub_pezzi_gomme_ant = helper_filtra_pezzi("gomme anteriori", pezzi)
+                scelte_utente["Gomme Anteriori"] = render_select_componente("Gomme Anteriori", sub_pezzi_gomme_ant, "gomme_ant_scaleauto")
+            with col_gomme2:
+                sub_pezzi_gomme_post = helper_filtra_pezzi("gomme posteriori", pezzi)
+                scelte_utente["Gomme Posteriori"] = render_select_componente("Gomme Posteriori", sub_pezzi_gomme_post, "gomme_post_scaleauto")
+
           else:
             priorita = ["Motore", "Corona Sidewinder", "Pignone"]
             altre_tipologie = [
@@ -2312,9 +2486,24 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               with cols[i % 3]:
                 scelte_utente[tipologia] = render_select_componente(tipologia, sub_pezzi, "comp")
 
-        st.divider()
+            # Gomme per "Altri" (produttori generici) - solo input text
+            st.write("### 🏁 Gomme")
+            col_gomme1, col_gomme2 = st.columns(2)
+            with col_gomme1:
+                scelte_utente["Gomme Anteriori"] = st.text_input(
+                    "Gomme Anteriori",
+                    value=str(edit_data.get("Gomme Anteriori", "")) if edit_data else "",
+                    key=f"gomme_ant_altri_{model_safe_key}"
+                )
+            with col_gomme2:
+                scelte_utente["Gomme Posteriori"] = st.text_input(
+                    "Gomme Posteriori",
+                    value=str(edit_data.get("Gomme Posteriori", "")) if edit_data else "",
+                    key=f"gomme_post_altri_{model_safe_key}"
+                )
 
-        # --- ALTEZZE E QUOTE ---
+        # ---- Il resto del codice rimane identico a quello originale ----
+        st.divider()
         st.write("### 📏 Altezze e Quote")
         col_alt1, col_alt2 = st.columns(2)
         with col_alt1:
@@ -2390,15 +2579,15 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
         st.divider()
 
-        if selected_prod_name != "Altri Produttori":
-          st.write("### 🔩 Supporto Assale")
-          if selected_prod_name.lower() in ["nsr", "scaleauto"]:
+        # Supporto Assale
+        st.write("### 🔩 Supporto Assale")
+        if selected_prod_name.lower() in ["nsr", "scaleauto"]:
             scelte_utente["Tipo_Supporto"] = "Bronzine"
             lista_bronzine = [
                 p for p in pezzi if p and p.get("Prodotto") and "bronz" in p.get("Prodotto").lower()
             ]
             scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", lista_bronzine, "sel_bronzine")
-          else:
+        else:
             sup_opts = ["Bronzine", "Cuscinetti"]
             def_sup = edit_data.get("Tipo_Supporto", "Bronzine") if edit_data else "Bronzine"
             idx_sup = sup_opts.index(def_sup) if def_sup in sup_opts else 0
@@ -2411,17 +2600,61 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             scelte_utente["Tipo_Supporto"] = scelta_tipo_supp
 
             if scelta_tipo_supp == "Bronzine":
-              lista_bronzine = [
-                  p for p in pezzi if p and p.get("Prodotto") and "bronz" in p.get("Prodotto").lower()
-              ]
-              scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", lista_bronzine, "sel_bronzine")
+                keywords_bronz = ["bronz", "bronzina"]
+                lista_bronzine = []
+                for p in pezzi:
+                    if not p: continue
+                    testo = " ".join([
+                        str(p.get("Prodotto", "")),
+                        str(p.get("Materiale", "")),
+                        str(p.get("Misure", "")),
+                        str(p.get("Tipo", ""))
+                    ]).lower()
+                    if any(kw in testo for kw in keywords_bronz):
+                        lista_bronzine.append(p)
+                if not lista_bronzine:
+                    for p in catalogo_componenti:
+                        if p and p.get("id_Produttori") == prod_id_selezionato:
+                            testo = " ".join([
+                                str(p.get("Prodotto", "")),
+                                str(p.get("Materiale", "")),
+                                str(p.get("Misure", "")),
+                                str(p.get("Tipo", ""))
+                            ]).lower()
+                            if any(kw in testo for kw in keywords_bronz):
+                                lista_bronzine.append(p)
+                if not lista_bronzine:
+                    st.warning("Nessuna bronzina trovata per questo produttore. Verifica il catalogo.")
+                scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", lista_bronzine, "sel_bronzine")
             else:
-              lista_cuscinetti = [
-                  p for p in pezzi if p and p.get("Prodotto") and "cuscinett" in p.get("Prodotto").lower()
-              ]
-              scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", lista_cuscinetti, "sel_cuscinetti")
+                keywords_cusc = ["cuscinett", "cusc", "bearing", "cuscino"]
+                lista_cuscinetti = []
+                for p in pezzi:
+                    if not p: continue
+                    testo = " ".join([
+                        str(p.get("Prodotto", "")),
+                        str(p.get("Materiale", "")),
+                        str(p.get("Misure", "")),
+                        str(p.get("Tipo", ""))
+                    ]).lower()
+                    if any(kw in testo for kw in keywords_cusc):
+                        lista_cuscinetti.append(p)
+                if not lista_cuscinetti:
+                    for p in catalogo_componenti:
+                        if p and p.get("id_Produttori") == prod_id_selezionato:
+                            testo = " ".join([
+                                str(p.get("Prodotto", "")),
+                                str(p.get("Materiale", "")),
+                                str(p.get("Misure", "")),
+                                str(p.get("Tipo", ""))
+                            ]).lower()
+                            if any(kw in testo for kw in keywords_cusc):
+                                lista_cuscinetti.append(p)
+                if not lista_cuscinetti:
+                    st.warning("Nessun cuscinetto trovato per questo produttore. Verifica il catalogo.")
+                scelte_utente["Dettaglio_Supporto"] = render_select_componente("Dettaglio_Supporto", lista_cuscinetti, "sel_cuscinetti")
 
-          st.divider()
+        st.divider()
 
         scelte_utente["Note"] = st.text_area(
             "Note",
@@ -2435,7 +2668,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
         st.divider()
 
-        # --- SEZIONE GENERAZIONE PDF & SALVATAGGIO AL VOLO ---
         st.markdown("### 📥 Nome Configurazione")
         
         nome_configurazione_input = st.text_input(
@@ -2618,7 +2850,7 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
           with col_info:
             st.markdown(
                 f"**🏎️ {conf_nome}** — *(Modello: {conf_modello})*"
-            )
+          )
 
           with col_btn_pdf:
             try:
@@ -3157,6 +3389,3 @@ elif st.session_state.active_tab == "➕ Carica Modello":
 # --- SLOTGARAGE PRO: voce di navigazione reale ---
 if st.session_state.active_tab == "Comparazione e Telemetria Modelli":
   sg_pro_ui()
-
-
-# Comparazione e Telemetria Modelli - UI
