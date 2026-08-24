@@ -1288,6 +1288,83 @@ def _norm_regola(valore):
     testo = testo.replace("–", "-").replace("—", "-").replace("_", " ")
     return " ".join(testo.split())
 
+def _normalizza_codice_prodotto(valore):
+    """Normalizza il codice prodotto per confronti esatti con il regolamento."""
+    if valore is None:
+        return ""
+    testo = str(valore).strip().casefold()
+    if testo.endswith(".0"):
+        parte_numerica = testo[:-2]
+        if parte_numerica.isdigit():
+            testo = parte_numerica
+    return "".join(testo.split())
+
+
+def _descrizione_catalogo_per_regolamento(componente):
+    """Costruisce la descrizione leggibile da mostrare insieme al codice."""
+    if not componente:
+        return ""
+
+    prodotto = str(componente.get("Prodotto") or "").strip()
+    materiale = str(componente.get("Materiale") or "").strip()
+    misure = str(componente.get("Misure") or "").strip()
+    tipo = str(componente.get("Tipo") or "").strip()
+
+    parti = []
+    if prodotto:
+        parti.append(prodotto)
+    if materiale and materiale.casefold() != "none":
+        parti.append(materiale)
+    if misure and misure.casefold() != "none":
+        parti.append(misure)
+    if tipo and tipo.casefold() != "none":
+        parti.append(tipo)
+
+    return " - ".join(parti)
+
+
+def _indicizza_catalogo_per_codice():
+    """Crea un indice Codice_Prodotto -> componente senza modificare il catalogo."""
+    indice = {}
+    for componente in catalogo_componenti or []:
+        if not componente:
+            continue
+        codice = componente.get("Codice_Prodotto")
+        if codice is None:
+            codice = componente.get("codice_prodotto")
+        codice_norm = _normalizza_codice_prodotto(codice)
+        if not codice_norm:
+            continue
+        # Il primo record verificato rimane il riferimento in caso di duplicati.
+        if codice_norm not in indice:
+            indice[codice_norm] = componente
+    return indice
+
+
+def _risolvi_regola_con_catalogo(valore, indice_codici):
+    """Se il valore del regolamento è un codice, restituisce 'codice - descrizione'.
+    Se non viene trovato, mantiene esattamente il valore originale.
+    """
+    valore_originale = "" if valore is None else str(valore).strip()
+    codice_norm = _normalizza_codice_prodotto(valore_originale)
+    if not codice_norm:
+        return valore_originale
+
+    componente = indice_codici.get(codice_norm)
+    if not componente:
+        return valore_originale
+
+    codice_db = componente.get("Codice_Prodotto")
+    if codice_db is None:
+        codice_db = componente.get("codice_prodotto")
+    codice_display = str(codice_db).strip() if codice_db is not None else valore_originale
+    descrizione = _descrizione_catalogo_per_regolamento(componente)
+
+    if descrizione:
+        return f"{codice_display} - {descrizione}"
+    return codice_display
+
+
 def _carica_regole_semplici(prod_id, cat_id):
     """Carica le regole dal file CSV regolamento.csv."""
     try:
@@ -1326,8 +1403,13 @@ def _carica_regole_semplici(prod_id, cat_id):
                         campo_originale = mappa_campi.get(campo_norm, campo)
                         if campo_originale not in regole_per_campo:
                             regole_per_campo[campo_originale] = []
-                        if valore not in regole_per_campo[campo_originale]:
-                            regole_per_campo[campo_originale].append(valore)
+                        # Il regolamento può contenere il codice ufficiale del prodotto.
+                        # In quel caso lo risolviamo direttamente contro CatalogoComponenti.
+                        # Se il codice non è presente nel database, manteniamo il valore originale.
+                        indice_codici = _indicizza_catalogo_per_codice()
+                        valore_mostrato = _risolvi_regola_con_catalogo(valore, indice_codici)
+                        if valore_mostrato not in regole_per_campo[campo_originale]:
+                            regole_per_campo[campo_originale].append(valore_mostrato)
         
         if regole_per_campo:
             st.session_state.regolamento_dati = regole_per_campo
@@ -1802,36 +1884,72 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             ]
 
           # ---- AGGIUNTA PER LE GOMME ----
+          # ---- GOMME: stessa logica dei CERCHI, adattata alla struttura reale del CatalogoComponenti ----
+          # Nel database:
+          #   Prodotto  = "Gomme"
+          #   Materiale = "Anteriori - NSR" / "Posteriori - NSR" / ecc.
+          #   Misure    = descrizione della gomma
+          #
+          # Quindi NON cerchiamo "gomme anteriori" dentro Prodotto.
+          # Usiamo Prodotto + Materiale + Misure, come facciamo per i cerchi.
+
           if c in {"gomme anteriori", "gomme anteriore"}:
-              result = [
-                  p for p in pezzi
-                  if p and p.get("Prodotto")
-                  and "gomme anteriori" in _normalizza_testo_filtro(p.get("Prodotto"))
-              ]
-              # Fallback: cerca "gomme" senza specificare anteriore/posteriore
-              if not result:
-                  result = [
-                      p for p in pezzi
-                      if p and p.get("Prodotto")
-                      and "gomme" in _normalizza_testo_filtro(p.get("Prodotto"))
-                      and "posteriori" not in _normalizza_testo_filtro(p.get("Prodotto"))
-                  ]
-              return result
+              risultato = []
+              for p in pezzi:
+                  if not p or not p.get("Prodotto"):
+                      continue
+
+                  prodotto = _normalizza_testo_filtro(p.get("Prodotto"))
+                  materiale = _normalizza_testo_filtro(p.get("Materiale"))
+                  misure = _normalizza_testo_filtro(p.get("Misure"))
+                  testo_gomma = " ".join(
+                      x for x in (prodotto, materiale, misure) if x
+                  )
+
+                  if "gomm" not in prodotto and "gomm" not in testo_gomma:
+                      continue
+
+                  # Anteriore: deve essere esplicitamente anteriore.
+                  # Non deve contenere posteriore.
+                  if "posterior" in materiale or "posterior" in misure:
+                      continue
+
+                  if (
+                      "anterior" in materiale
+                      or "anterior" in misure
+                  ):
+                      risultato.append(p)
+
+              return risultato
 
           if c in {"gomme posteriori", "gomme posteriore"}:
-              result = [
-                  p for p in pezzi
-                  if p and p.get("Prodotto")
-                  and "gomme posteriori" in _normalizza_testo_filtro(p.get("Prodotto"))
-              ]
-              if not result:
-                  result = [
-                      p for p in pezzi
-                      if p and p.get("Prodotto")
-                      and "gomme" in _normalizza_testo_filtro(p.get("Prodotto"))
-                      and "anteriori" not in _normalizza_testo_filtro(p.get("Prodotto"))
-                  ]
-              return result
+              risultato = []
+              for p in pezzi:
+                  if not p or not p.get("Prodotto"):
+                      continue
+
+                  prodotto = _normalizza_testo_filtro(p.get("Prodotto"))
+                  materiale = _normalizza_testo_filtro(p.get("Materiale"))
+                  misure = _normalizza_testo_filtro(p.get("Misure"))
+                  testo_gomma = " ".join(
+                      x for x in (prodotto, materiale, misure) if x
+                  )
+
+                  if "gomm" not in prodotto and "gomm" not in testo_gomma:
+                      continue
+
+                  # Posteriore: deve essere esplicitamente posteriore.
+                  # Non deve contenere anteriore.
+                  if "anterior" in materiale or "anterior" in misure:
+                      continue
+
+                  if (
+                      "posterior" in materiale
+                      or "posterior" in misure
+                  ):
+                      risultato.append(p)
+
+              return risultato
 
           return []
 
