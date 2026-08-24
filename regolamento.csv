@@ -41,6 +41,18 @@ id_produttori,id_categorie,campo,valoreregola
 1,1,Viti Carrozzeria,4836 Viti Metriche - 2.2x8mm Lunghe
 1,1,Viti Carrozzeria,4839 Viti Metriche - Ottone 2.2x8mm
 1,1,Viti Carrozzeria,4869 Viti Metriche - 2.2x6.5mm
+1,1,Gomme Anteriori,16x8mm No Friction per Cerchi da 13
+1,1,Gomme Anteriori,16x8mm Ultra Low No Friction
+1,1,Gomme Anteriori,17x10mm No Friction per Cerchi da 13
+1,1,Gomme Anteriori,17x8mm No Friction
+1,1,Gomme Anteriori,18x10mm No Friction per Cerchi da 13
+1,1,Gomme Anteriori,18x8mm No Friction
+1,1,Gomme Anteriori,19x10mm No Friction
+1,1,Gomme Posteriori,17.5x10.5 Low Profile Zero Graining - GT3
+1,1,Gomme Posteriori,19.5x10 Zero Graining - GT3
+1,1,Gomme Posteriori,19.5x11mm GT3 Evo
+1,1,Gomme Posteriori,19.5x10mm Ultragrip
+1,1,Gomme Posteriori,19.5x10 Zero Graining - GT3 - 100pz
 1,2,Motore,3041 Shark EVO - Cassa corta - 21.500 rpm - Etichetta fucsia
 1,2,Supporto Motore,1270 Sidewinder motor support xhard red
 1,2,Supporto Motore,1272 Sidewinder motor support medium black
@@ -75,6 +87,11 @@ id_produttori,id_categorie,campo,valoreregola
 1,2,Viti Carrozzeria,4837 Viti Metriche - 2.2x10mm
 1,2,Viti Carrozzeria,4839 Viti Metriche - Ottone 2.2x8mm
 1,2,Viti Carrozzeria,4869 Viti Metriche - 2.2x6.5mm
+1,2,Gomme Anteriori,20x8.5mm per Classic
+1,2,Gomme Anteriori,18.5x10mm Porsche 917
+1,2,Gomme Posteriori,18x10.5 Zero Graining WRE 2025 Official
+1,2,Gomme Posteriori,21x12mm Ultragrip Classic
+1,2,Gomme Posteriori,21x14mm Ultragrip Vanquish
 1,3,Motore,King 21 EVO/3 - Cassa lunga - 21.500 rpm - Etichetta fucsia
 1,3,Supporto Motore,1329 Sidewinder motor support +1 mm Offset RED Extra-hard
 1,3,Supporto Motore,1331 Sidewinder motor support +1 mm Offset BLACK medium
@@ -104,6 +121,11 @@ id_produttori,id_categorie,campo,valoreregola
 1,3,Viti Carrozzeria,4836 Viti Metriche - 2.2x8mm Lunghe
 1,3,Viti Carrozzeria,4839 Viti Metriche - Ottone 2.2x8mm
 1,3,Viti Carrozzeria,4869 Viti Metriche - 2.2x6.5mm
+1,3,Gomme Anteriori,16x8mm No Friction per Cerchi da 13
+1,3,Gomme Anteriori,20x8.5mm per Classic
+1,3,Gomme Posteriori,19.2x11.5 Zero Graining - Hypercar
+1,3,Gomme Posteriori,20.5x11mm Supergrip Evo
+1,3,Gomme Posteriori,20.5x11mm Ultragrip Evo
 1,4,Motore,King 21 EVO/3 - Cassa lunga - 21.500 rpm - Etichetta fucsia
 1,4,Supporto Motore,1283 Formula 86/89 inline motor support xhard red
 1,4,Supporto Motore,1281 Formula 86/89 inline motor support medium black
@@ -134,6 +156,15 @@ id_produttori,id_categorie,campo,valoreregola
 1,4,Viti Carrozzeria,4836 Viti Metriche - 2.2x8mm Lunghe
 1,4,Viti Carrozzeria,4839 Viti Metriche - Ottone 2.2x8mm
 1,4,Viti Carrozzeria,4869 Viti Metriche - 2.2x6.5mm
+1,4,Gomme Anteriori,18.5x10mm Porsche 917
+1,4,Gomme Anteriori,17x10mm No Friction per Cerchi da 13
+1,4,Gomme Posteriori,18.5x13 Zero Graining - Formula 86/89
+1,4,Gomme Posteriori,19.5 x 13.5mm per Formula NSR - 20pz
+1,4,Gomme Posteriori,19.5 x 13.5mm per Formula NSR - 50pz
+1,4,Gomme Posteriori,19.5 x 13.5mm per Formula NSR - 100pz
+1,4,Gomme Posteriori,19.5 x 13.5mm Supergrip Evo per Formula NSR
+1,4,Gomme Posteriori,19.5 x 13.5mm Ultragrip Evo per Formula NSR
+1,4,Gomme Posteriori,Nere 19.5 x 13.5mm per Formula NSR
 1,5,Motore,King 21 EVO/3 - Cassa lunga - 21.500 rpm - Etichetta fucsia
 1,5,Supporto Motore,1288 F22 inline motor support xhard red
 1,5,Supporto Motore,1286 F22 inline motor support medium black
@@ -161,6 +192,9 @@ id_produttori,id_categorie,campo,valoreregola
 1,5,Viti Carrozzeria,4836 Viti Metriche - 2.2x8mm Lunghe
 1,5,Viti Carrozzeria,4839 Viti Metriche - Ottone 2.2x8mm
 1,5,Viti Carrozzeria,4869 Viti Metriche - 2.2x6.5mm
+1,5,Gomme Anteriori,19.5 x 9.5mm per Formula 22
+1,5,Gomme Posteriori,18.5 x 13mm per Formula 22
+1,5,Gomme Posteriori,Special RTR 19 x 13mm per Formula 22
 3,13,Motore,MTMACH21DS Motor Mach 21.500 rpm - Doppio albero
 3,13,Supporto Motore,MS001B Black standard
 3,13,Supporto Motore,MS001G Grey Hard
@@ -191,67 +225,10 @@ id_produttori,id_categorie,campo,valoreregola
 3,13,Sospensioni,SUSK003 Molle medie
 3,13,Dettaglio_Supporto,Bronzine/Cuscinetti Thunderslot
 3,13,Assale,3/32 Assale Thunderslot
-2,11,Motore,MX15 - 21.000 Rpm - 150g*cm @12V
-2,11,Motore,MN09CH - 20.500 Rpm - 200g*cm @12V (EVO2)
-2,11,Supporto Motore,CH110 Offset 0.5mm
-2,11,Supporto Motore,CH114 Offset 0.5mm (EVO2 - Boxer/Flat)
-2,11,Telaio,CH110 Telaio motore inline offset 0.5mm
-2,11,Telaio,CH114 Telaio motore Boxer/Flat offset 0.5mm
-2,11,Corona,Corona inline bronzo - 24 denti
-2,11,Corona,Corona inline bronzo - 25 denti
-2,11,Corona,Corona inline bronzo - 26 denti
-2,11,Corona,Corona inline bronzo - 27 denti
-2,11,Corona,Corona inline bronzo - 28 denti
-2,11,Corona,Corona inline bronzo - 29 denti
-2,11,Corona,Corona inline bronzo - 30 denti
-2,11,Corona,GMF55 Corona modulare - mozzo 5.5mm
-2,11,Pignoni,Inline - 9 denti - 5.5mm (Ottone)
-2,11,Pignoni,Inline - 10 denti - 5.5mm (Ottone)
-2,11,Assale Anteriore,Assale 3/32 - Acciaio Rettificato
-2,11,Assale Anteriore,PA39 Assale anteriore a ruote indipendenti (EVO)
-2,11,Assale Posteriore,Assale 3/32 - Acciaio Rettificato
-2,11,Assale Posteriore,PA25 Stopper posteriore
-2,11,Assale Posteriore,PA57 Stopper posteriore
-2,11,Cerchi Anteriori,PL 15.8mm - Plastica
-2,11,Cerchi Anteriori,AL 15.8mm - Alluminio (EVO)
-2,11,Cerchi Anteriori,Ma 15.8mm - Magnesio (EVO)
-2,11,Cerchi Anteriori,3D 15.8mm - Stampa 3D (EVO)
-2,11,Cerchi Posteriori,AL 15.8mm - Alluminio
-2,11,Cerchi Posteriori,Ma 15.8mm - Magnesio (EVO)
-2,11,Pickup,CH26 Pick-up con mozzo
-2,11,Pickup,CH66 Pick-up con mozzo
-2,11,Viti Carrozzeria,Viti metriche Slot.it
-2,11,Viti Carrozzeria,Viti per sospensioni Slot.it
-2,11,Sospensioni,CH47c Kit sospensioni - Molle
-2,11,Sospensioni,Sospensioni laterali Slot.it
-2,11,Sospensioni,Sospensioni posteriori Slot.it
-2,11,Dettaglio_Supporto,Bronzine sferiche Slot.it
-2,11,Dettaglio_Supporto,Boccole in plastica
-2,11,Viti_Metriche_Sosp,CH72 Controtappi in plastica
-2,11,Viti_Metriche_Sosp,CH127 Barrette in vetronite
-2,11,Tipo_Sospensione,Molle
-2,11,Tipo_Sospensione,Magneti (sospensioni magnetiche)
-2,11,Stopper,PA25 Stopper alluminio
-2,11,Stopper,PA57 Stopper alluminio
-1,1,Gomme Anteriori,NSR 5200 16x8
-1,1,Gomme Anteriori,NSR 5201 17x8
-1,1,Gomme Anteriori,NSR 5226 18x8
-1,1,Gomme Anteriori,NSR 5202 19x10
-1,1,Gomme Posteriori,NSR 5279Z 19.5x11 (Zero Graining)
-1,2,Gomme Anteriori,NSR 5200 16x8
-1,2,Gomme Anteriori,NSR 5201 17x8
-1,2,Gomme Anteriori,NSR 5226 18x8
-1,2,Gomme Anteriori,NSR 5202 19x10
-1,2,Gomme Posteriori,NSR 5271WRE 19.5x11
-1,3,Gomme Anteriori,NSR 5200 16x8
-1,3,Gomme Anteriori,NSR 5201 17x8
-1,3,Gomme Anteriori,NSR 5226 18x8
-1,3,Gomme Anteriori,NSR 5202 19x10
-1,3,Gomme Posteriori,NSR 5266Z 20x11 (Zero Graining)
-1,4,Gomme Anteriori,NSR 5290 16x8
-1,4,Gomme Anteriori,NSR 5291 17x10
-1,4,Gomme Anteriori,NSR 5283 18x10
-1,4,Gomme Posteriori,NSR 5287Z 19.5x13 (Zero Graining)
-1,5,Gomme Anteriori,NSR 5296N 19.5x9.5
-1,5,Gomme Anteriori,NSR 5200 16x8.5
-1,5,Gomme Posteriori,NSR 5294Z 19x13 (Zero Graining)
+3,13,Gomme Anteriori,Anteriori - Anelli in Neoprene per Cerchi Posteriori
+3,13,Gomme Anteriori,Anteriori - Scolpite 9 x 18 mm
+3,13,Gomme Anteriori,Anteriori - Hard Low Friction 9 x 16 mm
+3,13,Gomme Posteriori,Posteriori - Racing 10.8 x 19 mm 'Special'
+3,13,Gomme Posteriori,Posteriori - Racing 10.8 x 19 mm 'Super Grip'
+3,13,Gomme Posteriori,Posteriori - Racing 19 x 10.8 mm
+3,13,Gomme Posteriori,Posteriori - Scolpite 10.8 x 19 mm
