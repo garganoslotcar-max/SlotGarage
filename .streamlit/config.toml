@@ -4,3 +4,7 @@ primaryColor = "#FFD700"
 backgroundColor = "#0E1117"
 secondaryBackgroundColor = "#262730"
 textColor = "#FAFAFA"
+
+[server]
+# Imposta la durata del cookie di sessione a 30 giorni
+cookieExpirationDays = 30
