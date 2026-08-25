@@ -291,26 +291,86 @@ def sg_pro_ui():
                 "Nome / codice": x.get("nome"), "Note": x.get("note")
             } for x in components], use_container_width=True, hide_index=True)
 
+    # ============================================================
+    # TAB 5 - CALCOLATORE RAPPORTI (NUOVO)
+    # ============================================================
     with tabs[5]:
-        st.caption("Indicazione tecnica orientativa sulle conseguenze possibili di una modifica. Non è una simulazione fisica.")
-        component = st.selectbox(
-            "Componente", ["Corona", "Pignone", "Motore", "Sospensioni", "Pneumatici"],
-            key="pro5_whatif_component"
-        )
-        old = st.text_input("Valore attuale", key="pro5_whatif_old")
-        new = st.text_input("Nuovo valore", key="pro5_whatif_new")
-        if st.button("Analizza modifica", key="pro5_whatif_run"):
-            if not old.strip() or not new.strip():
-                st.warning("Inserisci entrambi i valori.")
-            else:
-                msg = {
-                    "Corona": "Un rapporto diverso modifica il compromesso tra accelerazione e velocità massima.",
-                    "Pignone": "Un pignone diverso modifica il rapporto finale e quindi la risposta della trasmissione.",
-                    "Motore": "Motore e regime influenzano la risposta; il risultato dipende anche dal rapporto.",
-                    "Sospensioni": "La risposta dell'assetto può cambiare: verifica sempre il risultato in pista.",
-                    "Pneumatici": "Grip, temperatura e pista possono cambiare sensibilmente il comportamento."
-                }[component]
-                st.info(msg + " Questa è un'indicazione tecnica, non una simulazione fisica.")
+        st.caption("Calcola il rapporto di trasmissione e simula l'effetto di una modifica.")
+        
+        if garage:
+            cfg_idx = st.selectbox("Seleziona configurazione da analizzare", range(len(garage)),
+                                   format_func=lambda i: sg_config_label(garage[i]), key="rapp_cfg")
+            cfg = garage[cfg_idx] if cfg_idx is not None else None
+            dettagli = deserialize_details(cfg.get("dettagli_setup", {})) if cfg else {}
+            
+            # Estrai valori attuali
+            corona_attuale = dettagli.get("Corona", "")
+            pignone_attuale = dettagli.get("Pignoni", "")
+            giri_motore = dettagli.get("Giri_Motore", "")
+            
+            import re
+            def estrai_denti(testo):
+                if not testo:
+                    return None
+                numeri = re.findall(r'\d+', str(testo))
+                if numeri:
+                    for n in numeri:
+                        val = int(n)
+                        if 20 <= val <= 40:
+                            return val
+                        elif 8 <= val <= 15:
+                            return val
+                return None
+            
+            corona_denti = estrai_denti(corona_attuale)
+            pignone_denti = estrai_denti(pignone_attuale)
+            
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
+                st.markdown("**📐 Setup attuale**")
+                corona_input = st.text_input("Corona (denti)", value=str(corona_denti) if corona_denti else "", key="rapp_corona_att")
+                pignone_input = st.text_input("Pignone (denti)", value=str(pignone_denti) if pignone_denti else "", key="rapp_pignone_att")
+                giri_input = st.text_input("Giri motore (rpm)", value=giri_motore if giri_motore else "", key="rapp_giri")
+            
+            with col_r2:
+                st.markdown("**🔄 Simula modifica**")
+                corona_nuova = st.text_input("Nuova corona (denti)", value="", key="rapp_corona_nuova")
+                pignone_nuovo = st.text_input("Nuovo pignone (denti)", value="", key="rapp_pignone_nuovo")
+            
+            try:
+                c_att = int(corona_input) if corona_input.strip().isdigit() else None
+                p_att = int(pignone_input) if pignone_input.strip().isdigit() else None
+                c_nuo = int(corona_nuova) if corona_nuova.strip().isdigit() else None
+                p_nuo = int(pignone_nuovo) if pignone_nuovo.strip().isdigit() else None
+                
+                if c_att and p_att:
+                    rapporto_att = c_att / p_att
+                    st.metric("📐 Rapporto attuale", f"{rapporto_att:.2f} ({c_att}/{p_att})")
+                
+                if c_nuo and p_nuo:
+                    rapporto_nuo = c_nuo / p_nuo
+                    st.metric("📐 Rapporto nuovo", f"{rapporto_nuo:.2f} ({c_nuo}/{p_nuo})")
+                    
+                    if c_att and p_att:
+                        diff = ((rapporto_nuo - rapporto_att) / rapporto_att) * 100
+                        if diff > 0:
+                            st.success(f"📈 Rapporto più alto del {diff:.1f}% → **Più accelerazione**")
+                        elif diff < 0:
+                            st.success(f"📉 Rapporto più basso del {abs(diff):.1f}% → **Più velocità**")
+                        else:
+                            st.info("ℹ️ Rapporto invariato")
+                
+                if c_att and p_att and giri_input.strip().isdigit():
+                    giri = int(giri_input)
+                    rapporto = c_att / p_att if c_att and p_att else 1
+                    circonferenza = 0.066
+                    velocita = (giri / rapporto) * circonferenza * 60 / 1000
+                    st.metric("🚀 Velocità stimata", f"{velocita:.1f} km/h")
+                    
+            except Exception as e:
+                st.warning(f"Inserisci numeri validi per corona e pignone.")
+        else:
+            st.info("Salva prima una configurazione nel Garage per analizzarla.")
 
 
 
@@ -386,13 +446,11 @@ if "user" not in st.session_state:
 if "pending_garage_data" not in st.session_state:
   st.session_state.pending_garage_data = None
 
-# --- NUOVO STATO PER IL REGOLAMENTO ---
 if "regolamento_dati" not in st.session_state:
     st.session_state.regolamento_dati = {}
 if "regolamento_attivo" not in st.session_state:
     st.session_state.regolamento_attivo = False
 
-# --- SERIALIZZAZIONE COMPATIBILE DEI DETTAGLI ---
 def serialize_details(value):
   if isinstance(value, str):
     return value
@@ -499,7 +557,6 @@ def richiedi_autenticazione():
         except Exception as e:
           st.error(f"Errore durante la registrazione: {e}")
 
-# --- BARRA LATERALE: INFO UTENTE E STATO ---
 with st.sidebar:
   if st.session_state.user:
     st.write(f"Pilota loggato: **{st.session_state.user.email}**")
@@ -533,7 +590,6 @@ with st.sidebar:
             st.error(f"Errore durante la registrazione: {e}")
   st.divider()
 
-# --- INTESTAZIONE CON LOGO E SCRITTA INGRANDITA E ABBASSATA ---
 col_logo, col_titolo = st.columns([2, 10])
 with col_logo:
   try:
@@ -553,7 +609,6 @@ if not supabase:
   st.stop()
 
 
-# --- CARICAMENTO DATI RESILIENTE (OTTIMIZZATO CON TTL 300s) ---
 @st.cache_data(ttl=300)
 def get_data(table_name):
   if not supabase:
@@ -601,7 +656,6 @@ if not produttori and not modelli:
     st.cache_data.clear()
     st.rerun()
 
-# --- INIZIALIZZAZIONE STATO PER MODIFICA E NAVIGAZIONE ---
 if "modifying_config_id" not in st.session_state:
   st.session_state.modifying_config_id = None
 if "modifying_data" not in st.session_state:
@@ -617,7 +671,6 @@ if "active_tab" not in st.session_state:
 if "configura_regolamento_target" not in st.session_state:
   st.session_state.configura_regolamento_target = None
 
-# --- SEZIONE FILTRI E SELEZIONE ---
 st.header("🔍 Filtra Modello")
 
 produttori_filtrati_list = [
@@ -718,7 +771,6 @@ with col_f3:
 
 st.divider()
 
-# --- MENU DI NAVIGAZIONE GESTITO VIA STATO ---
 tabs_list = [
     "📋 Visualizza Modelli",
     "🚗 Il Mio Garage",
@@ -819,7 +871,6 @@ def _boxstock_target(produttore, categoria, campo):
   f = _norm(campo)
 
   defaults = {
-    # NSR GT3
     ("nsr", "gt3", "motore"): "King - Evo3 - 21.400 rpm - Standard",
     ("nsr", "gt3", "supporto motore"): "Anglewinder - Evo - Extra Hard (Rosso)",
     ("nsr", "gt3", "corona"): "Anglewinder Alluminio - 31 denti 17.5mm",
@@ -832,7 +883,6 @@ def _boxstock_target(produttore, categoria, campo):
     ("nsr", "gt3", "gomme anteriori"): "NSR 5200 16x8",
     ("nsr", "gt3", "gomme posteriori"): "NSR 5279Z 19.5x11",
 
-    # NSR HYPERCAR
     ("nsr", "hypercar", "motore"): "King - Evo3 - 21.400 rpm - Standard",
     ("nsr", "hypercar", "supporto motore"): "NSR HYPERCAR - ExtraHard Rosso Sidewinder Offset - 1M",
     ("nsr", "hypercar", "corona"): "Sidewinder Alluminio - 31 denti 16.8 mm",
@@ -844,7 +894,6 @@ def _boxstock_target(produttore, categoria, campo):
     ("nsr", "hypercar", "gomme anteriori"): "NSR 5200 16x8",
     ("nsr", "hypercar", "gomme posteriori"): "NSR 5266Z 20x11",
 
-    # NSR F1 22
     ("nsr", "f1 22", "motore"): "King - Evo3 - 21.400 rpm - Standard",
     ("nsr", "f1 22", "supporto motore"): "in linea - NSR Formula 22 - Standard Medium Nero",
     ("nsr", "f1 22", "corona"): "in Linea Evo Nera - 27 denti",
@@ -856,7 +905,6 @@ def _boxstock_target(produttore, categoria, campo):
     ("nsr", "f1 22", "gomme anteriori"): "NSR 5296N 19.5x9.5",
     ("nsr", "f1 22", "gomme posteriori"): "NSR 5294Z 19x13",
 
-    # NSR CLASSIC
     ("nsr", "classic", "motore"): "Shark - Evo 21.500 rpm - Standard",
     ("nsr", "classic", "supporto motore"): "Sidewinder - Evo - Extra Hard (Rosso)",
     ("nsr", "classic", "corona"): "Sidewinder Alluminio - 32 denti 17.5mm",
@@ -870,7 +918,6 @@ def _boxstock_target(produttore, categoria, campo):
     ("nsr", "classic", "gomme anteriori"): "NSR 5200 16x8",
     ("nsr", "classic", "gomme posteriori"): "NSR 5271WRE 19.5x11",
 
-    # NSR MOSLER
     ("nsr", "mosler", "motore"): "King - Evo3 - 21.400 rpm - Standard",
     ("nsr", "mosler", "supporto motore"): "Anglewinder - Evo - Extra Hard (Rosso)",
     ("nsr", "mosler", "corona"): "Anglewinder Alluminio - 31 denti - 16.8mm",
@@ -883,7 +930,6 @@ def _boxstock_target(produttore, categoria, campo):
     ("nsr", "mosler", "dettaglio supporto"): "Standard - Autolubrificanti",
     ("nsr", "mosler", "gomme posteriori"): "NSR 5279Z 19.5x11",
 
-    # NSR ALTRI MODELLI
     ("nsr", "altri modelli", "motore"): "King - Evo3 - 21.400 rpm - Standard",
     ("nsr", "altri modelli", "supporto motore"): "Anglewinder - Evo - Extra Hard (Rosso)",
     ("nsr", "altri modelli", "corona"): "Anglewinder Alluminio - 31 denti - 16.8mm",
@@ -897,7 +943,6 @@ def _boxstock_target(produttore, categoria, campo):
     ("nsr", "altri modelli", "dettaglio supporto"): "Standard - Autolubrificanti",
     ("nsr", "altri modelli", "gomme posteriori"): "NSR 5271WRE 19.5x11",
 
-    # NSR F1 86/89
     ("nsr", "f1 86/89", "motore"): "King - Evo3 - 21.400 rpm - Standard",
     ("nsr", "f1 86/89", "supporto motore"): "Inline - Evo - Standard (Nero)",
     ("nsr", "f1 86/89", "corona"): "in Linea Evo Nera - 27 denti",
@@ -911,7 +956,6 @@ def _boxstock_target(produttore, categoria, campo):
     ("nsr", "f1 86/89", "gomme anteriori"): "NSR 5290 16x8",
     ("nsr", "f1 86/89", "gomme posteriori"): "NSR 5287Z 19.5x13",
 
-    # SLOT.IT GT3
     ("slot.it", "gt3", "motore"): "Slot.it MX16-m",
     ("slot.it", "gt3", "supporto motore"): "Slot.it CH65",
     ("slot.it", "gt3", "corona"): "Slot.it GS1831",
@@ -923,7 +967,6 @@ def _boxstock_target(produttore, categoria, campo):
     ("slot.it", "gt3", "gomme anteriori"): "Slot.it PT15",
     ("slot.it", "gt3", "gomme posteriori"): "Slot.it PT1323",
 
-    # SLOT.IT HYPERCAR
     ("slot.it", "hypercar lmp", "motore"): "Slot.it MN13CH",
     ("slot.it", "hypercar lmp", "supporto motore"): "Tutti i supporti anglewinder Slot.it",
     ("slot.it", "hypercar lmp", "corona"): "Tutti gli ingranaggi angolari GA16xx (plastica o ergal)",
@@ -936,7 +979,6 @@ def _boxstock_target(produttore, categoria, campo):
     ("slot.it", "hypercar lmp", "gomme anteriori"): "Slot.it PT15",
     ("slot.it", "hypercar lmp", "gomme posteriori"): "Slot.it PT1171F22",
 
-    # SLOT.IT GRUPPO C
     ("slot.it", "gruppo c", "motore"): "Slot.it MX16",
     ("slot.it", "gruppo c", "supporto motore"): "Slot.it CH110",
     ("slot.it", "gruppo c", "corona"): "Slot.it GI23-BZ",
@@ -949,7 +991,6 @@ def _boxstock_target(produttore, categoria, campo):
     ("slot.it", "gruppo c", "gomme anteriori"): "Slot.it PT15",
     ("slot.it", "gruppo c", "gomme posteriori"): "Slot.it PT1207F22",
 
-    # SLOT.IT DTM
     ("slot.it", "dtm", "motore"): "Slot.it MX15",
     ("slot.it", "dtm", "supporto motore"): "Slot.it CH110",
     ("slot.it", "dtm", "corona"): "Slot.it GI23-BZ",
@@ -962,7 +1003,6 @@ def _boxstock_target(produttore, categoria, campo):
     ("slot.it", "dtm", "gomme anteriori"): "Slot.it PT15",
     ("slot.it", "dtm", "gomme posteriori"): "Slot.it PT1207F22",
 
-    # SLOT.IT CLASSIC - Prototipi e Sport (Box Stock di base)
     ("slot.it", "classic", "motore"): "Slot.it MX16-m",
     ("slot.it", "classic", "supporto motore"): "Slot.it CH67",
     ("slot.it", "classic", "corona"): "Slot.it GS1831-LPL",
@@ -976,7 +1016,6 @@ def _boxstock_target(produttore, categoria, campo):
     ("slot.it", "classic", "gomme anteriori"): "Slot.it PT15",
     ("slot.it", "classic", "gomme posteriori"): "Slot.it PT1207F22",
 
-    # THUNDERSLOT
     ("thunderslot", "classic", "motore"): "Motor Mach 21500 rpm at 12 volts 175g/m Doppio albero",
     ("thunderslot", "classic", "supporto motore"): "Grey Hard",
     ("thunderslot", "classic", "corona"): "SW Corona Thunderslot",
@@ -993,7 +1032,6 @@ def _boxstock_target(produttore, categoria, campo):
     ("thunderslot", "classic", "gomme posteriori"): "TYR004R",
   }
 
-  # Normalizza eventuali alias di categoria
   if p == "nsr" and c in {"f1 2022", "f1 22", "f122"}:
     c = "f1 22"
   if p == "nsr" and c in {"altri modelli", "altri_modelli"}:
@@ -1261,7 +1299,6 @@ def _forcella_nsr_abilitata():
 
     mod = str(selected_model_name or "").strip().casefold()
 
-    # Modelli che NON hanno la forcella
     modelli_senza_forcella = [
         "mclaren 720s",
         "corvette c8.r",
@@ -1290,7 +1327,7 @@ def _forcella_nsr_abilitata():
 
 
 # ============================================================
-# FUNZIONI REGOLAMENTO - SOLUZIONE DEFINITIVA (LEGGE DA CSV)
+# FUNZIONI REGOLAMENTO
 # ============================================================
 
 def _norm_regola(valore):
@@ -1304,7 +1341,6 @@ def _norm_regola(valore):
     return " ".join(testo.split())
 
 def _normalizza_codice_prodotto(valore):
-    """Normalizza il codice prodotto per confronti esatti con il regolamento."""
     if valore is None:
         return ""
     testo = str(valore).strip().casefold()
@@ -1314,9 +1350,7 @@ def _normalizza_codice_prodotto(valore):
             testo = parte_numerica
     return "".join(testo.split())
 
-
 def _descrizione_catalogo_per_regolamento(componente):
-    """Costruisce la descrizione leggibile da mostrare insieme al codice."""
     if not componente:
         return ""
 
@@ -1337,9 +1371,7 @@ def _descrizione_catalogo_per_regolamento(componente):
 
     return " - ".join(parti)
 
-
 def _indicizza_catalogo_per_codice():
-    """Crea un indice Codice_Prodotto -> componente senza modificare il catalogo."""
     indice = {}
     for componente in catalogo_componenti or []:
         if not componente:
@@ -1354,11 +1386,7 @@ def _indicizza_catalogo_per_codice():
             indice[codice_norm] = componente
     return indice
 
-
 def _risolvi_regola_con_catalogo(valore, indice_codici):
-    """Se il valore del regolamento è un codice, restituisce 'codice - descrizione'.
-    Se non viene trovato, mantiene esattamente il valore originale.
-    """
     valore_originale = "" if valore is None else str(valore).strip()
     codice_norm = _normalizza_codice_prodotto(valore_originale)
     if not codice_norm:
@@ -1378,10 +1406,7 @@ def _risolvi_regola_con_catalogo(valore, indice_codici):
         return f"{codice_display} - {descrizione}"
     return codice_display
 
-
 def _carica_regole_semplici(prod_id, cat_id, sotto_categoria=None, categoria_nome=None):
-    """Carica le regole dal CSV con filtro per sotto_categoria e categoria_nome."""
-
     def _norm_reg_filtro(value):
         if value is None:
             return ""
@@ -1459,14 +1484,11 @@ def _carica_regole_semplici(prod_id, cat_id, sotto_categoria=None, categoria_nom
             "stopper": "Stopper",
         }
         
-        with open(csv_path, "r", encoding="utf-8") as f:
+        with open(csv_path, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 if str(row.get("id_produttori")).strip() != str(prod_id).strip():
                     continue
-                # Slot.it: il CSV del regolamento viene filtrato per
-                # categoria_nome + sotto_categoria. Per gli altri produttori
-                # resta il filtro originale sull'id_categoria.
                 if str(selected_prod_name if "selected_prod_name" in locals() else "").strip().casefold() != "slot.it":
                     if str(row.get("id_categorie")).strip() != str(cat_id).strip():
                         continue
@@ -1504,6 +1526,22 @@ def _carica_regole_semplici(prod_id, cat_id, sotto_categoria=None, categoria_nom
     except Exception as e:
         st.error(f"❌ Errore durante il caricamento del CSV: {e}")
         return {}
+
+# ============================================================
+# FUNZIONE PER CONTROLLARE ARCHIVIO COMPONENTI (PUNTO 6)
+# ============================================================
+def componente_in_archivio(nome_componente):
+    if not st.session_state.user:
+        return False
+    try:
+        result = supabase.table("SlotGarage_Componenti").select("id")\
+            .eq("user_id", st.session_state.user.id)\
+            .ilike("nome", f"%{nome_componente}%")\
+            .execute()
+        return len(result.data or []) > 0
+    except Exception:
+        return False
+
 
 # ============================================================
 # GESTIONE SEZIONI (TAB)
@@ -1551,9 +1589,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
       _reg_attivo = st.session_state.get("configura_regolamento_target") == _reg_target
       
-      # I BOTTONI per attivare/disattivare il regolamento.
-      # Slot.it li visualizza sotto Categoria/Livello; gli altri produttori
-      # mantengono esattamente la posizione originale.
       if selected_prod_name.lower() != "slot.it":
           col_reg1, col_reg2 = st.columns([1, 1])
           with col_reg1:
@@ -1996,7 +2031,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 and "carrozz" in _normalizza_testo_filtro(p.get("Prodotto"))
             ]
 
-          # ---- AGGIUNTA PER LE GOMME ----
           if c in {"gomme anteriori", "gomme anteriore"}:
               risultato = []
               for p in pezzi:
@@ -2060,12 +2094,10 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           )
 
         # ============================================================
-        # FUNZIONE RENDER_SELECT_COMPONENTE MODIFICATA
+        # FUNZIONE RENDER_SELECT_COMPONENTE MODIFICATA (con badge archivio)
         # ============================================================
         def render_select_componente(campo, sub_pezzi_list, key_prefix):
-            # SE IL REGOLAMENTO È ATTIVO E IL CAMPO HA REGOLE
             if st.session_state.regolamento_attivo:
-                # Gestione speciale per Assale Anteriore/Posteriore: se non ci sono regole per il campo specifico, usa "Assale"
                 reg_campo = campo
                 if campo in ["Assale Anteriore", "Assale Posteriore"] and campo not in st.session_state.regolamento_dati and "Assale" in st.session_state.regolamento_dati:
                     reg_campo = "Assale"
@@ -2082,12 +2114,10 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                         key=f"reg_{campo}_{model_safe_key}",
                     )
             
-            # ALTRIMENTI USA IL COMPORTAMENTO ORIGINALE (BOX STOCK)
             opzioni = []
             match_values = []
             boxstock_val = _boxstock_target(selected_prod_name, selected_cat_name, campo)
 
-            # COSTRUISCI LE OPZIONI DAL CATALOGO
             for p in sub_pezzi_list:
                 prodotto = str(p.get("Prodotto") or "").strip()
                 mat = p.get("Materiale")
@@ -2103,31 +2133,42 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                     str_opt = prodotto
 
                 if str_opt and str_opt not in opzioni:
-                    opzioni.append(str_opt)
-                    match_values.append((str_opt, prodotto, parte_mat, parte_mis))
+                    # ---- PUNTO 6: CONTROLLO ARCHIVIO ----
+                    in_archivio = componente_in_archivio(str_opt)
+                    if in_archivio:
+                        str_opt_display = f"{str_opt} ✅"
+                    else:
+                        str_opt_display = str_opt
+                    opzioni.append(str_opt_display)
+                    match_values.append((str_opt_display, prodotto, parte_mat, parte_mis))
 
-            # SE IL CATALOGO È VUOTO, USA IL VALORE BOX STOCK COME UNICA OPZIONE
             if not opzioni and boxstock_val:
                 saved_val = edit_data.get(campo) if edit_data else None
                 default_val = saved_val if saved_val else boxstock_val
+                in_archivio = componente_in_archivio(default_val)
+                display_val = f"{default_val} ✅" if in_archivio else default_val
                 return st.selectbox(
                     campo,
-                    [default_val],
+                    [display_val],
                     index=0,
                     key=f"{key_prefix}_{campo}_{model_safe_key}",
                 )
             
-            # SE IL CATALOGO HA OPZIONI, TROVA L'INDICE DEL VALORE BOX STOCK
             saved_val = edit_data.get(campo) if edit_data else None
             target_for_default = saved_val if saved_val else boxstock_val
             
             def_idx = 0
-            if target_for_default and target_for_default in opzioni:
-                def_idx = opzioni.index(target_for_default)
-            elif boxstock_val and boxstock_val in opzioni:
-                def_idx = opzioni.index(boxstock_val)
+            if target_for_default:
+                for i, opt in enumerate(opzioni):
+                    if target_for_default in opt:
+                        def_idx = i
+                        break
+            elif boxstock_val:
+                for i, opt in enumerate(opzioni):
+                    if boxstock_val in opt:
+                        def_idx = i
+                        break
 
-            # SE OPZIONI È VUOTA, MOSTRA UN PLACEHOLDER
             if not opzioni:
                 opzioni = ["Nessuna opzione"]
                 def_idx = 0
@@ -2143,11 +2184,8 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
         # CONFIGURAZIONE PER I DIVERSI PRODUTTORI
         # --------------------------------------------
 
-        # Se il regolamento è attivo, mostriamo la tabella di confronto.
-        # Il titolo specifico Slot.it compare solo insieme alla griglia.
         if _reg_attivo:
           if selected_prod_name.lower() == "slot.it":
-              # st.markdown("### ⚙️ Setup Avanzato Slot.it")  # <-- RIMOSSO
               st.caption("Confronto configurazione: Box Stock vs Regolamento")
           
           confronto_campi = [
@@ -2170,7 +2208,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             _stock = _boxstock_target(
                 selected_prod_name, _categoria_boxstock, _campo_confronto
             )
-            # Prendi le regole dallo stato
             reg_text = "Nessuna regola"
             if _campo_confronto in st.session_state.regolamento_dati:
                 reg_text = " / ".join(st.session_state.regolamento_dati[_campo_confronto])
@@ -2268,7 +2305,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               key=f"altri_tipo_supporto_{model_safe_key}"
           )
 
-          # Gomme per Altri Produttori (solo input text)
           st.write("### 🏁 Gomme")
           col_gomme1, col_gomme2 = st.columns(2)
           with col_gomme1:
@@ -2287,7 +2323,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
         elif selected_prod_name.lower() == "slot.it":
           col1_slot, col2_slot = st.columns(2)
 
-          # ===== CATEGORIA + LIVELLO SLOT.IT =====
           slot_categorie = [
               "Hypercar",
               "Gruppo C",
@@ -2311,7 +2346,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           sub_key = f"slotit_sottocategoria_{model_safe_key}"
           prev_cat_key = f"{cat_key}__prev"
 
-          # Categoria e Livello sono affiancati.
           with col1_slot:
               if cat_key not in st.session_state:
                   st.session_state[cat_key] = (
@@ -2329,9 +2363,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               categoria_slotit, []
           )
 
-          # Il livello viene determinato dalla categoria corrente.
-          # Se la categoria cambia, il vecchio livello viene sostituito
-          # con il primo livello valido della nuova categoria.
           categoria_precedente = st.session_state.get(prev_cat_key)
 
           if categoria_precedente is None:
@@ -2365,8 +2396,8 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               else:
                   scelte_utente["SottoCategoria_SlotIt"] = ""
 
-          # I tre tasti: Configura, Aggiorna, Torna a Box Stock
-          col_reg_slot1, col_reg_slot2, col_reg_slot3 = st.columns(3)
+          # ---- PUNTO 1: BOTTONI (CONFIGURA, AGGIORNA, TORNA, SETUP SUGGERITO) ----
+          col_reg_slot1, col_reg_slot2, col_reg_slot3, col_reg_slot4 = st.columns(4)
 
           with col_reg_slot1:
               if not _reg_attivo:
@@ -2414,7 +2445,20 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                       st.session_state.regolamento_dati = {}
                       st.rerun()
 
-          # Peso carrozzeria e peso totale restano nella posizione prevista.
+          with col_reg_slot4:
+              if _reg_attivo:
+                  if st.button(
+                      "🎯 Applica Setup Consigliato",
+                      key=f"setup_suggerito_{model_safe_key}"
+                  ):
+                      for campo, valori in st.session_state.regolamento_dati.items():
+                          if valori:
+                              key_select = f"reg_{campo}_{model_safe_key}"
+                              if key_select in st.session_state:
+                                  st.session_state[key_select] = valori[0]
+                      st.success("✅ Setup consigliato applicato! I dropdown sono stati impostati sul primo valore disponibile.")
+                      st.rerun()
+
           col_peso1, col_peso2 = st.columns(2)
           with col_peso1:
               scelte_utente["Peso_Carrozzeria"] = st.text_input(
@@ -2502,7 +2546,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
           scelte_utente["Sospensioni"] = render_select_componente("Sospensioni", sub_sosp, "slotit_scelta_sosp")
 
-          # ---- GOMME PER SLOT.IT ----
           st.write("### 🏁 Gomme")
           col_gomme1, col_gomme2 = st.columns(2)
           with col_gomme1:
@@ -2582,7 +2625,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                   key=f"nsr_tipo_molla_{model_safe_key}",
               )
 
-            # ---- GOMME PER NSR ----
             st.write("### 🏁 Gomme")
             col_gomme1, col_gomme2 = st.columns(2)
             with col_gomme1:
@@ -2705,7 +2747,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                     )
                     scelte_utente[f"Durezza_Molla_{tipo_sosp}"] = durezza_molla
 
-            # ---- GOMME PER THUNDERSLOT ----
             st.write("### 🏁 Gomme")
             col_gomme1, col_gomme2 = st.columns(2)
             with col_gomme1:
@@ -2818,7 +2859,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                   key=f"scaleauto_tipo_molla_{model_safe_key}",
               )
 
-            # ---- GOMME PER SCALEAUTO ----
             st.write("### 🏁 Gomme")
             col_gomme1, col_gomme2 = st.columns(2)
             with col_gomme1:
@@ -2844,7 +2884,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               with cols[i % 3]:
                 scelte_utente[tipologia] = render_select_componente(tipologia, sub_pezzi, "comp")
 
-            # Gomme per "Altri" (produttori generici) - solo input text
             st.write("### 🏁 Gomme")
             col_gomme1, col_gomme2 = st.columns(2)
             with col_gomme1:
@@ -2860,7 +2899,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                     key=f"gomme_post_altri_{model_safe_key}"
                 )
 
-        # ---- Il resto del codice rimane identico a quello originale ----
         st.divider()
         st.write("### 📏 Altezze e Quote")
         col_alt1, col_alt2 = st.columns(2)
@@ -2937,7 +2975,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
         st.divider()
 
-        # Supporto Assale
         st.write("### 🔩 Supporto Assale")
         if selected_prod_name.lower() in ["nsr", "scaleauto"]:
             scelte_utente["Tipo_Supporto"] = "Bronzine"
@@ -3155,6 +3192,68 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 elif st.session_state.active_tab == "🚗 Il Mio Garage":
   st.subheader("🚗 Il Mio Garage - Configurazioni Salvate")
 
+  # ============================================================
+  # PUNTO 2: DASHBOARD STATISTICHE
+  # ============================================================
+  if st.session_state.user:
+    try:
+        configs = supabase.table("IlMioGarage").select("id", count="exact").eq("user_id", st.session_state.user.id).execute()
+        tot_configs = configs.count if hasattr(configs, 'count') else len(configs.data or [])
+        
+        modelli_count = {}
+        for c in (configs.data or []):
+            modello = c.get("modello_nome", "Sconosciuto")
+            modelli_count[modello] = modelli_count.get(modello, 0) + 1
+        modello_piu_usato = max(modelli_count, key=modelli_count.get) if modelli_count else "Nessuno"
+        
+        prove = supabase.table("SlotGarage_Prove").select("miglior_tempo").eq("user_id", st.session_state.user.id).execute()
+        miglior_tempo = None
+        for p in (prove.data or []):
+            tm = p.get("miglior_tempo")
+            if tm is not None and (miglior_tempo is None or tm < miglior_tempo):
+                miglior_tempo = tm
+        
+        piste_count = {}
+        for p in (prove.data or []):
+            pista = p.get("pista", "Sconosciuta")
+            piste_count[pista] = piste_count.get(pista, 0) + 1
+        pista_preferita = max(piste_count, key=piste_count.get) if piste_count else "Nessuna"
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("📦 Configurazioni", tot_configs)
+        with col2:
+            st.metric("🏆 Modello preferito", modello_piu_usato)
+        with col3:
+            st.metric("⏱️ Miglior tempo", f"{miglior_tempo:.3f}s" if miglior_tempo else "—")
+        with col4:
+            st.metric("🏁 Pista preferita", pista_preferita)
+        st.divider()
+    except Exception as e:
+        st.warning(f"Impossibile caricare statistiche: {e}")
+
+  # ============================================================
+  # PUNTO 3A: IMPORTA JSON
+  # ============================================================
+  if st.session_state.user:
+    with st.expander("📥 Importa configurazione da JSON"):
+        uploaded_file = st.file_uploader("Seleziona file JSON", type=["json"], key="import_json_uploader")
+        if uploaded_file is not None:
+            try:
+                data = json.load(uploaded_file)
+                record = {
+                    "nome_configurazione": data.get("nome_configurazione", "Importata"),
+                    "modello_nome": data.get("modello_nome", "Modello importato"),
+                    "dettagli_setup": data.get("dettagli_setup", {}),
+                    "telaio_catalogo_id": data.get("telaio_catalogo_id"),
+                    "user_id": st.session_state.user.id
+                }
+                supabase.table("IlMioGarage").insert(record).execute()
+                st.success("✅ Configurazione importata con successo!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Errore durante l'importazione: {e}")
+
   if not st.session_state.user:
     st.info("Accedi o registrati per visualizzare e gestire il tuo garage personale.")
     richiedi_autenticazione()
@@ -3202,8 +3301,8 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
               if prod_obj_m:
                 prod_nome_per_pdf = prod_obj_m.get("name", "")
 
-          col_info, col_btn_pdf, col_btn_mod, col_btn_del = st.columns(
-              [4, 2, 2, 2]
+          col_info, col_btn_pdf, col_btn_mod, col_btn_del, col_btn_export = st.columns(
+              [4, 2, 2, 2, 2]
           )
           with col_info:
             st.markdown(
@@ -3253,6 +3352,25 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
                 st.rerun()
               except Exception as e:
                 st.error(f"Errore durante l'eliminazione: {e}")
+
+          # ============================================================
+          # PUNTO 3B: ESPORTA JSON
+          # ============================================================
+          with col_btn_export:
+            export_data = {
+                "nome_configurazione": conf_nome,
+                "modello_nome": conf_modello,
+                "dettagli_setup": dict_dettagli if isinstance(dict_dettagli, dict) else {},
+                "telaio_catalogo_id": s.get("telaio_catalogo_id"),
+            }
+            json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
+            st.download_button(
+                label="📤 JSON",
+                data=json_str,
+                file_name=f"{conf_nome.replace(' ', '_')}.json",
+                mime="application/json",
+                key=f"export_json_{conf_id}"
+            )
 
           with st.expander(f"Visualizza dettagli di {conf_nome}"):
             if foto_auto_url:
