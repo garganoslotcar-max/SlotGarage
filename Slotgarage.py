@@ -21,9 +21,8 @@ try:
   SUPABASE_URL = st.secrets["supabase"]["url"]
   SUPABASE_KEY = st.secrets["supabase"]["key"]
 except Exception:
-  SUPABASE_URL = "https://rmfaphfksvcyynfrrbsy.supabase.co"
-  SUPABASE_KEY = "sb_publishable_vp-3OcwsKymyHEgP8XlbsQ_KVFQh0I6"
-
+  st.error("❌ Configurazione Supabase mancante. Imposta st.secrets.")
+  st.stop()
 
 def init_connection():
   client = st.session_state.get("_supabase_client")
@@ -912,54 +911,70 @@ def _boxstock_target(produttore, categoria, campo):
     ("nsr", "f1 86/89", "gomme anteriori"): "NSR 5290 16x8",
     ("nsr", "f1 86/89", "gomme posteriori"): "NSR 5287Z 19.5x13",
 
-    # SLOT.IT
-    ("slot.it", "gruppo c", "motore"): "Motore Cassa Corta V12/4 21k Universale",
-    ("slot.it", "gruppo c", "supporto motore"): "Supporto Motore Boxer-Flat in Linea 0.5mm Hard",
-    ("slot.it", "gruppo c", "corona"): "Corona in Linea Gialla 28 denti Bronzo",
-    ("slot.it", "gruppo c", "pignoni"): "Pignoni in Linea 9 denti 5.5mm",
-    ("slot.it", "gruppo c", "assale anteriore"): 'Assale 3/32" da 51mm',
-    ("slot.it", "gruppo c", "assale posteriore"): 'Assale 3/32" da 51mm',
-    ("slot.it", "gruppo c", "cerchi anteriori"): "Cerchi in Alluminio 15.8x8.2mm",
-    ("slot.it", "gruppo c", "cerchi posteriori"): "Cerchi in Alluminio 16.5x8mm",
-    ("slot.it", "gruppo c", "pickup"): "Pickup Standard",
-    ("slot.it", "gruppo c", "gomme anteriori"): "PT15",
-    ("slot.it", "gruppo c", "gomme posteriori"): "PT1207",
+    # SLOT.IT GT3
+    ("slot.it", "gt3", "motore"): "Slot.it MX16-m",
+    ("slot.it", "gt3", "supporto motore"): "Slot.it CH65",
+    ("slot.it", "gt3", "corona"): "Slot.it GS1831",
+    ("slot.it", "gt3", "pignoni"): "Slot.it PS11",
+    ("slot.it", "gt3", "assale anteriore"): "Tutti gli assali Slot.it",
+    ("slot.it", "gt3", "assale posteriore"): "Tutti gli assali Slot.it",
+    ("slot.it", "gt3", "cerchi anteriori"): "Slot.it W17308215P",
+    ("slot.it", "gt3", "cerchi posteriori"): "Slot.it W17308215A",
+    ("slot.it", "gt3", "gomme anteriori"): "Slot.it PT15",
+    ("slot.it", "gt3", "gomme posteriori"): "Slot.it PT1323",
 
-    ("slot.it", "hypercar lmp", "motore"): "Flat-6 Giallo 20.500 rpm Cassa Differenziata",
-    ("slot.it", "hypercar lmp", "supporto motore"): "Supporto Motore Anglewinder Lmp 1.0mm Offset Evo6",
-    ("slot.it", "hypercar lmp", "corona"): "Plastica Anglewinder gialla - 28 denti",
-    ("slot.it", "hypercar lmp", "pignoni"): "Pignoni Sidewinder 11 denti 6.5mm",
-    ("slot.it", "hypercar lmp", "assale anteriore"): 'Assale 3/32" da 54 mm',
-    ("slot.it", "hypercar lmp", "assale posteriore"): 'Assale 3/32" da 54 mm',
-    ("slot.it", "hypercar lmp", "cerchi anteriori"): "Cerchi in Plastica Neri da 17.3x8.2mm",
-    ("slot.it", "hypercar lmp", "cerchi posteriori"): "Cerchi in Alluminio 17.3x9.75mm a Mozzo Corto",
-    ("slot.it", "hypercar lmp", "pickup"): "Pickup a Vite con Lama Avanzata Vers. D",
-    ("slot.it", "hypercar lmp", "gomme anteriori"): "PT15",
-    ("slot.it", "hypercar lmp", "gomme posteriori"): "PT1207",
+    # SLOT.IT HYPERCAR
+    ("slot.it", "hypercar lmp", "motore"): "Slot.it MN13CH",
+    ("slot.it", "hypercar lmp", "supporto motore"): "Tutti i supporti anglewinder Slot.it",
+    ("slot.it", "hypercar lmp", "corona"): "Tutti gli ingranaggi angolari GA16xx (plastica o ergal)",
+    ("slot.it", "hypercar lmp", "pignoni"): "Slot.it PS10",
+    ("slot.it", "hypercar lmp", "assale anteriore"): "Tutti gli assali Slot.it",
+    ("slot.it", "hypercar lmp", "assale posteriore"): "Tutti gli assali Slot.it",
+    ("slot.it", "hypercar lmp", "cerchi anteriori"): "Tutte le ruote Slot.it diam. >=16.5mm",
+    ("slot.it", "hypercar lmp", "cerchi posteriori"): "Tutte le ruote Slot.it diam. >=16.5mm",
+    ("slot.it", "hypercar lmp", "pickup"): "Slot.it CH26",
+    ("slot.it", "hypercar lmp", "gomme anteriori"): "Slot.it PT15",
+    ("slot.it", "hypercar lmp", "gomme posteriori"): "Slot.it PT1171F22",
 
-    ("slot.it", "gt3", "motore"): "Motore Cassa Corta V12/4 23k Universale",
-    ("slot.it", "gt3", "pignoni"): "Pignoni Sidewinder 11 denti 6.5mm",
-    ("slot.it", "gt3", "supporto motore"): "Supporto Motore Sidewinder 1mm Offset Reverse Evo6",
-    ("slot.it", "gt3", "corona"): "Corona Sidewinder 32 denti - 18mm",
-    ("slot.it", "gt3", "assale anteriore"): 'Assale 3/32" da 51mm',
-    ("slot.it", "gt3", "assale posteriore"): 'Assale 3/32" da 51mm',
-    ("slot.it", "gt3", "pickup"): "Pickup Racing a Lama Lunga",
-    ("slot.it", "gt3", "cerchi anteriori"): "Cerchi in Plastica Neri da 17.3x8.2mm",
-    ("slot.it", "gt3", "cerchi posteriori"): "Cerchi in Alluminio 17.3x9.75mm a Mozzo Corto",
-    ("slot.it", "gt3", "gomme anteriori"): "PT15",
-    ("slot.it", "gt3", "gomme posteriori"): "PT1207",
+    # SLOT.IT GRUPPO C
+    ("slot.it", "gruppo c", "motore"): "Slot.it MX16",
+    ("slot.it", "gruppo c", "supporto motore"): "Slot.it CH110",
+    ("slot.it", "gruppo c", "corona"): "Slot.it GI23-BZ",
+    ("slot.it", "gruppo c", "pignoni"): "Slot.it PI09",
+    ("slot.it", "gruppo c", "assale anteriore"): "Tutti gli assali Slot.it",
+    ("slot.it", "gruppo c", "assale posteriore"): "Tutti gli assali Slot.it",
+    ("slot.it", "gruppo c", "cerchi anteriori"): "Slot.it W15808215P",
+    ("slot.it", "gruppo c", "cerchi posteriori"): "Slot.it W16508215A",
+    ("slot.it", "gruppo c", "pickup"): "Slot.it CH06",
+    ("slot.it", "gruppo c", "gomme anteriori"): "Slot.it PT15",
+    ("slot.it", "gruppo c", "gomme posteriori"): "Slot.it PT1207F22",
 
-    ("slot.it", "dtm", "motore"): "Motore Cassa Corta V12/4 21k Universale",
-    ("slot.it", "dtm", "pignoni"): "Pignoni in Linea 9 denti 5.5mm",
-    ("slot.it", "dtm", "corona"): "Corona in Linea Gialla 28 denti Bronzo",
-    ("slot.it", "dtm", "supporto motore"): "Supporto Motore Reverse in Linea 0.5mm Offset",
-    ("slot.it", "dtm", "pickup"): "Pickup a Vite con Lama Avanzata Vers. D",
-    ("slot.it", "dtm", "assale anteriore"): 'Assale 3/32" da 48 mm',
-    ("slot.it", "dtm", "assale posteriore"): 'Assale 3/32" da 48 mm',
-    ("slot.it", "dtm", "cerchi anteriori"): "Cerchi in Plastica Grigi da 15.8x8.2mm",
-    ("slot.it", "dtm", "cerchi posteriori"): "Cerchi in Alluminio 15.8x8.2mm Forati a Mozzo Corto",
-    ("slot.it", "dtm", "gomme anteriori"): "PT15",
-    ("slot.it", "dtm", "gomme posteriori"): "PT1207",
+    # SLOT.IT DTM
+    ("slot.it", "dtm", "motore"): "Slot.it MX15",
+    ("slot.it", "dtm", "supporto motore"): "Slot.it CH110",
+    ("slot.it", "dtm", "corona"): "Slot.it GI23-BZ",
+    ("slot.it", "dtm", "pignoni"): "Slot.it PI09",
+    ("slot.it", "dtm", "assale anteriore"): "Slot.it PA01-45",
+    ("slot.it", "dtm", "assale posteriore"): "Slot.it PA01-45",
+    ("slot.it", "dtm", "cerchi anteriori"): "Slot.it W15808215P",
+    ("slot.it", "dtm", "cerchi posteriori"): "Slot.it W15810215A",
+    ("slot.it", "dtm", "pickup"): "Slot.it CH06",
+    ("slot.it", "dtm", "gomme anteriori"): "Slot.it PT15",
+    ("slot.it", "dtm", "gomme posteriori"): "Slot.it PT1207F22",
+
+    # SLOT.IT CLASSIC - Prototipi e Sport (Box Stock di base)
+    ("slot.it", "classic", "motore"): "Slot.it MX16-m",
+    ("slot.it", "classic", "supporto motore"): "Slot.it CH67",
+    ("slot.it", "classic", "corona"): "Slot.it GS1831-LPL",
+    ("slot.it", "classic", "pignoni"): "Slot.it PS11",
+    ("slot.it", "classic", "assale anteriore"): "Tutti gli assali Slot.it",
+    ("slot.it", "classic", "assale posteriore"): "Tutti gli assali Slot.it",
+    ("slot.it", "classic", "cerchi anteriori"): "Tutte le ruote Slot.it 14.3x8.2mm",
+    ("slot.it", "classic", "cerchi posteriori"): "Tutte le ruote Slot.it 15.8x8.2mm",
+    ("slot.it", "classic", "pickup"): "Slot.it CH06",
+    ("slot.it", "classic", "viti carrozzeria"): "Viti Metriche Slot.it",
+    ("slot.it", "classic", "gomme anteriori"): "Slot.it PT15",
+    ("slot.it", "classic", "gomme posteriori"): "Slot.it PT1207F22",
 
     # THUNDERSLOT
     ("thunderslot", "classic", "motore"): "Motor Mach 21500 rpm at 12 volts 175g/m Doppio albero",
@@ -1335,7 +1350,6 @@ def _indicizza_catalogo_per_codice():
         codice_norm = _normalizza_codice_prodotto(codice)
         if not codice_norm:
             continue
-        # Il primo record verificato rimane il riferimento in caso di duplicati.
         if codice_norm not in indice:
             indice[codice_norm] = componente
     return indice
@@ -1365,14 +1379,61 @@ def _risolvi_regola_con_catalogo(valore, indice_codici):
     return codice_display
 
 
-def _carica_regole_semplici(prod_id, cat_id):
-    """Carica le regole dal file CSV regolamento.csv."""
+def _carica_regole_semplici(prod_id, cat_id, sotto_categoria=None, categoria_nome=None):
+    """Carica le regole dal CSV con filtro per sotto_categoria e categoria_nome."""
+
+    def _norm_reg_filtro(value):
+        if value is None:
+            return ""
+        import unicodedata
+        s = str(value).strip().casefold()
+        s = unicodedata.normalize("NFKD", s)
+        s = "".join(ch for ch in s if not unicodedata.combining(ch))
+        s = s.replace("_", " ").replace("-", " ").replace("/", " ")
+        return " ".join(s.split())
+
+    def _match_reg_categoria(csv_value, ui_value):
+        a = _norm_reg_filtro(csv_value)
+        b = _norm_reg_filtro(ui_value)
+        if not b or a == b:
+            return True
+        alias = {
+            "gruppo c": {"gruppo c", "gruppoc", "group c"},
+            "hypercar": {"hypercar", "hypercar lmp", "lmp"},
+            "gt3": {"gt3", "gt 3"},
+            "dtm": {"dtm", "dtm 2020", "dtm2020"},
+            "classic": {"classic", "classiche"},
+        }
+        return any(
+            (b == canon and a in vals) or (a == canon and b in vals)
+            for canon, vals in alias.items()
+        )
+
+    def _match_reg_livello(csv_value, ui_value):
+        a = _norm_reg_filtro(csv_value)
+        b = _norm_reg_filtro(ui_value)
+        if not b or a == b:
+            return True
+        alias = {
+            "box stock": {"box stock", "boxstock", "standard", "stock"},
+            "evo": {"evo", "evolution"},
+            "evo f": {"evo f", "evo/f", "evo-f", "evof"},
+            "evo2": {"evo2", "evo 2", "evolution 2"},
+            "p1": {"p1", "p 1"},
+            "p2": {"p2", "p 2"},
+            "prototipi": {"prototipi", "prototypes"},
+            "sport": {"sport"},
+        }
+        return any(
+            (b == canon and a in vals) or (a == canon and b in vals)
+            for canon, vals in alias.items()
+        )
+
     try:
         csv_path = os.path.join(os.path.dirname(__file__), "regolamento.csv")
         
         if not os.path.exists(csv_path):
-            st.warning(f"⚠️ File regolamento.csv non trovato in {csv_path}. Creane uno con le tue regole.")
-            st.info("📌 Il file deve avere colonne: id_produttori,id_categorie,campo,valoreregola")
+            st.warning(f"⚠️ File regolamento.csv non trovato in {csv_path}.")
             return {}
         
         regole_per_campo = {}
@@ -1390,34 +1451,54 @@ def _carica_regole_semplici(prod_id, cat_id):
             "forcella": "Forcella",
             "gomme anteriori": "Gomme Anteriori",
             "gomme posteriori": "Gomme Posteriori",
+            "viti carrozzeria": "Viti Carrozzeria",
+            "viti metriche sospensioni": "Viti Metriche Sospensioni",
+            "sospensioni": "Sospensioni",
+            "dettaglio supporto": "Dettaglio_Supporto",
+            "tipo sospensione": "Tipo_Sospensione",
+            "stopper": "Stopper",
         }
         
         with open(csv_path, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                if str(row.get("id_produttori")) == str(prod_id) and str(row.get("id_categorie")) == str(cat_id):
-                    campo = row.get("campo")
-                    valore = row.get("valoreregola")
-                    if campo and valore:
-                        campo_norm = campo.lower().strip()
-                        campo_originale = mappa_campi.get(campo_norm, campo)
-                        if campo_originale not in regole_per_campo:
-                            regole_per_campo[campo_originale] = []
-                        # Il regolamento può contenere il codice ufficiale del prodotto.
-                        # In quel caso lo risolviamo direttamente contro CatalogoComponenti.
-                        # Se il codice non è presente nel database, manteniamo il valore originale.
-                        indice_codici = _indicizza_catalogo_per_codice()
-                        valore_mostrato = _risolvi_regola_con_catalogo(valore, indice_codici)
-                        if valore_mostrato not in regole_per_campo[campo_originale]:
-                            regole_per_campo[campo_originale].append(valore_mostrato)
+                if str(row.get("id_produttori")).strip() != str(prod_id).strip():
+                    continue
+                # Slot.it: il CSV del regolamento viene filtrato per
+                # categoria_nome + sotto_categoria. Per gli altri produttori
+                # resta il filtro originale sull'id_categoria.
+                if str(selected_prod_name if "selected_prod_name" in locals() else "").strip().casefold() != "slot.it":
+                    if str(row.get("id_categorie")).strip() != str(cat_id).strip():
+                        continue
+                if (
+                    sotto_categoria is not None
+                    and not _match_reg_livello(row.get("sotto_categoria", ""), sotto_categoria)
+                ):
+                    continue
+                if (
+                    categoria_nome is not None
+                    and not _match_reg_categoria(row.get("categoria_nome", ""), categoria_nome)
+                ):
+                    continue
+                
+                campo = row.get("campo")
+                valore = row.get("valoreregola")
+                if campo and valore:
+                    campo_norm = campo.lower().strip()
+                    campo_originale = mappa_campi.get(campo_norm, campo)
+                    if campo_originale not in regole_per_campo:
+                        regole_per_campo[campo_originale] = []
+                    indice_codici = _indicizza_catalogo_per_codice()
+                    valore_mostrato = _risolvi_regola_con_catalogo(valore, indice_codici)
+                    if valore_mostrato not in regole_per_campo[campo_originale]:
+                        regole_per_campo[campo_originale].append(valore_mostrato)
         
         if regole_per_campo:
             st.session_state.regolamento_dati = regole_per_campo
             st.session_state.regolamento_attivo = True
             st.success(f"✅ Caricate {sum(len(v) for v in regole_per_campo.values())} regole da CSV")
-            st.write("**Regole caricate:**", regole_per_campo)
         else:
-            st.warning(f"⚠️ Nessuna regola trovata nel CSV per produttore {prod_id} e categoria {cat_id}")
+            st.warning(f"⚠️ Nessuna regola trovata per produttore {prod_id}, categoria {cat_id}")
         
         return regole_per_campo
     except Exception as e:
@@ -1470,24 +1551,30 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
       _reg_attivo = st.session_state.get("configura_regolamento_target") == _reg_target
       
-      # I BOTTONI per attivare/disattivare il regolamento
-      col_reg1, col_reg2 = st.columns([1, 1])
-      with col_reg1:
-          if not _reg_attivo:
-              if st.button("📖 Configura da Regolamento", key=f"config_reg_{model_safe_key}"):
-                  st.session_state.configura_regolamento_target = _reg_target
-                  # Carica le regole dal CSV
-                  _carica_regole_semplici(prod_id_selezionato, category_id)
-                  st.rerun()
-          else:
-              st.success("✅ Configurazione da Regolamento attiva")
-      with col_reg2:
-          if _reg_attivo:
-              if st.button("↩️ Torna a Box Stock", key=f"boxstock_reg_{model_safe_key}"):
-                  st.session_state.configura_regolamento_target = None
-                  st.session_state.regolamento_attivo = False
-                  st.session_state.regolamento_dati = {}
-                  st.rerun()
+      # I BOTTONI per attivare/disattivare il regolamento.
+      # Slot.it li visualizza sotto Categoria/Livello; gli altri produttori
+      # mantengono esattamente la posizione originale.
+      if selected_prod_name.lower() != "slot.it":
+          col_reg1, col_reg2 = st.columns([1, 1])
+          with col_reg1:
+              if not _reg_attivo:
+                  if st.button("📖 Configura da Regolamento", key=f"config_reg_{model_safe_key}"):
+                      st.session_state.configura_regolamento_target = _reg_target
+                      sotto_cat = None
+                      cat_nome = None
+                      _carica_regole_semplici(
+                          prod_id_selezionato, category_id, sotto_cat, cat_nome
+                      )
+                      st.rerun()
+              else:
+                  st.success("✅ Configurazione da Regolamento attiva")
+          with col_reg2:
+              if _reg_attivo:
+                  if st.button("↩️ Torna a Box Stock", key=f"boxstock_reg_{model_safe_key}"):
+                      st.session_state.configura_regolamento_target = None
+                      st.session_state.regolamento_attivo = False
+                      st.session_state.regolamento_dati = {}
+                      st.rerun()
 
       default_foto_db = (
           modello_selezionato.get("foto_url") if modello_selezionato else None
@@ -1549,6 +1636,27 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
       if selected_prod_name != "Tutti":
         st.write(f"### ⚙️ Setup Avanzato - {selected_prod_name}")
+
+        if selected_prod_name.lower() == "slot.it" and selected_cat_name != "Tutte":
+            _slotit_cat_map = {
+                "hypercar": "Hypercar",
+                "gruppo c": "Gruppo C",
+                "gruppoc": "Gruppo C",
+                "gt3": "GT3",
+                "dtm": "DTM",
+                "classic": "Classic",
+            }
+            import unicodedata
+            _cat_norm = str(selected_cat_name).strip().casefold()
+            _cat_norm = unicodedata.normalize("NFKD", _cat_norm)
+            _cat_norm = "".join(
+                ch for ch in _cat_norm if not unicodedata.combining(ch)
+            )
+            _cat_norm = " ".join(_cat_norm.replace("_", " ").replace("-", " ").split())
+            _slotit_cat_direct = _slotit_cat_map.get(_cat_norm)
+            if _slotit_cat_direct:
+                st.session_state[f"slotit_categoria_{model_safe_key}"] = _slotit_cat_direct
+
 
         pezzi = []
         pezzi_produttore = []
@@ -1658,37 +1766,42 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           return filtrati
 
         def helper_filtra_pezzi_thunderslot(campo, pezzi):
-          c_low = _normalizza_testo_filtro(campo)
-          if not pezzi:
-              return []
-          if "motore" in c_low and "supporto" not in c_low:
-              return [p for p in pezzi if p and p.get("Prodotto") 
-                      and "motore" in _normalizza_testo_filtro(p.get("Prodotto"))
-                      and "supporto" not in _normalizza_testo_filtro(p.get("Prodotto"))]
-          if "supporto" in c_low and "motore" in c_low:
-              return [p for p in pezzi if p and p.get("Prodotto") 
-                      and "supporto" in _normalizza_testo_filtro(p.get("Prodotto"))]
-          if "corona" in c_low:
-              return [p for p in pezzi if p and p.get("Prodotto") 
-                      and "corona" in _normalizza_testo_filtro(p.get("Prodotto"))]
-          if "telaio" in c_low:
-              return [p for p in pezzi if p and p.get("Prodotto") 
-                      and "telaio" in _normalizza_testo_filtro(p.get("Prodotto"))]
-          if "assale" in c_low:
-              return [p for p in pezzi if p and p.get("Prodotto") 
-                      and "assale" in _normalizza_testo_filtro(p.get("Prodotto"))]
-          if "cerch" in c_low:
-              return [p for p in pezzi if p and p.get("Prodotto") 
-                      and "cerch" in _normalizza_testo_filtro(p.get("Prodotto"))]
-          if "pickup" in c_low:
-              return [p for p in pezzi if p and p.get("Prodotto") 
-                      and ("pickup" in _normalizza_testo_filtro(p.get("Prodotto"))
-                      or "pick up" in _normalizza_testo_filtro(p.get("Prodotto")))]
-          if "viti carrozzeria" in c_low or "viti" in c_low:
-              return [p for p in pezzi if p and p.get("Prodotto") 
-                      and ("viti" in _normalizza_testo_filtro(p.get("Prodotto"))
-                      or "carrozzeria" in _normalizza_testo_filtro(p.get("Prodotto")))]
-          return pezzi
+            c_low = _normalizza_testo_filtro(campo)
+            if not pezzi:
+                return []
+            if "motore" in c_low and "supporto" not in c_low:
+                return [p for p in pezzi if p and p.get("Prodotto") 
+                        and "motore" in _normalizza_testo_filtro(p.get("Prodotto"))
+                        and "supporto" not in _normalizza_testo_filtro(p.get("Prodotto"))]
+            if "supporto" in c_low and "motore" in c_low:
+                return [p for p in pezzi if p and p.get("Prodotto") 
+                        and "supporto" in _normalizza_testo_filtro(p.get("Prodotto"))]
+            if "corona" in c_low:
+                return [p for p in pezzi if p and p.get("Prodotto") 
+                        and "corona" in _normalizza_testo_filtro(p.get("Prodotto"))]
+            if "pignon" in c_low or "pignone" in c_low:
+                return [p for p in pezzi if p and p.get("Prodotto") 
+                        and ("pignon" in _normalizza_testo_filtro(p.get("Prodotto"))
+                        or "pignone" in _normalizza_testo_filtro(p.get("Prodotto")))]
+            if "telaio" in c_low:
+                return [p for p in pezzi if p and p.get("Prodotto") 
+                        and "telaio" in _normalizza_testo_filtro(p.get("Prodotto"))]
+            if "assale" in c_low:
+                return [p for p in pezzi if p and p.get("Prodotto") 
+                        and "assale" in _normalizza_testo_filtro(p.get("Prodotto"))]
+            if "cerch" in c_low:
+                return [p for p in pezzi if p and p.get("Prodotto") 
+                        and "cerch" in _normalizza_testo_filtro(p.get("Prodotto"))]
+            if "pickup" in c_low:
+                return [p for p in pezzi if p and p.get("Prodotto") 
+                        and ("pickup" in _normalizza_testo_filtro(p.get("Prodotto"))
+                        or "pick up" in _normalizza_testo_filtro(p.get("Prodotto")))]
+            if "viti carrozzeria" in c_low or "viti" in c_low:
+                return [p for p in pezzi if p and p.get("Prodotto") 
+                        and ("viti" in _normalizza_testo_filtro(p.get("Prodotto"))
+                        or "vite" in _normalizza_testo_filtro(p.get("Prodotto"))
+                        or "carrozz" in _normalizza_testo_filtro(p.get("Prodotto")))]
+            return pezzi
 
         def helper_filtra_pezzi(campo, pezzi):
           c = _normalizza_testo_filtro(campo)
@@ -1884,15 +1997,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             ]
 
           # ---- AGGIUNTA PER LE GOMME ----
-          # ---- GOMME: stessa logica dei CERCHI, adattata alla struttura reale del CatalogoComponenti ----
-          # Nel database:
-          #   Prodotto  = "Gomme"
-          #   Materiale = "Anteriori - NSR" / "Posteriori - NSR" / ecc.
-          #   Misure    = descrizione della gomma
-          #
-          # Quindi NON cerchiamo "gomme anteriori" dentro Prodotto.
-          # Usiamo Prodotto + Materiale + Misure, come facciamo per i cerchi.
-
           if c in {"gomme anteriori", "gomme anteriore"}:
               risultato = []
               for p in pezzi:
@@ -1909,8 +2013,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                   if "gomm" not in prodotto and "gomm" not in testo_gomma:
                       continue
 
-                  # Anteriore: deve essere esplicitamente anteriore.
-                  # Non deve contenere posteriore.
                   if "posterior" in materiale or "posterior" in misure:
                       continue
 
@@ -1938,8 +2040,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                   if "gomm" not in prodotto and "gomm" not in testo_gomma:
                       continue
 
-                  # Posteriore: deve essere esplicitamente posteriore.
-                  # Non deve contenere anteriore.
                   if "anterior" in materiale or "anterior" in misure:
                       continue
 
@@ -1964,18 +2064,23 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
         # ============================================================
         def render_select_componente(campo, sub_pezzi_list, key_prefix):
             # SE IL REGOLAMENTO È ATTIVO E IL CAMPO HA REGOLE
-            if st.session_state.regolamento_attivo and campo in st.session_state.regolamento_dati:
-                opzioni = st.session_state.regolamento_dati[campo]
-                saved_val = edit_data.get(campo) if edit_data else None
-                idx = 0
-                if saved_val and saved_val in opzioni:
-                    idx = opzioni.index(saved_val)
-                return st.selectbox(
-                    campo,
-                    opzioni,
-                    index=idx,
-                    key=f"reg_{campo}_{model_safe_key}",
-                )
+            if st.session_state.regolamento_attivo:
+                # Gestione speciale per Assale Anteriore/Posteriore: se non ci sono regole per il campo specifico, usa "Assale"
+                reg_campo = campo
+                if campo in ["Assale Anteriore", "Assale Posteriore"] and campo not in st.session_state.regolamento_dati and "Assale" in st.session_state.regolamento_dati:
+                    reg_campo = "Assale"
+                if reg_campo in st.session_state.regolamento_dati:
+                    opzioni = st.session_state.regolamento_dati[reg_campo]
+                    saved_val = edit_data.get(campo) if edit_data else None
+                    idx = 0
+                    if saved_val and saved_val in opzioni:
+                        idx = opzioni.index(saved_val)
+                    return st.selectbox(
+                        campo,
+                        opzioni,
+                        index=idx,
+                        key=f"reg_{campo}_{model_safe_key}",
+                    )
             
             # ALTRIMENTI USA IL COMPORTAMENTO ORIGINALE (BOX STOCK)
             opzioni = []
@@ -2038,9 +2143,13 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
         # CONFIGURAZIONE PER I DIVERSI PRODUTTORI
         # --------------------------------------------
 
-        # Se il regolamento è attivo, mostriamo la tabella di confronto
+        # Se il regolamento è attivo, mostriamo la tabella di confronto.
+        # Il titolo specifico Slot.it compare solo insieme alla griglia.
         if _reg_attivo:
-          st.caption("Confronto configurazione: Box Stock vs Regolamento")
+          if selected_prod_name.lower() == "slot.it":
+              # st.markdown("### ⚙️ Setup Avanzato Slot.it")  # <-- RIMOSSO
+              st.caption("Confronto configurazione: Box Stock vs Regolamento")
+          
           confronto_campi = [
               "Motore", "Supporto Motore", "Corona", "Pignoni",
               "Assale Anteriore", "Assale Posteriore",
@@ -2049,8 +2158,17 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
           ]
           righe_confronto = []
           for _campo_confronto in confronto_campi:
+            _categoria_boxstock = selected_cat_name
+            if selected_prod_name.lower() == "slot.it":
+                _categoria_boxstock = st.session_state.get(
+                    f"slotit_categoria_{model_safe_key}",
+                    selected_cat_name,
+                )
+                if str(_categoria_boxstock).strip().casefold() == "hypercar":
+                    _categoria_boxstock = "hypercar lmp"
+
             _stock = _boxstock_target(
-                selected_prod_name, selected_cat_name, _campo_confronto
+                selected_prod_name, _categoria_boxstock, _campo_confronto
             )
             # Prendi le regole dallo stato
             reg_text = "Nessuna regola"
@@ -2167,29 +2285,149 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               )
 
         elif selected_prod_name.lower() == "slot.it":
-          col1_slot, col2_slot, col3_slot = st.columns(3)
+          col1_slot, col2_slot = st.columns(2)
+
+          # ===== CATEGORIA + LIVELLO SLOT.IT =====
+          slot_categorie = [
+              "Hypercar",
+              "Gruppo C",
+              "GT3",
+              "DTM",
+              "Classic"
+          ]
+
+          slot_sottocategorie = {
+              "Hypercar": ["P1", "P2"],
+              "Gruppo C": ["Box Stock", "Evo", "Evo/F"],
+              "GT3": ["Box Stock", "Evo", "Evo2"],
+              "DTM": ["Box Stock", "Evo", "Evo2"],
+              "Classic": ["Prototipi", "Sport"]
+          }
+
+          def_cat = edit_data.get("Categoria_SlotIt", "Hypercar") if edit_data else "Hypercar"
+          def_sub = edit_data.get("SottoCategoria_SlotIt", "P1") if edit_data else "P1"
+
+          cat_key = f"slotit_categoria_{model_safe_key}"
+          sub_key = f"slotit_sottocategoria_{model_safe_key}"
+          prev_cat_key = f"{cat_key}__prev"
+
+          # Categoria e Livello sono affiancati.
           with col1_slot:
-            cat_slot_opts = ["Nessuna", "P1", "P2", "Prototipi", "Sport"]
-            def_cat_slot = edit_data.get("Categoria_SlotIt", "Nessuna") if edit_data else "Nessuna"
-            idx_cat_slot = cat_slot_opts.index(def_cat_slot) if def_cat_slot in cat_slot_opts else 0
-            scelte_utente["Categoria_SlotIt"] = st.selectbox(
-                "Categoria",
-                cat_slot_opts,
-                index=idx_cat_slot,
-                key=f"slotit_categoria_{model_safe_key}",
-            )
+              if cat_key not in st.session_state:
+                  st.session_state[cat_key] = (
+                      def_cat if def_cat in slot_categorie else slot_categorie[0]
+                  )
+
+              categoria_slotit = st.selectbox(
+                  "Categoria",
+                  slot_categorie,
+                  key=cat_key,
+              )
+              scelte_utente["Categoria_SlotIt"] = categoria_slotit
+
+          sottocategorie_disponibili = slot_sottocategorie.get(
+              categoria_slotit, []
+          )
+
+          # Il livello viene determinato dalla categoria corrente.
+          # Se la categoria cambia, il vecchio livello viene sostituito
+          # con il primo livello valido della nuova categoria.
+          categoria_precedente = st.session_state.get(prev_cat_key)
+
+          if categoria_precedente is None:
+              st.session_state[sub_key] = (
+                  def_sub if def_sub in sottocategorie_disponibili
+                  else (
+                      sottocategorie_disponibili[0]
+                      if sottocategorie_disponibili else ""
+                  )
+              )
+          elif categoria_precedente != categoria_slotit:
+              st.session_state[sub_key] = (
+                  sottocategorie_disponibili[0]
+                  if sottocategorie_disponibili else ""
+              )
+          elif st.session_state.get(sub_key) not in sottocategorie_disponibili:
+              st.session_state[sub_key] = (
+                  sottocategorie_disponibili[0]
+                  if sottocategorie_disponibili else ""
+              )
+
+          st.session_state[prev_cat_key] = categoria_slotit
+
           with col2_slot:
-            scelte_utente["Peso_Carrozzeria"] = st.text_input(
-                "Peso Carrozzeria",
-                value=str(edit_data.get("Peso_Carrozzeria", "")) if edit_data else "",
-                key=f"peso_carrozzeria_{model_safe_key}",
-            )
-          with col3_slot:
-            scelte_utente["Peso_Totale"] = st.text_input(
-                "Peso Totale",
-                value=str(edit_data.get("Peso_Totale", "")) if edit_data else "",
-                key=f"peso_totale_{model_safe_key}",
-            )
+              if sottocategorie_disponibili:
+                  scelte_utente["SottoCategoria_SlotIt"] = st.selectbox(
+                      "Livello",
+                      sottocategorie_disponibili,
+                      key=sub_key,
+                  )
+              else:
+                  scelte_utente["SottoCategoria_SlotIt"] = ""
+
+          # I tre tasti: Configura, Aggiorna, Torna a Box Stock
+          col_reg_slot1, col_reg_slot2, col_reg_slot3 = st.columns(3)
+
+          with col_reg_slot1:
+              if not _reg_attivo:
+                  if st.button(
+                      "📖 Configura da Regolamento",
+                      key=f"config_reg_{model_safe_key}"
+                  ):
+                      st.session_state.configura_regolamento_target = _reg_target
+                      sotto_cat = st.session_state.get(sub_key, "")
+                      cat_nome = st.session_state.get(cat_key, "")
+                      _carica_regole_semplici(
+                          prod_id_selezionato,
+                          category_id,
+                          sotto_cat,
+                          cat_nome
+                      )
+                      st.rerun()
+              else:
+                  st.success("✅ Regolamento attivo")
+
+          with col_reg_slot2:
+              if _reg_attivo:
+                  if st.button(
+                      "🔄 Aggiorna",
+                      key=f"aggiorna_reg_{model_safe_key}"
+                  ):
+                      sotto_cat = st.session_state.get(sub_key, "")
+                      cat_nome = st.session_state.get(cat_key, "")
+                      _carica_regole_semplici(
+                          prod_id_selezionato,
+                          category_id,
+                          sotto_cat,
+                          cat_nome
+                      )
+                      st.rerun()
+
+          with col_reg_slot3:
+              if _reg_attivo:
+                  if st.button(
+                      "↩️ Torna a Box Stock",
+                      key=f"boxstock_reg_{model_safe_key}"
+                  ):
+                      st.session_state.configura_regolamento_target = None
+                      st.session_state.regolamento_attivo = False
+                      st.session_state.regolamento_dati = {}
+                      st.rerun()
+
+          # Peso carrozzeria e peso totale restano nella posizione prevista.
+          col_peso1, col_peso2 = st.columns(2)
+          with col_peso1:
+              scelte_utente["Peso_Carrozzeria"] = st.text_input(
+                  "Peso Carrozzeria",
+                  value=str(edit_data.get("Peso_Carrozzeria", "")) if edit_data else "",
+                  key=f"peso_carrozzeria_{model_safe_key}",
+              )
+          with col_peso2:
+              scelte_utente["Peso_Totale"] = st.text_input(
+                  "Peso Totale",
+                  value=str(edit_data.get("Peso_Totale", "")) if edit_data else "",
+                  key=f"peso_totale_{model_safe_key}",
+              )
 
           slotit_campi = [
               "Motore",
@@ -2368,11 +2606,13 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 "Supporto Motore",
                 "Corona",
                 "Giri Motore",
+                "Pignoni",
                 "Telaio",
                 "Cerchi Anteriori",
                 "Cerchi Posteriori",
                 "Viti Carrozzeria",
-                "Assale",
+                "Assale Anteriore",
+                "Assale Posteriore",
             ]
 
             cols = st.columns(3)
