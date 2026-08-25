@@ -98,13 +98,34 @@ def sg_seconds(value):
     except (ValueError, TypeError):
         return None
 
-def sg_load_garage():
+# ===== CACHE OTTIMIZZATA (SENZA PARAMETRI VARIABILI) =====
+@st.cache_data(ttl=300)
+def _sg_load_garage_cached():
+    user = st.session_state.get("user")
+    if not user:
+        return []
     try:
-        uid = sg_current_user_id()
-        return supabase.table("IlMioGarage").select("*").eq("user_id", uid).execute().data or []
+        return supabase.table("IlMioGarage").select("*").eq("user_id", user.id).execute().data or []
     except Exception:
         return []
 
+def sg_load_garage():
+    return _sg_load_garage_cached()
+
+@st.cache_data(ttl=300)
+def _sg_load_telemetry_components_cached():
+    user = st.session_state.get("user")
+    if not user:
+        return []
+    try:
+        return supabase.table("SlotGarage_Componenti").select("*").eq("user_id", user.id).order("created_at", desc=True).execute().data or []
+    except Exception:
+        return []
+
+def sg_load_telemetry_components():
+    return _sg_load_telemetry_components_cached()
+
+# ===== FUNZIONI PRO UI =====
 def sg_pro_ui():
     if not st.session_state.get("user"):
         return
@@ -277,23 +298,42 @@ def sg_pro_ui():
                         "marca": marca.strip(),
                         "nome": nome.strip(),
                         "note": note.strip(),
-                    }).execute()
+                    })
                     st.success("Componente salvato.")
+                    st.cache_data.clear()
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Errore salvataggio componente: {e}")
+
         try:
-            components = sg_load_telemetry_components(sg_current_user_id())
+            components = sg_load_telemetry_components()
         except Exception:
             components = []
-        if components:
-            st.dataframe([{
-                "Tipo": x.get("tipo"), "Marca": x.get("marca"),
-                "Nome / codice": x.get("nome"), "Note": x.get("note")
-            } for x in components], use_container_width=True, hide_index=True)
 
-    # ============================================================
-    # TAB 5 - CALCOLATORE RAPPORTI (NUOVO)
-    # ============================================================
+        if components:
+            for comp in components:
+                col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 1])
+                with col1:
+                    st.write(comp.get("tipo", ""))
+                with col2:
+                    st.write(comp.get("marca", ""))
+                with col3:
+                    st.write(comp.get("nome", ""))
+                with col4:
+                    st.write(comp.get("note", ""))
+                with col5:
+                    if st.button("🗑️", key=f"del_comp_{comp.get('id')}"):
+                        try:
+                            supabase.table("SlotGarage_Componenti").delete().eq("id", comp.get("id")).eq("user_id", st.session_state.user.id).execute()
+                            st.success("Componente eliminato.")
+                            st.cache_data.clear()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Errore durante l'eliminazione: {e}")
+                st.divider()
+        else:
+            st.info("Nessun componente salvato nell'archivio.")
+
     with tabs[5]:
         st.caption("Calcola il rapporto di trasmissione e simula l'effetto di una modifica.")
         
@@ -303,7 +343,6 @@ def sg_pro_ui():
             cfg = garage[cfg_idx] if cfg_idx is not None else None
             dettagli = deserialize_details(cfg.get("dettagli_setup", {})) if cfg else {}
             
-            # Estrai valori attuali
             corona_attuale = dettagli.get("Corona", "")
             pignone_attuale = dettagli.get("Pignoni", "")
             giri_motore = dettagli.get("Giri_Motore", "")
@@ -406,27 +445,15 @@ def sg_load_telemetry_tests(user_id=None):
         desc=False,
     )
 
-def sg_load_telemetry_components(user_id=None):
-    return sg_db_select(
-        "SlotGarage_Componenti",
-        user_id=user_id,
-        order_column="created_at",
-        desc=True,
-    )
-
-def sg_load_telemetry_history(user_id=None):
-    return sg_db_select(
-        "SlotGarage_Storico",
-        user_id=user_id,
-        order_column="data_modifica",
-        desc=True,
-    )
-
 def sg_save_telemetry_test(payload):
     return sg_db_insert("SlotGarage_Prove", payload)
 
 def sg_save_telemetry_component(payload):
-    return sg_db_insert("SlotGarage_Componenti", payload)
+    try:
+        return supabase.table("SlotGarage_Componenti").insert(payload).execute().data or []
+    except Exception as e:
+        st.error(f"Errore salvataggio componente: {e}")
+        return []
 
 def sg_save_telemetry_history(payload):
     return sg_db_insert("SlotGarage_Storico", payload)
@@ -563,6 +590,7 @@ with st.sidebar:
     if st.button("🚪 Logout"):
       supabase.auth.sign_out()
       st.session_state.user = None
+      st.cache_data.clear()
       st.rerun()
   else:
     st.info("Stai navigando come Ospite.")
@@ -574,6 +602,7 @@ with st.sidebar:
           try:
             res = supabase.auth.sign_in_with_password({"email": email_sb, "password": pass_sb})
             st.session_state.user = res.user
+            st.cache_data.clear()
             st.rerun()
           except Exception as e:
             st.error(f"Errore: {e}")
@@ -1528,7 +1557,7 @@ def _carica_regole_semplici(prod_id, cat_id, sotto_categoria=None, categoria_nom
         return {}
 
 # ============================================================
-# FUNZIONE PER CONTROLLARE ARCHIVIO COMPONENTI (PUNTO 6)
+# FUNZIONE PER CONTROLLARE ARCHIVIO COMPONENTI
 # ============================================================
 def componente_in_archivio(nome_componente):
     if not st.session_state.user:
@@ -2093,9 +2122,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               for k in ("Prodotto", "Materiale", "Misure", "Tipo")
           )
 
-        # ============================================================
-        # FUNZIONE RENDER_SELECT_COMPONENTE MODIFICATA (con badge archivio)
-        # ============================================================
         def render_select_componente(campo, sub_pezzi_list, key_prefix):
             if st.session_state.regolamento_attivo:
                 reg_campo = campo
@@ -2133,7 +2159,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                     str_opt = prodotto
 
                 if str_opt and str_opt not in opzioni:
-                    # ---- PUNTO 6: CONTROLLO ARCHIVIO ----
                     in_archivio = componente_in_archivio(str_opt)
                     if in_archivio:
                         str_opt_display = f"{str_opt} ✅"
@@ -2179,10 +2204,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 index=def_idx,
                 key=f"{key_prefix}_{campo}_{model_safe_key}",
             )
-
-        # --------------------------------------------
-        # CONFIGURAZIONE PER I DIVERSI PRODUTTORI
-        # --------------------------------------------
 
         if _reg_attivo:
           if selected_prod_name.lower() == "slot.it":
@@ -2396,7 +2417,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               else:
                   scelte_utente["SottoCategoria_SlotIt"] = ""
 
-          # ---- PUNTO 1: BOTTONI (CONFIGURA, AGGIORNA, TORNA, SETUP SUGGERITO) ----
           col_reg_slot1, col_reg_slot2, col_reg_slot3, col_reg_slot4 = st.columns(4)
 
           with col_reg_slot1:
@@ -3192,9 +3212,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 elif st.session_state.active_tab == "🚗 Il Mio Garage":
   st.subheader("🚗 Il Mio Garage - Configurazioni Salvate")
 
-  # ============================================================
-  # PUNTO 2: DASHBOARD STATISTICHE
-  # ============================================================
+  # DASHBOARD STATISTICHE
   if st.session_state.user:
     try:
         configs = supabase.table("IlMioGarage").select("id", count="exact").eq("user_id", st.session_state.user.id).execute()
@@ -3232,9 +3250,7 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
     except Exception as e:
         st.warning(f"Impossibile caricare statistiche: {e}")
 
-  # ============================================================
-  # PUNTO 3A: IMPORTA JSON
-  # ============================================================
+  # IMPORTA JSON
   if st.session_state.user:
     with st.expander("📥 Importa configurazione da JSON"):
         uploaded_file = st.file_uploader("Seleziona file JSON", type=["json"], key="import_json_uploader")
@@ -3273,7 +3289,6 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
           conf_modello = s.get("modello_nome", "Modello non specificato")
 
           dettagli_str = s.get("dettagli_setup", "{}")
-          dict_dettagli = {}
           dict_dettagli = deserialize_details(dettagli_str)
 
           foto_auto_url = None
@@ -3353,9 +3368,6 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
               except Exception as e:
                 st.error(f"Errore durante l'eliminazione: {e}")
 
-          # ============================================================
-          # PUNTO 3B: ESPORTA JSON
-          # ============================================================
           with col_btn_export:
             export_data = {
                 "nome_configurazione": conf_nome,
@@ -3769,7 +3781,6 @@ elif st.session_state.active_tab == "🎛️ Il Mio Pulsante":
           p_tipo = pul.get("tipo_pulsante", "N/D")
           
           p_dettagli_str = pul.get("dettagli_setup", "{}")
-          p_dict = {}
           p_dict = deserialize_details(p_dettagli_str)
 
           col_p_info, col_p_mod, col_p_del = st.columns([6, 2, 2])
