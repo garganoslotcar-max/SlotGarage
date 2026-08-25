@@ -39,6 +39,14 @@ def init_connection():
 
 supabase = init_connection()
 
+# Stato del precaricamento post-login.
+if "bootstrap_done" not in st.session_state:
+  st.session_state.bootstrap_done = False
+if "bootstrap_user_id" not in st.session_state:
+  st.session_state.bootstrap_user_id = None
+if "bootstrap_clean_rerun" not in st.session_state:
+  st.session_state.bootstrap_clean_rerun = False
+
 LOGO_PATH = "logo.png"
 
 
@@ -98,32 +106,80 @@ def sg_seconds(value):
     except (ValueError, TypeError):
         return None
 
-# ===== CACHE OTTIMIZZATA (SENZA PARAMETRI VARIABILI) =====
-@st.cache_data(ttl=300)
-def _sg_load_garage_cached():
-    user = st.session_state.get("user")
-    if not user:
+# ===== CACHE DATI PERSONALI OTTIMIZZATA =====
+# Le cache personali sono parametrizzate per user_id: il login/logout non
+# deve cancellare la cache globale di Produttori/Categorie/Modelli/Catalogo.
+@st.cache_data(ttl=300, show_spinner=False)
+def _sg_load_garage_cached(user_id):
+    if not user_id:
         return []
     try:
-        return supabase.table("IlMioGarage").select("*").eq("user_id", user.id).execute().data or []
+        return (
+            supabase.table("IlMioGarage")
+            .select("*")
+            .eq("user_id", user_id)
+            .execute()
+            .data
+            or []
+        )
     except Exception:
         return []
 
 def sg_load_garage():
-    return _sg_load_garage_cached()
+    return _sg_load_garage_cached(sg_current_user_id())
 
-@st.cache_data(ttl=300)
-def _sg_load_telemetry_components_cached():
-    user = st.session_state.get("user")
-    if not user:
+@st.cache_data(ttl=300, show_spinner=False)
+def _sg_load_telemetry_components_cached(user_id):
+    if not user_id:
         return []
     try:
-        return supabase.table("SlotGarage_Componenti").select("*").eq("user_id", user.id).order("created_at", desc=True).execute().data or []
+        return (
+            supabase.table("SlotGarage_Componenti")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+            .data
+            or []
+        )
     except Exception:
         return []
 
 def sg_load_telemetry_components():
-    return _sg_load_telemetry_components_cached()
+    return _sg_load_telemetry_components_cached(sg_current_user_id())
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _sg_load_telemetry_tests_cached(user_id):
+    if not user_id:
+        return []
+    try:
+        return (
+            supabase.table("SlotGarage_Prove")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("miglior_tempo", desc=False)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        return []
+
+def sg_load_telemetry_tests(user_id=None):
+    return _sg_load_telemetry_tests_cached(user_id or sg_current_user_id())
+
+def sg_invalidate_user_caches(user_id=None):
+    for nome_cache in (
+        "_sg_load_garage_cached",
+        "_sg_load_telemetry_components_cached",
+        "_sg_load_telemetry_tests_cached",
+        "_componente_in_archivio_cached",
+        "_sg_load_archivio_componenti_nomi_cached",
+        "_sg_load_pulsanti_cached",
+    ):
+        fn = globals().get(nome_cache)
+        if fn is not None and hasattr(fn, "clear"):
+            fn.clear()
 
 # ===== FUNZIONI PRO UI =====
 def sg_pro_ui():
@@ -189,7 +245,7 @@ def sg_pro_ui():
                     payload = {
                         "user_id": st.session_state.user.id,
                         "garage_id": garage[ci].get("id"),
-                        "modello": garage[ci].get("modello"),
+                        "modello": garage[ci].get("modello_nome") or garage[ci].get("modello"),
                         "configurazione": garage[ci].get("nome_configurazione") or garage[ci].get("nome"),
                         "pista": pista.strip(),
                         "data_prova": str(data_prova),
@@ -202,6 +258,7 @@ def sg_pro_ui():
                     }
                     try:
                         sg_save_telemetry_test(payload)
+                        sg_invalidate_user_caches(st.session_state.user.id)
                         st.success("Prova salvata.")
                     except Exception as e:
                         st.error(f"Errore salvataggio prova: {e}")
@@ -243,7 +300,7 @@ def sg_pro_ui():
                                 "vecchio_garage_id": garage[old_i].get("id"),
                                 "data_modifica": datetime.now().isoformat(),
                                 "modifiche": json.dumps(diffs, ensure_ascii=False),
-                            }).execute()
+                            })
                             st.success("Storico salvato.")
                         except Exception as e:
                             st.error(f"Errore salvataggio storico: {e}")
@@ -265,14 +322,25 @@ def sg_pro_ui():
                 tm = t.get("miglior_tempo")
                 if tm is not None and (key not in best_by_cfg or tm < best_by_cfg[key]):
                     best_by_cfg[key] = tm
-            ranking = sorted(
-                [{"Pos.": i+1, "Modello": k[0], "Configurazione": k[1],
-                  "Miglior tempo": f"{v:.3f} s"}
-                 for i, (k, v) in enumerate(best_by_cfg.items())],
-                key=lambda x: x["Miglior tempo"]
+            ranking_data = sorted(
+                [
+                    {
+                        "Modello": k[0],
+                        "Configurazione": k[1],
+                        "_tempo_num": v,
+                    }
+                    for k, v in best_by_cfg.items()
+                ],
+                key=lambda x: x["_tempo_num"]
             )
-            for i, row in enumerate(ranking, 1):
-                row["Pos."] = i
+            ranking = []
+            for i, row in enumerate(ranking_data, 1):
+                ranking.append({
+                    "Pos.": i,
+                    "Modello": row["Modello"],
+                    "Configurazione": row["Configurazione"],
+                    "Miglior tempo": f'{row["_tempo_num"]:.3f} s',
+                })
             st.dataframe(ranking, use_container_width=True, hide_index=True)
 
     with tabs[4]:
@@ -299,8 +367,8 @@ def sg_pro_ui():
                         "nome": nome.strip(),
                         "note": note.strip(),
                     })
+                    sg_invalidate_user_caches(st.session_state.user.id)
                     st.success("Componente salvato.")
-                    st.cache_data.clear()
                     st.rerun()
                 except Exception as e:
                     st.error(f"Errore salvataggio componente: {e}")
@@ -325,8 +393,8 @@ def sg_pro_ui():
                     if st.button("🗑️", key=f"del_comp_{comp.get('id')}"):
                         try:
                             supabase.table("SlotGarage_Componenti").delete().eq("id", comp.get("id")).eq("user_id", st.session_state.user.id).execute()
+                            sg_invalidate_user_caches(st.session_state.user.id)
                             st.success("Componente eliminato.")
-                            st.cache_data.clear()
                             st.rerun()
                         except Exception as e:
                             st.error(f"Errore durante l'eliminazione: {e}")
@@ -414,6 +482,18 @@ def sg_pro_ui():
 
 
 # ===== SLOTGARAGE V8 REFACTOR HELPERS =====
+@st.cache_data(ttl=300, show_spinner=False)
+def sg_load_pulsanti_cached(user_id):
+    if not user_id:
+        return []
+    try:
+        return supabase.table("ilMioPulsante").select("*").eq("user_id", user_id).execute().data or []
+    except Exception:
+        return []
+
+def sg_load_pulsanti():
+    return sg_load_pulsanti_cached(getattr(st.session_state.get("user"), "id", None))
+
 def sg_current_user_id():
     user = st.session_state.get("user")
     return getattr(user, "id", None) if user else None
@@ -463,10 +543,124 @@ def sg_safe_message(action, exc):
 
 st.set_page_config(page_title="SlotGarage", page_icon=LOGO_PATH, layout="wide")
 
+# ============================================================
+# TEMA GRAFICO SLOTGARAGE
+# Blu logo + arancione fluo + bianco
+# ============================================================
+st.markdown("""
+<style>
+:root {
+    --sg-blue: #011B44;
+    --sg-blue-panel: #06285C;
+    --sg-orange: #FE5A01;
+    --sg-orange-hover: #FF741F;
+    --sg-white: #FFFFFF;
+}
+
+.stApp, .main {
+    background-color: #011B44 !important;
+    color: #FFFFFF !important;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: #06285C !important;
+}
+section[data-testid="stSidebar"] * {
+    color: #FFFFFF;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: #FFFFFF !important;
+}
+
+.stButton > button {
+    background-color: #FE5A01 !important;
+    color: #FFFFFF !important;
+    border: 1px solid #FE5A01 !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+}
+
+.stButton > button:hover {
+    background-color: #FF741F !important;
+    border-color: #FF741F !important;
+    color: #FFFFFF !important;
+}
+
+.stButton > button:focus {
+    border-color: #FFFFFF !important;
+    box-shadow: 0 0 0 2px rgba(254, 90, 1, 0.35) !important;
+}
+
+div[data-baseweb="select"] > div {
+    background-color: #06285C !important;
+    border-color: #FE5A01 !important;
+    color: #FFFFFF !important;
+}
+
+div[data-baseweb="select"] * {
+    color: #FFFFFF !important;
+}
+
+input, textarea {
+    background-color: #06285C !important;
+    color: #FFFFFF !important;
+    border-color: #FE5A01 !important;
+}
+
+div[data-baseweb="popover"],
+div[data-baseweb="menu"] {
+    background-color: #06285C !important;
+}
+
+div[data-baseweb="menu"] * {
+    color: #FFFFFF !important;
+}
+
+div[data-testid="stExpander"] {
+    background-color: #06285C !important;
+    border: 1px solid rgba(254, 90, 1, 0.45) !important;
+    border-radius: 8px !important;
+}
+
+hr {
+    border-color: rgba(254, 90, 1, 0.45) !important;
+}
+
+a {
+    color: #FE5A01 !important;
+}
+
+button[data-baseweb="tab"] {
+    color: #FFFFFF !important;
+}
+
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #FE5A01 !important;
+}
+
+div[data-baseweb="tab-highlight"] {
+    background-color: #FE5A01 !important;
+}
+
+div[data-testid="stMetric"] {
+    background-color: #06285C;
+    border: 1px solid rgba(254, 90, 1, 0.35);
+    border-radius: 8px;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
 # --- GESTIONE STATO UTENTE & PERSISTENZA SESSIONE ---
 if "user" not in st.session_state:
-  if supabase and supabase.auth.get_session():
-    st.session_state.user = supabase.auth.get_session().user
+  if supabase:
+    try:
+      _session = supabase.auth.get_session()
+      st.session_state.user = _session.user if _session else None
+    except Exception:
+      st.session_state.user = None
   else:
     st.session_state.user = None
 
@@ -540,10 +734,12 @@ def process_pending_garage():
             supabase.table("IlMioGarage").update(record_garage).eq(
                 "id", pending.get("config_id")
             ).eq("user_id", user.id).execute()
+            sg_invalidate_user_caches(user.id)
             st.success(f"Configurazione '{nome}' aggiornata con successo dopo il login!")
             clear_garage_edit_state()
         else:
             supabase.table("IlMioGarage").insert(record_garage).execute()
+            sg_invalidate_user_caches(user.id)
             st.success(f"Configurazione '{nome}' salvata con successo nel tuo Garage dopo il login!")
 
     except Exception as e:
@@ -568,6 +764,9 @@ def richiedi_autenticazione():
         try:
           res = supabase.auth.sign_in_with_password({"email": email_in, "password": pass_in})
           st.session_state.user = res.user
+          st.session_state.bootstrap_done = False
+          st.session_state.bootstrap_user_id = None
+          st.session_state.bootstrap_clean_rerun = False
           st.success("Accesso effettuato con successo!")
           st.rerun()
         except Exception as e:
@@ -589,8 +788,14 @@ with st.sidebar:
     st.write(f"Pilota loggato: **{st.session_state.user.email}**")
     if st.button("🚪 Logout"):
       supabase.auth.sign_out()
+      sg_invalidate_user_caches()
       st.session_state.user = None
-      st.cache_data.clear()
+      st.session_state.bootstrap_done = False
+      st.session_state.bootstrap_user_id = None
+      st.session_state.bootstrap_clean_rerun = False
+      st.session_state.pop("_archivio_nomi_loaded_for_user", None)
+      st.session_state.pop("_archivio_componenti_check_memo", None)
+      st.session_state.pop("_archivio_componenti_memo_key", None)
       st.rerun()
   else:
     st.info("Stai navigando come Ospite.")
@@ -602,7 +807,9 @@ with st.sidebar:
           try:
             res = supabase.auth.sign_in_with_password({"email": email_sb, "password": pass_sb})
             st.session_state.user = res.user
-            st.cache_data.clear()
+            st.session_state.bootstrap_done = False
+            st.session_state.bootstrap_user_id = None
+            st.session_state.bootstrap_clean_rerun = False
             st.rerun()
           except Exception as e:
             st.error(f"Errore: {e}")
@@ -628,7 +835,7 @@ with col_logo:
 with col_titolo:
   st.markdown(
       "<h1 style='margin-top: 25px; font-size: clamp(2.5rem, 5vw, 4.2rem); margin-bottom:"
-      " 0px; white-space: nowrap;'>SlotGarage</h1><p style='color: #FFD700; font-size: 1.3rem;"
+      " 0px; white-space: nowrap;'>SlotGarage</h1><p style='color: #FE5A01; font-size: 1.3rem;"
       " margin-top: 0px;'>Creato da Emanuele Palena</p>",
       unsafe_allow_html=True,
   )
@@ -638,25 +845,51 @@ if not supabase:
   st.stop()
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=900, show_spinner=False)
 def get_data(table_name):
   if not supabase:
     return []
   try:
     response = supabase.table(table_name).select("*").execute()
     return response.data if response and response.data else []
-  except Exception as e:
-    st.warning(f"Impossibile caricare i dati dalla tabella {table_name}: {e}")
+  except Exception:
     return []
 
+@st.cache_data(ttl=900, show_spinner=False)
+def get_produttori():
+  try:
+    return supabase.table("Produttori").select("id,name").execute().data or []
+  except Exception:
+    return []
 
-produttori = get_data("Produttori")
-categorie = get_data("Categorie")
-modelli = get_data("MODELLI")
-catalogo_componenti = get_data("CatalogoComponenti")
+@st.cache_data(ttl=900, show_spinner=False)
+def get_categorie():
+  try:
+    return supabase.table("Categorie").select("id,name,brand_it").execute().data or []
+  except Exception:
+    return []
+
+@st.cache_data(ttl=900, show_spinner=False)
+def get_modelli():
+  try:
+    return supabase.table("MODELLI").select("id,name,category_id,foto_url").execute().data or []
+  except Exception:
+    return []
+
+produttori = get_produttori()
+categorie = get_categorie()
+modelli = get_modelli()
+# Il catalogo pesante viene caricato solo quando si apre una configurazione/regolamento.
+catalogo_componenti = []
+
+def get_catalogo_componenti():
+  return get_data("CatalogoComponenti")
 
 
 def trova_telaio_catalogo_id(telaio):
+    global catalogo_componenti
+    if not catalogo_componenti:
+        catalogo_componenti = get_catalogo_componenti()
     if not telaio:
         return None
 
@@ -682,7 +915,8 @@ if not produttori and not modelli:
       "Connessione al cloud in corso o database temporaneamente in standby..."
   )
   if st.button("🔄 Riprova Connessione"):
-    st.cache_data.clear()
+    get_data.clear()
+    _indicizza_catalogo_per_codice.clear()
     st.rerun()
 
 if "modifying_config_id" not in st.session_state:
@@ -699,6 +933,159 @@ if "active_tab" not in st.session_state:
   st.session_state.active_tab = "📋 Visualizza Modelli"
 if "configura_regolamento_target" not in st.session_state:
   st.session_state.configura_regolamento_target = None
+
+# ============================================================
+# PRECARICAMENTO POST-LOGIN - 0% -> 100%
+# ============================================================
+# Il caricamento è reale: ogni avanzamento avviene dopo che l'operazione
+# corrispondente è terminata. La configurazione viene mostrata solo dopo
+# il completamento del bootstrap.
+def sg_bootstrap_post_login():
+  user = st.session_state.get("user")
+  if not user:
+    return
+
+  user_id = getattr(user, "id", None)
+  if not user_id:
+    return
+
+  if (st.session_state.get("bootstrap_done") and
+      st.session_state.get("bootstrap_user_id") == user_id):
+    return
+
+  progress = st.progress(0)
+  status = st.empty()
+  step_times = []
+  total_start = time.perf_counter()
+
+  def run_step(percent, label, fn):
+    start = time.perf_counter()
+    status.markdown(f"### 🔄 {label}")
+    result = fn()
+    elapsed = time.perf_counter() - start
+    step_times.append((label, elapsed))
+    progress.progress(percent)
+    status.caption(f"Completato in {elapsed:.2f} s")
+    return result
+
+  try:
+    run_step(10, "Caricamento produttori...", lambda: produttori)
+    run_step(20, "Caricamento categorie...", lambda: categorie)
+    run_step(30, "Caricamento modelli...", lambda: modelli)
+
+    def load_catalogo():
+      global catalogo_componenti
+      if not catalogo_componenti:
+        catalogo_componenti = get_catalogo_componenti()
+      return catalogo_componenti
+
+    catalogo = run_step(50, "Caricamento catalogo componenti...", load_catalogo)
+
+    def build_catalog_indexes():
+      indice_codici = {}
+      indice_tipo = {}
+      indice_prodotto = {}
+
+      # Nuovi indici reali usati dalla configurazione:
+      # invece di riscorrere tutto CatalogoComponenti ogni volta che
+      # l'utente seleziona un modello, prepariamo in anticipo le liste
+      # per produttore e produttore+categoria.
+      catalogo_per_produttore = {}
+      catalogo_per_prod_cat = {}
+      catalogo_senza_categoria = {}
+
+      for componente in catalogo or []:
+        if not componente:
+          continue
+
+        codice = componente.get("Codice_Prodotto")
+        if codice is None:
+          codice = componente.get("codice_prodotto")
+        if codice is not None:
+          codice_norm = str(codice).strip().casefold()
+          if codice_norm.endswith(".0") and codice_norm[:-2].isdigit():
+            codice_norm = codice_norm[:-2]
+          if codice_norm and codice_norm not in indice_codici:
+            indice_codici[codice_norm] = componente
+
+        tipo = str(componente.get("Tipo") or "").strip().casefold()
+        prodotto = str(componente.get("Prodotto") or "").strip().casefold()
+        if tipo:
+          indice_tipo.setdefault(tipo, []).append(componente)
+        if prodotto:
+          indice_prodotto.setdefault(prodotto, []).append(componente)
+
+        prod_key = str(componente.get("id_Produttori"))
+        catalogo_per_produttore.setdefault(prod_key, []).append(componente)
+
+        cat_componente = (
+            componente.get("category_id")
+            if componente.get("category_id") is not None
+            else (
+                componente.get("id_Categorie")
+                if componente.get("id_Categorie") is not None
+                else componente.get("categoria")
+            )
+        )
+
+        if cat_componente is None:
+          catalogo_senza_categoria.setdefault(prod_key, []).append(componente)
+        else:
+          cat_key = str(cat_componente)
+          catalogo_per_prod_cat.setdefault(
+              (prod_key, cat_key), []
+          ).append(componente)
+
+      # La configurazione originale include i componenti senza categoria
+      # insieme a quelli della categoria selezionata. Prepariamo quindi
+      # esattamente quella stessa lista in anticipo.
+      catalogo_per_prod_cat_finale = {}
+      for (prod_key, cat_key), lista_cat in catalogo_per_prod_cat.items():
+        base = catalogo_senza_categoria.get(prod_key, [])
+        if base:
+          catalogo_per_prod_cat_finale[(prod_key, cat_key)] = base + lista_cat
+        else:
+          catalogo_per_prod_cat_finale[(prod_key, cat_key)] = lista_cat
+
+      # Memorizziamo anche i produttori senza categoria: servono quando
+      # category_id è "Tutte".
+      st.session_state["_catalogo_per_produttore_bootstrap"] = catalogo_per_produttore
+      st.session_state["_catalogo_per_prod_cat_bootstrap"] = catalogo_per_prod_cat_finale
+      st.session_state["_catalogo_senza_categoria_bootstrap"] = catalogo_senza_categoria
+
+      st.session_state["_indice_codici_bootstrap"] = indice_codici
+      st.session_state["_indice_tipo_bootstrap"] = indice_tipo
+      st.session_state["_indice_prodotto_bootstrap"] = indice_prodotto
+      return indice_codici
+
+    run_step(65, "Preparazione liste componenti per produttore e categoria...", build_catalog_indexes)
+    run_step(82, "Caricamento configurazioni Garage...", sg_load_garage)
+    run_step(92, "Preparazione dati componenti personali...", sg_load_telemetry_components)
+    run_step(97, "Preparazione configurazioni pulsanti...", sg_load_pulsanti)
+
+    total_elapsed = time.perf_counter() - total_start
+    progress.progress(100)
+    status.markdown("### ✅ Caricamento completato: SlotGarage è pronto")
+    status.caption(f"Preparazione completata in {total_elapsed:.2f} secondi.")
+
+    st.session_state.bootstrap_done = True
+    st.session_state.bootstrap_user_id = user_id
+
+    # Il rerun finale ripulisce la schermata di caricamento e lascia l'app
+    # nella normale interfaccia, con i dati già caldi in cache.
+    if not st.session_state.get("bootstrap_clean_rerun"):
+      st.session_state.bootstrap_clean_rerun = True
+      st.rerun()
+
+  except Exception as e:
+    progress.empty()
+    status.empty()
+    st.error(f"❌ Errore durante il caricamento iniziale: {e}")
+    st.stop()
+
+
+if st.session_state.get("user"):
+  sg_bootstrap_post_login()
 
 st.header("🔍 Filtra Modello")
 
@@ -1116,6 +1503,7 @@ def validate_image_url(url):
     return None
 
 
+@st.cache_data(ttl=900, show_spinner=False)
 def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_nome=""):
   pdf = FPDF(orientation="L", unit="mm", format="A4")
   pdf.add_page()
@@ -1313,6 +1701,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
 
 
 # ===== FUNZIONI DI NORMALIZZAZIONE =====
+@st.cache_data(ttl=3600, show_spinner=False)
 def _normalizza_testo_filtro(valore):
     if valore is None:
         return ""
@@ -1400,7 +1789,12 @@ def _descrizione_catalogo_per_regolamento(componente):
 
     return " - ".join(parti)
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _indicizza_catalogo_per_codice():
+    indice_bootstrap = st.session_state.get("_indice_codici_bootstrap")
+    if isinstance(indice_bootstrap, dict) and indice_bootstrap:
+        return indice_bootstrap
+
     indice = {}
     for componente in catalogo_componenti or []:
         if not componente:
@@ -1491,6 +1885,8 @@ def _carica_regole_semplici(prod_id, cat_id, sotto_categoria=None, categoria_nom
             return {}
         
         regole_per_campo = {}
+        # Costruito una sola volta per l'intero CSV, non una volta per riga.
+        indice_codici = _indicizza_catalogo_per_codice()
         mappa_campi = {
             "motore": "Motore",
             "supporto motore": "Supporto Motore",
@@ -1539,7 +1935,6 @@ def _carica_regole_semplici(prod_id, cat_id, sotto_categoria=None, categoria_nom
                     campo_originale = mappa_campi.get(campo_norm, campo)
                     if campo_originale not in regole_per_campo:
                         regole_per_campo[campo_originale] = []
-                    indice_codici = _indicizza_catalogo_per_codice()
                     valore_mostrato = _risolvi_regola_con_catalogo(valore, indice_codici)
                     if valore_mostrato not in regole_per_campo[campo_originale]:
                         regole_per_campo[campo_originale].append(valore_mostrato)
@@ -1547,7 +1942,7 @@ def _carica_regole_semplici(prod_id, cat_id, sotto_categoria=None, categoria_nom
         if regole_per_campo:
             st.session_state.regolamento_dati = regole_per_campo
             st.session_state.regolamento_attivo = True
-            st.success(f"✅ Caricate {sum(len(v) for v in regole_per_campo.values())} regole da CSV")
+            st.success(f"✅ Caricate {sum(len(v) for v in regole_per_campo)} regole da CSV")
         else:
             st.warning(f"⚠️ Nessuna regola trovata per produttore {prod_id}, categoria {cat_id}")
         
@@ -1559,17 +1954,67 @@ def _carica_regole_semplici(prod_id, cat_id, sotto_categoria=None, categoria_nom
 # ============================================================
 # FUNZIONE PER CONTROLLARE ARCHIVIO COMPONENTI
 # ============================================================
-def componente_in_archivio(nome_componente):
-    if not st.session_state.user:
+# ============================================================
+# ARCHIVIO COMPONENTI - FIX PRIMO CARICAMENTO
+# ============================================================
+# Prima della correzione ogni opzione mostrata nei selectbox poteva
+# generare una query Supabase separata (una query per componente).
+# Questo rendeva lentissimo SOLO il primo caricamento di una specifica
+# configurazione; le aperture successive erano veloci perché la cache
+# aveva già memorizzato i risultati.
+#
+# Ora facciamo UNA SOLA query per utente e teniamo in memoria i nomi
+# dell'archivio. I controlli successivi sono O(1)/in-memory e non
+# modificano il risultato logico del controllo "nome contenuto in nome".
+@st.cache_data(ttl=300, show_spinner=False)
+def _sg_load_archivio_componenti_nomi_cached(user_id):
+    if not user_id:
+        return []
+    try:
+        rows = (
+            supabase.table("SlotGarage_Componenti")
+            .select("nome")
+            .eq("user_id", user_id)
+            .execute()
+            .data
+            or []
+        )
+        return [
+            str(row.get("nome") or "").strip().casefold()
+            for row in rows
+            if str(row.get("nome") or "").strip()
+        ]
+    except Exception:
+        return []
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _componente_in_archivio_cached(user_id, nome_componente):
+    if not user_id or not nome_componente:
+        return False
+    target = str(nome_componente).strip().casefold()
+    if not target:
         return False
     try:
-        result = supabase.table("SlotGarage_Componenti").select("id")\
-            .eq("user_id", st.session_state.user.id)\
-            .ilike("nome", f"%{nome_componente}%")\
-            .execute()
-        return len(result.data or []) > 0
+        nomi_archivio = _sg_load_archivio_componenti_nomi_cached(user_id)
+        return any(target in nome for nome in nomi_archivio)
     except Exception:
         return False
+
+def componente_in_archivio(nome_componente):
+    user_id = getattr(st.session_state.get("user"), "id", None)
+    if not user_id or not nome_componente:
+        return False
+
+    # Piccola cache per il rerun corrente: evita anche di ripetere la
+    # scansione dell'elenco dei nomi quando lo stesso valore compare più volte.
+    memo = st.session_state.setdefault("_archivio_componenti_check_memo", {})
+    key = str(nome_componente).strip().casefold()
+    if key in memo:
+        return memo[key]
+
+    risultato = _componente_in_archivio_cached(user_id, nome_componente)
+    memo[key] = risultato
+    return risultato
 
 
 # ============================================================
@@ -1578,6 +2023,7 @@ def componente_in_archivio(nome_componente):
 
 if st.session_state.active_tab == "📋 Visualizza Modelli":
   if selected_model_name != "Tutti":
+    catalogo_componenti = get_catalogo_componenti()
     if selected_prod_name == "Altri Produttori" and selected_model_name != "Altro":
       st.info("Per 'Altri Produttori', seleziona 'Altro' come modello per procedere con la configurazione personalizzata.")
     else:
@@ -1701,6 +2147,16 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
       if selected_prod_name != "Tutti":
         st.write(f"### ⚙️ Setup Avanzato - {selected_prod_name}")
 
+        # Il memo è specifico della pagina/configurazione corrente.
+        _archivio_memo_key = (
+            str(prod_id_selezionato),
+            str(category_id),
+            str(selected_model_name),
+        )
+        if st.session_state.get("_archivio_componenti_memo_key") != _archivio_memo_key:
+            st.session_state["_archivio_componenti_check_memo"] = {}
+            st.session_state["_archivio_componenti_memo_key"] = _archivio_memo_key
+
         if selected_prod_name.lower() == "slot.it" and selected_cat_name != "Tutte":
             _slotit_cat_map = {
                 "hypercar": "Hypercar",
@@ -1722,25 +2178,31 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 st.session_state[f"slotit_categoria_{model_safe_key}"] = _slotit_cat_direct
 
 
-        pezzi = []
-        pezzi_produttore = []
-        for p in catalogo_componenti:
-          if not p or p.get("id_Produttori") != prod_id_selezionato:
-            continue
+        # Le liste vengono preparate durante il bootstrap post-login.
+        # Qui facciamo solo un accesso O(1), senza riscorrere tutto il catalogo.
+        _cat_idx = st.session_state.get("_catalogo_per_prod_cat_bootstrap", {})
+        _prod_idx = st.session_state.get("_catalogo_per_produttore_bootstrap", {})
 
-          pezzi_produttore.append(p)
+        _prod_key = str(prod_id_selezionato)
+        _cat_key = str(category_id)
 
-          cat_componente = (
-              p.get("category_id")
-              if p.get("category_id") is not None
-              else (
-                  p.get("id_Categorie")
-                  if p.get("id_Categorie") is not None
-                  else p.get("categoria")
-              )
-          )
-          if cat_componente is None or str(cat_componente) == str(category_id):
-            pezzi.append(p)
+        # Una sola query al primo accesso alla configurazione.
+        # Prima il programma faceva una query per OGNI opzione del selectbox.
+        if st.session_state.get("_archivio_nomi_loaded_for_user") != sg_current_user_id():
+            with st.spinner("Preparazione archivio componenti..."):
+                _sg_load_archivio_componenti_nomi_cached(sg_current_user_id())
+            st.session_state["_archivio_nomi_loaded_for_user"] = sg_current_user_id()
+
+        pezzi_produttore = _prod_idx.get(_prod_key, [])
+
+        if category_id is None:
+          pezzi = pezzi_produttore
+        else:
+          pezzi = _cat_idx.get((_prod_key, _cat_key))
+          if pezzi is None:
+            pezzi = st.session_state.get(
+                "_catalogo_senza_categoria_bootstrap", {}
+            ).get(_prod_key, [])
 
         scelte_utente = {}
 
@@ -3144,6 +3606,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                     supabase.table("IlMioGarage").update(record_garage).eq(
                         "id", st.session_state.modifying_config_id
                     ).eq("user_id", st.session_state.user.id).execute()
+                    sg_invalidate_user_caches(st.session_state.user.id)
                     st.success(f"Configurazione '{nome_configurazione_input}' aggiornata con successo!")
                     st.session_state.modifying_config_id = None
                     st.session_state.modifying_data = None
@@ -3185,6 +3648,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                         "user_id": st.session_state.user.id
                     }
                     supabase.table("IlMioGarage").insert(record_garage).execute()
+                    sg_invalidate_user_caches(st.session_state.user.id)
                     st.success(f"Configurazione '{nome_configurazione_input}' salvata con successo nel tuo Garage!")
                     st.session_state.active_tab = "🚗 Il Mio Garage"
                     st.rerun()
@@ -3215,28 +3679,28 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
   # DASHBOARD STATISTICHE
   if st.session_state.user:
     try:
-        configs = supabase.table("IlMioGarage").select("id", count="exact").eq("user_id", st.session_state.user.id).execute()
-        tot_configs = configs.count if hasattr(configs, 'count') else len(configs.data or [])
-        
+        configs_data = sg_load_garage()
+        tot_configs = len(configs_data)
+
         modelli_count = {}
-        for c in (configs.data or []):
+        for c in configs_data:
             modello = c.get("modello_nome", "Sconosciuto")
             modelli_count[modello] = modelli_count.get(modello, 0) + 1
         modello_piu_usato = max(modelli_count, key=modelli_count.get) if modelli_count else "Nessuno"
-        
-        prove = supabase.table("SlotGarage_Prove").select("miglior_tempo").eq("user_id", st.session_state.user.id).execute()
+
+        prove_data = sg_load_telemetry_tests(st.session_state.user.id)
         miglior_tempo = None
-        for p in (prove.data or []):
+        for p in prove_data:
             tm = p.get("miglior_tempo")
             if tm is not None and (miglior_tempo is None or tm < miglior_tempo):
                 miglior_tempo = tm
-        
+
         piste_count = {}
-        for p in (prove.data or []):
+        for p in prove_data:
             pista = p.get("pista", "Sconosciuta")
             piste_count[pista] = piste_count.get(pista, 0) + 1
         pista_preferita = max(piste_count, key=piste_count.get) if piste_count else "Nessuna"
-        
+
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("📦 Configurazioni", tot_configs)
@@ -3250,33 +3714,117 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
     except Exception as e:
         st.warning(f"Impossibile caricare statistiche: {e}")
 
-  # IMPORTA JSON
+  # IMPORTA JSON (MODIFICATO)
   if st.session_state.user:
+    # Inizializza lo stato di importazione nella sessione
+    if 'import_json_data' not in st.session_state:
+        st.session_state.import_json_data = None
+    if 'import_json_valid' not in st.session_state:
+        st.session_state.import_json_valid = False
+    if 'import_json_preview' not in st.session_state:
+        st.session_state.import_json_preview = False
+    if 'import_counter' not in st.session_state:
+        st.session_state.import_counter = 0
+
     with st.expander("📥 Importa configurazione da JSON"):
-        uploaded_file = st.file_uploader("Seleziona file JSON", type=["json"], key="import_json_uploader")
-        if uploaded_file is not None:
+        # Chiave dinamica per resettare l'uploader dopo l'import
+        uploader_key = f"import_json_uploader_{st.session_state.import_counter}"
+        uploaded_file = st.file_uploader("Seleziona file JSON", type=["json"], key=uploader_key)
+
+        # Elabora il file solo se presente e se non siamo già in anteprima
+        if uploaded_file is not None and not st.session_state.import_json_preview:
             try:
                 data = json.load(uploaded_file)
-                record = {
-                    "nome_configurazione": data.get("nome_configurazione", "Importata"),
-                    "modello_nome": data.get("modello_nome", "Modello importato"),
-                    "dettagli_setup": data.get("dettagli_setup", {}),
-                    "telaio_catalogo_id": data.get("telaio_catalogo_id"),
-                    "user_id": st.session_state.user.id
-                }
-                supabase.table("IlMioGarage").insert(record).execute()
-                st.success("✅ Configurazione importata con successo!")
-                st.rerun()
+                if not isinstance(data, dict):
+                    raise ValueError("Il file JSON non contiene una configurazione SlotGarage valida.")
+                # Controlli minimi sui campi obbligatori
+                if "nome_configurazione" not in data or "modello_nome" not in data:
+                    raise ValueError("Il file JSON deve contenere 'nome_configurazione' e 'modello_nome'.")
+                if "dettagli_setup" not in data:
+                    raise ValueError("Il file JSON deve contenere 'dettagli_setup'.")
+                # Memorizza i dati validi
+                st.session_state.import_json_data = data
+                st.session_state.import_json_valid = True
+                st.session_state.import_json_preview = True
             except Exception as e:
-                st.error(f"Errore durante l'importazione: {e}")
+                st.error(f"❌ Errore durante la lettura del file JSON: {e}")
+                # Resetta lo stato in caso di errore
+                st.session_state.import_json_data = None
+                st.session_state.import_json_valid = False
+                st.session_state.import_json_preview = False
+
+        # Mostra l'anteprima se i dati sono validi e non ancora importati
+        if st.session_state.import_json_valid and st.session_state.import_json_preview:
+            data = st.session_state.import_json_data
+            nome_import = str(data.get("nome_configurazione") or "Importata").strip()
+            modello_import = str(data.get("modello_nome") or "Modello importato").strip()
+            dettagli_import = data.get("dettagli_setup", {})
+            num_componenti = len(dettagli_import) if isinstance(dettagli_import, dict) else 0
+
+            st.markdown("### 📋 Anteprima configurazione")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Nome", nome_import)
+            with col2:
+                st.metric("Modello", modello_import)
+            with col3:
+                st.metric("Componenti", num_componenti)
+
+            # Mostra alcuni dettagli in formato espandibile
+            if isinstance(dettagli_import, dict) and dettagli_import:
+                with st.expander("Visualizza dettagli"):
+                    for k, v in list(dettagli_import.items())[:10]:
+                        st.write(f"- **{k}:** {v}")
+                    if len(dettagli_import) > 10:
+                        st.write(f"... e altri {len(dettagli_import)-10} componenti")
+
+            # Pulsante per salvare
+            if st.button("💾 Salva nel mio Garage", key="import_save_btn"):
+                try:
+                    record = {
+                        "nome_configurazione": nome_import or "Importata",
+                        "modello_nome": modello_import or "Modello importato",
+                        "dettagli_setup": serialize_details(dettagli_import),
+                        "telaio_catalogo_id": data.get("telaio_catalogo_id"),
+                        "user_id": st.session_state.user.id
+                    }
+                    supabase.table("IlMioGarage").insert(record).execute()
+                    sg_invalidate_user_caches(st.session_state.user.id)
+                    st.success("✅ Configurazione importata con successo!")
+                    # Resetta lo stato e incrementa il contatore per pulire l'uploader
+                    st.session_state.import_json_data = None
+                    st.session_state.import_json_valid = False
+                    st.session_state.import_json_preview = False
+                    st.session_state.import_counter += 1
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Errore durante il salvataggio: {e}")
+
+            # Pulsante per annullare l'import
+            if st.button("Annulla", key="import_cancel_btn"):
+                st.session_state.import_json_data = None
+                st.session_state.import_json_valid = False
+                st.session_state.import_json_preview = False
+                st.session_state.import_counter += 1
+                st.rerun()
+
+        # Se l'anteprima è stata chiusa, non mostrare nulla
+        elif st.session_state.import_json_valid and not st.session_state.import_json_preview:
+            # Caso residuo (dopo un import riuscito) – non serve fare nulla
+            pass
 
   if not st.session_state.user:
     st.info("Accedi o registrati per visualizzare e gestire il tuo garage personale.")
     richiedi_autenticazione()
   else:
     try:
-      response_garage = supabase.table("IlMioGarage").select("*").eq("user_id", st.session_state.user.id).execute()
-      salvati = response_garage.data if response_garage and response_garage.data else []
+      if "_idx_modelli_by_name" not in st.session_state:
+        st.session_state._idx_modelli_by_name = {m.get("name"): m for m in modelli if m and m.get("name")}
+      if "_idx_categorie_by_id" not in st.session_state:
+        st.session_state._idx_categorie_by_id = {c.get("id"): c for c in categorie if c and c.get("id") is not None}
+      if "_idx_produttori_by_id" not in st.session_state:
+        st.session_state._idx_produttori_by_id = {p.get("id"): p for p in produttori if p and p.get("id") is not None}
+      salvati = sg_load_garage()
 
       if salvati:
         for s in salvati:
@@ -3299,20 +3847,18 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
           ):
             foto_auto_url = dict_dettagli.get("foto_personalizzata_url")
           else:
-            match_modello = next(
-                (m for m in modelli if m and m.get("name") == conf_modello), None
-            )
+            match_modello = st.session_state._idx_modelli_by_name.get(conf_modello)
             foto_auto_url = (
                 match_modello.get("foto_url") if match_modello else None
             )
           
-          match_modello_obj = next((m for m in modelli if m and m.get("name") == conf_modello), None)
+          match_modello_obj = st.session_state._idx_modelli_by_name.get(conf_modello)
           if match_modello_obj:
             cat_id_m = match_modello_obj.get("category_id")
-            cat_obj_m = next((c for c in categorie if c and c.get("id") == cat_id_m), None)
+            cat_obj_m = st.session_state._idx_categorie_by_id.get(cat_id_m)
             if cat_obj_m:
               brand_id_m = cat_obj_m.get("brand_it")
-              prod_obj_m = next((p for p in produttori if p and p.get("id") == brand_id_m), None)
+              prod_obj_m = st.session_state._idx_produttori_by_id.get(brand_id_m)
               if prod_obj_m:
                 prod_nome_per_pdf = prod_obj_m.get("name", "")
 
@@ -3325,27 +3871,27 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
           )
 
           with col_btn_pdf:
-            try:
-              pdf_bytes = generate_pdf(
-                  conf_nome,
-                  conf_modello,
-                  (
-                      dict_dettagli
-                      if isinstance(dict_dettagli, dict)
-                      else {"Dettagli": dettagli_str}
-                  ),
-                  foto_url=foto_auto_url,
-                  produttore_nome=prod_nome_per_pdf,
-              )
+            pdf_key = f"make_pdf_{conf_id}"
+            if st.button("📄 Prepara PDF", key=pdf_key):
+              try:
+                pdf_bytes = generate_pdf(
+                    conf_nome,
+                    conf_modello,
+                    (dict_dettagli if isinstance(dict_dettagli, dict) else {"Dettagli": dettagli_str}),
+                    foto_url=foto_auto_url,
+                    produttore_nome=prod_nome_per_pdf,
+                )
+                st.session_state[f"pdf_ready_{conf_id}"] = pdf_bytes
+              except Exception as e:
+                st.error(f"Errore PDF: {e}")
+            if st.session_state.get(f"pdf_ready_{conf_id}"):
               st.download_button(
-                  label="⬇️ PDF",
-                  data=pdf_bytes,
+                  label="⬇️ Scarica PDF",
+                  data=st.session_state[f"pdf_ready_{conf_id}"],
                   file_name=f"{conf_nome.replace(' ', '_')}_scheda_tecnica.pdf",
                   mime="application/pdf",
                   key=f"download_pdf_{conf_id}",
               )
-            except Exception as e:
-              st.error(f"Errore PDF: {e}")
 
           with col_btn_mod:
             if st.button("✏️ Modifica", key=f"edit_conf_{conf_id}"):
@@ -3363,18 +3909,35 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
                 supabase.table("IlMioGarage").delete().eq(
                     "id", conf_id
                 ).eq("user_id", st.session_state.user.id).execute()
+                sg_invalidate_user_caches(st.session_state.user.id)
                 st.success("Configurazione eliminata con successo!")
                 st.rerun()
               except Exception as e:
                 st.error(f"Errore durante l'eliminazione: {e}")
 
           with col_btn_export:
+            # JSON portatile per condividere una configurazione con un altro
+            # utente SlotGarage che possiede lo stesso CatalogoComponenti.
+            # Manteniamo le chiavi già usate dall'importatore e aggiungiamo
+            # metadati utili senza legare il file all'account che lo ha creato.
             export_data = {
+                "slotgarage_version": 1,
                 "nome_configurazione": conf_nome,
                 "modello_nome": conf_modello,
+                "produttore_nome": prod_nome_per_pdf,
+                "categoria_nome": "",
                 "dettagli_setup": dict_dettagli if isinstance(dict_dettagli, dict) else {},
                 "telaio_catalogo_id": s.get("telaio_catalogo_id"),
             }
+
+            # Ricava la categoria dal modello, quando disponibile.
+            _export_model_obj = st.session_state._idx_modelli_by_name.get(conf_modello)
+            if _export_model_obj:
+                _export_cat_obj = st.session_state._idx_categorie_by_id.get(
+                    _export_model_obj.get("category_id")
+                )
+                if _export_cat_obj:
+                    export_data["categoria_nome"] = _export_cat_obj.get("name", "")
             json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
             st.download_button(
                 label="📤 JSON",
@@ -3866,7 +4429,7 @@ elif st.session_state.active_tab == "➕ Carica Modello":
               "foto_url": finale_foto_url,
           }
           supabase.table("MODELLI").insert(nuovo_record).execute()
-          st.cache_data.clear()
+          get_data.clear()
           st.success(f"Modello '{nuovo_modello}' salvato con successo!")
           st.rerun()
         except Exception as e:
