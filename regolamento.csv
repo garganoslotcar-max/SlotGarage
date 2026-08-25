@@ -1,0 +1,1031 @@
+id_produttori,id_categorie,sotto_categoria,categoria_nome,campo,valoreregola
+1,1,,,Motore,New King 19 - Cassa lunga - 19.500 rpm - Etichetta arancione
+1,1,,,Supporto Motore,1259 Triangular anglewinder motor support xhard red
+1,1,,,Supporto Motore,1257 Triangular anglewinder motor support medium black
+1,1,,,Forcella,1234 Forcella originale rossa
+1,1,,,Corona,6527 Anglewinder Alluminio - 27 denti 16.6mm
+1,1,,,Corona,6528 Anglewinder Alluminio - 28 denti 16.6mm
+1,1,,,Corona,6529 Anglewinder Alluminio - 29 denti 16.6mm
+1,1,,,Corona,6530 Anglewinder Alluminio - 30 denti 16.6mm
+1,1,,,Corona,6531 Anglewinder Alluminio - 31 denti 16.6mm
+1,1,,,Corona,6532 Anglewinder Alluminio - 32 denti 16.6mm
+1,1,,,Corona,6533 Anglewinder Alluminio - 33 denti 16.6mm
+1,1,,,Corona,6534 Anglewinder Alluminio - 34 denti 16.6mm
+1,1,,,Corona,6626 Anglewinder Plastica - 26 denti 16.0mm
+1,1,,,Corona,6627 Anglewinder Plastica - 27 denti 16.0mm
+1,1,,,Corona,6628 Anglewinder Plastica - 28 denti 16.0mm
+1,1,,,Corona,6629 Anglewinder Plastica - 29 denti 16.0mm
+1,1,,,Corona,6630 Anglewinder Plastica - 30 denti 16.0mm
+1,1,,,Corona,6631 Anglewinder Plastica - 31 denti 16.0mm
+1,1,,,Corona,6632 Anglewinder Plastica - 32 denti 16.0mm
+1,1,,,Corona,6633 Anglewinder Plastica - 33 denti 16.0mm
+1,1,,,Pignoni,1667 Anglewinder - 13 denti - 7.5m (Ottone)
+1,1,,,Pignoni,2458 Anglewinder Nylon Red - 13 denti 7.5 mm
+1,1,,,Assale Anteriore,4801 Standard - Acciaio Rettificato - 55mm
+1,1,,,Assale Anteriore,4802 Assale 3/32 - Standard - Acciaio Rettificato - 55mm
+1,1,,,Assale Anteriore,4872 Assale Forato 3/32 - 55 mm
+1,1,,,Assale Posteriore,4801 Standard - Acciaio Rettificato - 55mm
+1,1,,,Assale Posteriore,4802 Assale 3/32 - Standard - Acciaio Rettificato - 55mm
+1,1,,,Assale Posteriore,4872 Assale Forato 3/32 - 55 mm
+1,1,,,Cerchi Anteriori,5003 Anteriori Grandi No Air System da 17.25x8.2mm
+1,1,,,Cerchi Anteriori,5024 Anteriori - Ultralight in Pom - 17x8 mm
+1,1,,,Cerchi Posteriori,5004 Posteriori Grandi Air System da 17.25x10mm
+1,1,,,Cerchi Posteriori,5003 Anteriori Grandi No Air System da 17.25x8.2mm
+1,1,,,Pickup,4841 Standard Base - A vite - Lama Corta
+1,1,,,Pickup,4842 Standard Base - A vite - Lama Lunga
+1,1,,,Pickup,4843 Black - Standard - A vite - Lama Lunga
+1,1,,,Pickup,4844 Black - Racing - A vite - Lama Lunga
+1,1,,,Pickup,4845 Black - Rally - A stelo - Stelo Lungo
+1,1,,,Viti Carrozzeria,4833 Viti Carrozzeria Originali
+1,1,,,Viti Carrozzeria,4834 Viti Metriche - 2.2x6.5mm Corte
+1,1,,,Viti Carrozzeria,4836 Viti Metriche - 2.2x8mm Lunghe
+1,1,,,Viti Carrozzeria,4839 Viti Metriche - Ottone 2.2x8mm
+1,1,,,Viti Carrozzeria,4869 Viti Metriche - 2.2x6.5mm
+1,1,,,Gomme Anteriori,16x8mm No Friction per Cerchi da 13
+1,1,,,Gomme Anteriori,16x8mm Ultra Low No Friction
+1,1,,,Gomme Anteriori,17x10mm No Friction per Cerchi da 13
+1,1,,,Gomme Anteriori,17x8mm No Friction
+1,1,,,Gomme Anteriori,18x10mm No Friction per Cerchi da 13
+1,1,,,Gomme Anteriori,18x8mm No Friction
+1,1,,,Gomme Anteriori,19x10mm No Friction
+1,1,,,Gomme Posteriori,17.5x10.5 Low Profile Zero Graining - GT3
+1,1,,,Gomme Posteriori,19.5x10 Zero Graining - GT3
+1,1,,,Gomme Posteriori,19.5x11mm GT3 Evo
+1,1,,,Gomme Posteriori,19.5x10mm Ultragrip
+1,1,,,Gomme Posteriori,19.5x10 Zero Graining - GT3 - 100pz
+1,2,,,Motore,3041 Shark EVO - Cassa corta - 21.500 rpm - Etichetta fucsia
+1,2,,,Supporto Motore,1270 Sidewinder motor support xhard red
+1,2,,,Supporto Motore,1272 Sidewinder motor support medium black
+1,2,,,Corona,6030 Sidewinder Alluminio - 30 denti 17.5mm
+1,2,,,Corona,6031 Sidewinder Alluminio - 31 denti 17.5mm
+1,2,,,Corona,6032 Sidewinder Alluminio - 32 denti 17.5mm
+1,2,,,Corona,6033 Sidewinder Alluminio - 33 denti 17.5mm
+1,2,,,Corona,6034 Sidewinder Alluminio - 34 denti 17.5mm
+1,2,,,Corona,6035 Sidewinder Alluminio - 35 denti 17.5mm
+1,2,,,Corona,6036 Sidewinder Alluminio - 36 denti 17.5mm
+1,2,,,Corona,6037 Sidewinder Alluminio - 37 denti 17.5mm
+1,2,,,Corona,6430 Sidewinder Plastica - 30 denti 17.5mm
+1,2,,,Corona,6431 Sidewinder Plastica - 31 denti 17.5mm
+1,2,,,Corona,6432 Sidewinder Plastica - 32 denti 17.5mm
+1,2,,,Corona,6433 Sidewinder Plastica - 33 denti 17.5mm
+1,2,,,Corona,6434 Sidewinder Plastica - 34 denti 17.5mm
+1,2,,,Pignoni,6911A Sidewinder - 11 denti - Ottone
+1,2,,,Pignoni,6912 Sidewinder - 12 denti - Ottone
+1,2,,,Assale Anteriore,4801 Standard - Acciaio Rettificato - 49mm
+1,2,,,Assale Posteriore,4801 Standard - Acciaio Rettificato - 49mm
+1,2,,,Cerchi Anteriori,5001 Anteriori Standard - 16.5x8mm
+1,2,,,Cerchi Posteriori,5002 Posteriori Standard - 16.5x8mm
+1,2,,,Cerchi Posteriori,5001 Anteriori Standard - 16.5x8mm
+1,2,,,Pickup,4841 Standard Base - A vite - Lama Corta
+1,2,,,Pickup,4842 Standard Base - A vite - Lama Lunga
+1,2,,,Pickup,4843 Black - Standard - A vite - Lama Lunga
+1,2,,,Pickup,4844 Black - Racing - A vite - Lama Lunga
+1,2,,,Pickup,4845 Black - Rally - A stelo - Stelo Lungo
+1,2,,,Pickup,4859 Advanced Racing - A vite - Lama Corta
+1,2,,,Viti Carrozzeria,4834 Viti Metriche - 2.2x6.5mm Corte
+1,2,,,Viti Carrozzeria,4836 Viti Metriche - 2.2x8mm Lunghe
+1,2,,,Viti Carrozzeria,4837 Viti Metriche - 2.2x10mm
+1,2,,,Viti Carrozzeria,4839 Viti Metriche - Ottone 2.2x8mm
+1,2,,,Viti Carrozzeria,4869 Viti Metriche - 2.2x6.5mm
+1,2,,,Gomme Anteriori,20x8.5mm per Classic
+1,2,,,Gomme Anteriori,18.5x10mm Porsche 917
+1,2,,,Gomme Posteriori,18x10.5 Zero Graining WRE 2025 Official
+1,2,,,Gomme Posteriori,21x12mm Ultragrip Classic
+1,2,,,Gomme Posteriori,21x14mm Ultragrip Vanquish
+1,3,,,Motore,King 21 EVO/3 - Cassa lunga - 21.500 rpm - Etichetta fucsia
+1,3,,,Supporto Motore,1329 Sidewinder motor support +1 mm Offset RED Extra-hard
+1,3,,,Supporto Motore,1331 Sidewinder motor support +1 mm Offset BLACK medium
+1,3,,,Corona,5928 Sidewinder Alluminio - 28 denti 16.8mm
+1,3,,,Corona,5929 Sidewinder Alluminio - 29 denti 16.8mm
+1,3,,,Corona,5930 Sidewinder Alluminio - 30 denti 16.8mm
+1,3,,,Corona,5931 Sidewinder Alluminio - 31 denti 16.8mm
+1,3,,,Corona,5932 Sidewinder Alluminio - 32 denti 16.8mm
+1,3,,,Corona,5933 Sidewinder Alluminio - 33 denti 16.8mm
+1,3,,,Corona,5934 Sidewinder Alluminio - 34 denti 16.8mm
+1,3,,,Pignoni,7113 Anglewinder Extralight - 13 denti - 7.5mm (Ottone)
+1,3,,,Assale Anteriore,4802 Assale 3/32 - Standard - Acciaio Rettificato - 55mm
+1,3,,,Assale Anteriore,4872 Assale Forato 3/32 - 55 mm
+1,3,,,Assale Anteriore,4890 Assale Anteriore Indipendente
+1,3,,,Assale Posteriore,4802 Assale 3/32 - Standard - Acciaio Rettificato - 55mm
+1,3,,,Assale Posteriore,4872 Assale Forato 3/32 - 55 mm
+1,3,,,Cerchi Anteriori,5003 Anteriori Grandi No Air System da 17.25x8.2mm
+1,3,,,Cerchi Anteriori,5024 Anteriori - Ultralight in Pom - 17x8 mm
+1,3,,,Cerchi Posteriori,5004 Posteriori Grandi Air System da 17.25x10mm
+1,3,,,Cerchi Posteriori,5003 Anteriori Grandi No Air System da 17.25x8.2mm
+1,3,,,Pickup,4841 Standard Base - A vite - Lama Corta
+1,3,,,Pickup,4843 Black - Standard - A vite - Lama Lunga
+1,3,,,Pickup,4844 Black - Racing - A vite - Lama Lunga
+1,3,,,Pickup,4845 Black - Rally - A stelo - Stelo Lungo
+1,3,,,Pickup,4859 Advanced Racing - A vite - Lama Corta
+1,3,,,Viti Carrozzeria,4834 Viti Metriche - 2.2x6.5mm Corte
+1,3,,,Viti Carrozzeria,4836 Viti Metriche - 2.2x8mm Lunghe
+1,3,,,Viti Carrozzeria,4839 Viti Metriche - Ottone 2.2x8mm
+1,3,,,Viti Carrozzeria,4869 Viti Metriche - 2.2x6.5mm
+1,3,,,Gomme Anteriori,16x8mm No Friction per Cerchi da 13
+1,3,,,Gomme Anteriori,20x8.5mm per Classic
+1,3,,,Gomme Posteriori,19.2x11.5 Zero Graining - Hypercar
+1,3,,,Gomme Posteriori,20.5x11mm Supergrip Evo
+1,3,,,Gomme Posteriori,20.5x11mm Ultragrip Evo
+1,4,,,Motore,King 21 EVO/3 - Cassa lunga - 21.500 rpm - Etichetta fucsia
+1,4,,,Supporto Motore,1283 Formula 86/89 inline motor support xhard red
+1,4,,,Supporto Motore,1281 Formula 86/89 inline motor support medium black
+1,4,,,Corona,6324 Inline Alluminio EVO3 - 24 denti
+1,4,,,Corona,6325 Inline Alluminio EVO3 - 25 denti
+1,4,,,Corona,6326 Inline Alluminio EVO3 - 26 denti
+1,4,,,Corona,6327 Inline Alluminio EVO3 - 27 denti
+1,4,,,Pignoni,7010EVO3 Inline - 10 denti - Standard
+1,4,,,Assale Anteriore,4802 Assale 3/32 - Standard - Acciaio Rettificato - 55mm
+1,4,,,Assale Anteriore,4866 Assale 3/32 - Acciaio Rettificato - 60mm
+1,4,,,Assale Anteriore,4872 Assale Forato 3/32 - 55 mm
+1,4,,,Assale Posteriore,4802 Assale 3/32 - Standard - Acciaio Rettificato - 55mm
+1,4,,,Assale Posteriore,4866 Assale 3/32 - Acciaio Rettificato - 60mm
+1,4,,,Assale Posteriore,4872 Assale Forato 3/32 - 55 mm
+1,4,,,Cerchi Anteriori,5020 Anteriori - Formula - 13.8x8mm
+1,4,,,Cerchi Anteriori,5025 Anteriori - Ultralight in Pom - Formula - 13.8x8mm
+1,4,,,Cerchi Posteriori,5021 Posteriori - Formula - 13x10mm
+1,4,,,Cerchi Posteriori,5022 Posteriori Racing - Formula - 13x13mm
+1,4,,,Cerchi Posteriori,5026 Posteriori Racing Forati - Formula - 13x13mm
+1,4,,,Cerchi Posteriori,5027 Posteriori No Air System - Formula - 13x10mm
+1,4,,,Pickup,4841 Standard Base - A vite - Lama Corta
+1,4,,,Pickup,4843 Black - Standard - A vite - Lama Lunga
+1,4,,,Pickup,4844 Black - Racing - A vite - Lama Lunga
+1,4,,,Pickup,4845 Black - Rally - A stelo - Stelo Lungo
+1,4,,,Pickup,4859 Advanced Racing - A vite - Lama Corta
+1,4,,,Viti Carrozzeria,4833 Viti Carrozzeria Originali
+1,4,,,Viti Carrozzeria,4834 Viti Metriche - 2.2x6.5mm Corte
+1,4,,,Viti Carrozzeria,4836 Viti Metriche - 2.2x8mm Lunghe
+1,4,,,Viti Carrozzeria,4839 Viti Metriche - Ottone 2.2x8mm
+1,4,,,Viti Carrozzeria,4869 Viti Metriche - 2.2x6.5mm
+1,4,,,Gomme Anteriori,18.5x10mm Porsche 917
+1,4,,,Gomme Anteriori,17x10mm No Friction per Cerchi da 13
+1,4,,,Gomme Posteriori,18.5x13 Zero Graining - Formula 86/89
+1,4,,,Gomme Posteriori,19.5 x 13.5mm per Formula NSR - 20pz
+1,4,,,Gomme Posteriori,19.5 x 13.5mm per Formula NSR - 50pz
+1,4,,,Gomme Posteriori,19.5 x 13.5mm per Formula NSR - 100pz
+1,4,,,Gomme Posteriori,19.5 x 13.5mm Supergrip Evo per Formula NSR
+1,4,,,Gomme Posteriori,19.5 x 13.5mm Ultragrip Evo per Formula NSR
+1,4,,,Gomme Posteriori,Nere 19.5 x 13.5mm per Formula NSR
+1,5,,,Motore,King 21 EVO/3 - Cassa lunga - 21.500 rpm - Etichetta fucsia
+1,5,,,Supporto Motore,1288 F22 inline motor support xhard red
+1,5,,,Supporto Motore,1286 F22 inline motor support medium black
+1,5,,,Corona,6324 Inline Alluminio EVO3 - 24 denti
+1,5,,,Corona,6325 Inline Alluminio EVO3 - 25 denti
+1,5,,,Corona,6326 Inline Alluminio EVO3 - 26 denti
+1,5,,,Corona,6327 Inline Alluminio EVO3 - 27 denti
+1,5,,,Pignoni,7010EVO3 Inline - 10 denti - Standard
+1,5,,,Assale Anteriore,4802 Assale 3/32 - Standard - Acciaio Rettificato - 55mm
+1,5,,,Assale Anteriore,4872 Assale Forato 3/32 - 55 mm
+1,5,,,Assale Posteriore,4802 Assale 3/32 - Standard - Acciaio Rettificato - 55mm
+1,5,,,Assale Posteriore,4872 Assale Forato 3/32 - 55 mm
+1,5,,,Cerchi Anteriori,5029 Anteriori - Formula 22 - 18.5x8mm
+1,5,,,Cerchi Anteriori,5030 Anteriori - Formula 22 - 18.5x8mm
+1,5,,,Cerchi Posteriori,5031 Posteriori - Formula 22 - 16.5x10mm
+1,5,,,Cerchi Posteriori,5032 Posteriori Racing - Formula 22 - 16.5x12mm
+1,5,,,Cerchi Posteriori,5033 Posteriori Racing - Formula 22 - 16.5x12mm
+1,5,,,Pickup,4841 Standard Base - A vite - Lama Corta
+1,5,,,Pickup,4843 Black - Standard - A vite - Lama Lunga
+1,5,,,Pickup,4844 Black - Racing - A vite - Lama Lunga
+1,5,,,Pickup,4845 Black - Rally - A stelo - Stelo Lungo
+1,5,,,Pickup,4859 Advanced Racing - A vite - Lama Corta
+1,5,,,Viti Carrozzeria,4833 Viti Carrozzeria Originali
+1,5,,,Viti Carrozzeria,4834 Viti Metriche - 2.2x6.5mm Corte
+1,5,,,Viti Carrozzeria,4836 Viti Metriche - 2.2x8mm Lunghe
+1,5,,,Viti Carrozzeria,4839 Viti Metriche - Ottone 2.2x8mm
+1,5,,,Viti Carrozzeria,4869 Viti Metriche - 2.2x6.5mm
+1,5,,,Gomme Anteriori,19.5 x 9.5mm per Formula 22
+1,5,,,Gomme Posteriori,18.5 x 13mm per Formula 22
+1,5,,,Gomme Posteriori,Special RTR 19 x 13mm per Formula 22
+3,13,,,Motore,MTMACH21DS Motor Mach 21.500 rpm - Doppio albero
+3,13,,,Supporto Motore,MS001B Black standard
+3,13,,,Supporto Motore,MS001G Grey Hard
+3,13,,,Supporto Motore,MS001S Dark Grey Extra Hard
+3,13,,,Supporto Motore,MTS001G Grey Hard
+3,13,,,Supporto Motore,MTS001S Dark Grey Extra Hard
+3,13,,,Corona,SW Corona Thunderslot
+3,13,,,Pignoni,11 denti (bianco) Thunderslot
+3,13,,,Telaio,CHS001B Black standard
+3,13,,,Telaio,CHS001G Grey Hard
+3,13,,,Telaio,CHS001S Dark Grey Extra Hard
+3,13,,,Telaio,CHS002G Grey Hard
+3,13,,,Telaio,CHS002S Dark Grey Extra Hard
+3,13,,,Telaio,CHS003G Grey Hard
+3,13,,,Telaio,CHS003S Dark Grey Extra Hard
+3,13,,,Telaio,CHS004G Grey Hard
+3,13,,,Telaio,CHS004S Dark Grey Extra Hard
+3,13,,,Telaio,CA00601S/W 350 CAN-AM
+3,13,,,Telaio,CA00602S/W 350 CAN-AM
+3,13,,,Cerchi Anteriori,RMR003AL Cerchi Thunderslot - 15.8mm
+3,13,,,Cerchi Posteriori,RMR003AL Cerchi Thunderslot - 15.8mm
+3,13,,,Pickup,Tutti i Pick-up Thunderslot
+3,13,,,Viti Carrozzeria,SC2.5HEX Brugole Thunderslot
+3,13,,,Sospensioni,SUSK004 Spugna
+3,13,,,Sospensioni,SUSK005/S Molle morbide
+3,13,,,Sospensioni,SUSK005/M Molle medie
+3,13,,,Sospensioni,SUSK005/H Molle dure
+3,13,,,Sospensioni,SUSK003 Molle medie
+3,13,,,Dettaglio_Supporto,Bronzine/Cuscinetti Thunderslot
+3,13,,,Assale,3/32 Assale Thunderslot
+3,13,,,Gomme Anteriori,Anteriori - Anelli in Neoprene per Cerchi Posteriori
+3,13,,,Gomme Anteriori,Anteriori - Scolpite 9 x 18 mm
+3,13,,,Gomme Anteriori,Anteriori - Hard Low Friction 9 x 16 mm
+3,13,,,Gomme Posteriori,Posteriori - Racing 10.8 x 19 mm 'Special'
+3,13,,,Gomme Posteriori,Posteriori - Racing 10.8 x 19 mm 'Super Grip'
+3,13,,,Gomme Posteriori,Posteriori - Racing 19 x 10.8 mm
+3,13,,,Gomme Posteriori,Posteriori - Scolpite 10.8 x 19 mm
+2,11,Box Stock,DTM,Motore,Slot.it MX15
+2,11,Box Stock,DTM,Supporto Motore,Slot.it CH110
+2,11,Box Stock,DTM,Corona,Slot.it GI23-BZ
+2,11,Box Stock,DTM,Corona,Slot.it GI24-BZ
+2,11,Box Stock,DTM,Corona,Slot.it GI25-BZ
+2,11,Box Stock,DTM,Corona,Slot.it GI26-BZ
+2,11,Box Stock,DTM,Corona,Slot.it GI27-BZ
+2,11,Box Stock,DTM,Corona,Slot.it GI28-BZ
+2,11,Box Stock,DTM,Corona,Slot.it GI29-BZ
+2,11,Box Stock,DTM,Corona,Slot.it GI30-BZ
+2,11,Box Stock,DTM,Pignoni,Slot.it PI09
+2,11,Box Stock,DTM,Pignoni,Slot.it PI10
+2,11,Box Stock,DTM,Assale Anteriore,Slot.it PA01-45
+2,11,Box Stock,DTM,Assale Anteriore,Slot.it PA01-48
+2,11,Box Stock,DTM,Assale Anteriore,Slot.it PA01-51
+2,11,Box Stock,DTM,Assale Anteriore,Slot.it PA01-54
+2,11,Box Stock,DTM,Assale Anteriore,Slot.it PA01-48R1
+2,11,Box Stock,DTM,Assale Anteriore,Slot.it PA01-51R1
+2,11,Box Stock,DTM,Assale Anteriore,Slot.it PA01-54R1
+2,11,Box Stock,DTM,Assale Anteriore,Slot.it PA01-51H
+2,11,Box Stock,DTM,Assale Anteriore,Slot.it PA01-54H
+2,11,Box Stock,DTM,Assale Anteriore,Slot.it PA01-58H
+2,11,Box Stock,DTM,Assale Anteriore,Slot.it PA01-50
+2,11,Box Stock,DTM,Assale Anteriore,Slot.it PA01-52
+2,11,Box Stock,DTM,Assale Anteriore,Slot.it PA01-55
+2,11,Box Stock,DTM,Assale Posteriore,Slot.it PA01-45
+2,11,Box Stock,DTM,Assale Posteriore,Slot.it PA01-48
+2,11,Box Stock,DTM,Assale Posteriore,Slot.it PA01-51
+2,11,Box Stock,DTM,Assale Posteriore,Slot.it PA01-54
+2,11,Box Stock,DTM,Assale Posteriore,Slot.it PA01-48R1
+2,11,Box Stock,DTM,Assale Posteriore,Slot.it PA01-51R1
+2,11,Box Stock,DTM,Assale Posteriore,Slot.it PA01-54R1
+2,11,Box Stock,DTM,Assale Posteriore,Slot.it PA01-51H
+2,11,Box Stock,DTM,Assale Posteriore,Slot.it PA01-54H
+2,11,Box Stock,DTM,Assale Posteriore,Slot.it PA01-58H
+2,11,Box Stock,DTM,Assale Posteriore,Slot.it PA01-50
+2,11,Box Stock,DTM,Assale Posteriore,Slot.it PA01-52
+2,11,Box Stock,DTM,Assale Posteriore,Slot.it PA01-55
+2,11,Box Stock,DTM,Cerchi Anteriori,Slot.it W15808215P
+2,11,Box Stock,DTM,Cerchi Posteriori,Slot.it W15810215A
+2,11,Box Stock,DTM,Pickup,Slot.it CH06
+2,11,Box Stock,DTM,Pickup,Slot.it CH07
+2,11,Box Stock,DTM,Pickup,Slot.it CH10
+2,11,Box Stock,DTM,Pickup,Slot.it CH26
+2,11,Box Stock,DTM,Pickup,Slot.it CH66
+2,11,Box Stock,DTM,Pickup,Slot.it CH85
+2,11,Box Stock,DTM,Pickup,Slot.it CH85d
+2,11,Box Stock,DTM,Pickup,Slot.it CH88B
+2,11,Box Stock,DTM,Viti Carrozzeria,Viti Metriche Slot.it
+2,11,Box Stock,DTM,Gomme Anteriori,Slot.it PT15
+2,11,Box Stock,DTM,Gomme Anteriori,Slot.it PT19
+2,11,Box Stock,DTM,Gomme Anteriori,Slot.it PT1214S2
+2,11,Box Stock,DTM,Gomme Posteriori,Slot.it PT1207F22
+2,11,Box Stock,DTM,Gomme Posteriori,Slot.it PT1207P6B
+2,11,Box Stock,DTM,Gomme Posteriori,Slot.it PT1207G25
+2,11,Evo,DTM,Motore,Slot.it MX15
+2,11,Evo,DTM,Supporto Motore,Slot.it CH110
+2,11,Evo,DTM,Corona,Slot.it GI23-BZ
+2,11,Evo,DTM,Corona,Slot.it GI24-BZ
+2,11,Evo,DTM,Corona,Slot.it GI25-BZ
+2,11,Evo,DTM,Corona,Slot.it GI26-BZ
+2,11,Evo,DTM,Corona,Slot.it GI27-BZ
+2,11,Evo,DTM,Corona,Slot.it GI28-BZ
+2,11,Evo,DTM,Corona,Slot.it GI29-BZ
+2,11,Evo,DTM,Corona,Slot.it GI30-BZ
+2,11,Evo,DTM,Corona,Slot.it GI23-AL
+2,11,Evo,DTM,Corona,Slot.it GI24-AL
+2,11,Evo,DTM,Corona,Slot.it GI25-AL
+2,11,Evo,DTM,Corona,Slot.it GI26-AL
+2,11,Evo,DTM,Corona,Slot.it GI27-AL
+2,11,Evo,DTM,Corona,Slot.it GI28-AL
+2,11,Evo,DTM,Corona,Slot.it GI29-AL
+2,11,Evo,DTM,Corona,Slot.it GI30-AL
+2,11,Evo,DTM,Corona,Slot.it GM23i
+2,11,Evo,DTM,Corona,Slot.it GM24i
+2,11,Evo,DTM,Corona,Slot.it GM25i
+2,11,Evo,DTM,Corona,Slot.it GM26i
+2,11,Evo,DTM,Corona,Slot.it GM27i
+2,11,Evo,DTM,Corona,Slot.it GM28i
+2,11,Evo,DTM,Corona,Slot.it GM29i
+2,11,Evo,DTM,Corona,Slot.it GM30i
+2,11,Evo,DTM,Corona,Slot.it GM23O
+2,11,Evo,DTM,Corona,Slot.it GM24O
+2,11,Evo,DTM,Corona,Slot.it GM25O
+2,11,Evo,DTM,Corona,Slot.it GM26O
+2,11,Evo,DTM,Corona,Slot.it GM27O
+2,11,Evo,DTM,Corona,Slot.it GMF55
+2,11,Evo,DTM,Pignoni,Slot.it PI09
+2,11,Evo,DTM,Pignoni,Slot.it PI10
+2,11,Evo,DTM,Assale Anteriore,Slot.it PA01-45
+2,11,Evo,DTM,Assale Anteriore,Slot.it PA01-48
+2,11,Evo,DTM,Assale Anteriore,Slot.it PA01-51
+2,11,Evo,DTM,Assale Anteriore,Slot.it PA01-54
+2,11,Evo,DTM,Assale Anteriore,Slot.it PA01-48R1
+2,11,Evo,DTM,Assale Anteriore,Slot.it PA01-51R1
+2,11,Evo,DTM,Assale Anteriore,Slot.it PA01-54R1
+2,11,Evo,DTM,Assale Anteriore,Slot.it PA01-51H
+2,11,Evo,DTM,Assale Anteriore,Slot.it PA01-54H
+2,11,Evo,DTM,Assale Anteriore,Slot.it PA01-58H
+2,11,Evo,DTM,Assale Anteriore,Slot.it PA01-50
+2,11,Evo,DTM,Assale Anteriore,Slot.it PA01-52
+2,11,Evo,DTM,Assale Anteriore,Slot.it PA01-55
+2,11,Evo,DTM,Assale Anteriore,Slot.it PA39
+2,11,Evo,DTM,Assale Posteriore,Slot.it PA01-45
+2,11,Evo,DTM,Assale Posteriore,Slot.it PA01-48
+2,11,Evo,DTM,Assale Posteriore,Slot.it PA01-51
+2,11,Evo,DTM,Assale Posteriore,Slot.it PA01-54
+2,11,Evo,DTM,Assale Posteriore,Slot.it PA01-48R1
+2,11,Evo,DTM,Assale Posteriore,Slot.it PA01-51R1
+2,11,Evo,DTM,Assale Posteriore,Slot.it PA01-54R1
+2,11,Evo,DTM,Assale Posteriore,Slot.it PA01-51H
+2,11,Evo,DTM,Assale Posteriore,Slot.it PA01-54H
+2,11,Evo,DTM,Assale Posteriore,Slot.it PA01-58H
+2,11,Evo,DTM,Assale Posteriore,Slot.it PA01-50
+2,11,Evo,DTM,Assale Posteriore,Slot.it PA01-52
+2,11,Evo,DTM,Assale Posteriore,Slot.it PA01-55
+2,11,Evo,DTM,Cerchi Anteriori,Slot.it W15808215P
+2,11,Evo,DTM,Cerchi Anteriori,Slot.it W15808225P
+2,11,Evo,DTM,Cerchi Anteriori,Slot.it W15808215-3D
+2,11,Evo,DTM,Cerchi Anteriori,Slot.it W15808215A
+2,11,Evo,DTM,Cerchi Anteriori,Slot.it W15808225A
+2,11,Evo,DTM,Cerchi Anteriori,Slot.it W15808215Ma
+2,11,Evo,DTM,Cerchi Anteriori,Slot.it W15808225M
+2,11,Evo,DTM,Cerchi Posteriori,Slot.it W15810215A
+2,11,Evo,DTM,Cerchi Posteriori,Slot.it W15810215AH
+2,11,Evo,DTM,Cerchi Posteriori,Slot.it W15810215M
+2,11,Evo,DTM,Cerchi Posteriori,Slot.it W15810215MA
+2,11,Evo,DTM,Pickup,Slot.it CH06
+2,11,Evo,DTM,Pickup,Slot.it CH07
+2,11,Evo,DTM,Pickup,Slot.it CH10
+2,11,Evo,DTM,Pickup,Slot.it CH26
+2,11,Evo,DTM,Pickup,Slot.it CH66
+2,11,Evo,DTM,Pickup,Slot.it CH85
+2,11,Evo,DTM,Pickup,Slot.it CH85d
+2,11,Evo,DTM,Pickup,Slot.it CH88B
+2,11,Evo,DTM,Viti Carrozzeria,Viti Metriche Slot.it
+2,11,Evo,DTM,Viti Metriche Sospensioni,Slot.it CH72
+2,11,Evo,DTM,Viti Metriche Sospensioni,Slot.it CH127
+2,11,Evo,DTM,Sospensioni,Slot.it CH47c
+2,11,Evo,DTM,Sospensioni,Slot.it CH68
+2,11,Evo,DTM,Sospensioni,Slot.it CH69
+2,11,Evo,DTM,Sospensioni,Slot.it CH67
+2,11,Evo,DTM,Sospensioni,Slot.it CH65
+2,11,Evo,DTM,Sospensioni,Slot.it CH115
+2,11,Evo,DTM,Sospensioni,Slot.it CH118b2
+2,11,Evo,DTM,Sospensioni,Slot.it CH61
+2,11,Evo,DTM,Sospensioni,Slot.it CH60c1
+2,11,Evo,DTM,Sospensioni,Slot.it CH82c1
+2,11,Evo,DTM,Sospensioni,Slot.it CH123
+2,11,Evo,DTM,Sospensioni,Slot.it CH119b2
+2,11,Evo,DTM,Sospensioni,Slot.it CH130b2
+2,11,Evo,DTM,Sospensioni,Slot.it CH131b2
+2,11,Evo,DTM,Sospensioni,Slot.it CH117c1
+2,11,Evo,DTM,Sospensioni,Slot.it CH118c
+2,11,Evo,DTM,Sospensioni,Slot.it CH119c1
+2,11,Evo,DTM,Sospensioni,Slot.it CH124c1
+2,11,Evo,DTM,Sospensioni,Slot.it CH82b2
+2,11,Evo,DTM,Sospensioni,Slot.it CH76
+2,11,Evo,DTM,Sospensioni,Slot.it CH75
+2,11,Evo,DTM,Sospensioni,Slot.it CH74
+2,11,Evo,DTM,Dettaglio_Supporto,Slot.it PA02
+2,11,Evo,DTM,Dettaglio_Supporto,Slot.it PA32
+2,11,Evo,DTM,Dettaglio_Supporto,Slot.it CH56B
+2,11,Evo,DTM,Dettaglio_Supporto,Boccole in plastica
+2,11,Evo,DTM,Tipo_Sospensione,Molle
+2,11,Evo,DTM,Tipo_Sospensione,Magneti (sospensioni magnetiche)
+2,11,Evo,DTM,Stopper,Slot.it PA25
+2,11,Evo,DTM,Stopper,Slot.it PA57
+2,11,Evo,DTM,Gomme Anteriori,Slot.it PT15
+2,11,Evo,DTM,Gomme Anteriori,Slot.it PT19
+2,11,Evo,DTM,Gomme Anteriori,Slot.it PT1214S2
+2,11,Evo,DTM,Gomme Posteriori,Slot.it PT1207F22
+2,11,Evo,DTM,Gomme Posteriori,Slot.it PT1207P6B
+2,11,Evo,DTM,Gomme Posteriori,Slot.it PT1207G25
+2,11,Evo2,DTM,Motore,Slot.it MN09CH
+2,11,Evo2,DTM,Supporto Motore,Slot.it CH110
+2,11,Evo2,DTM,Supporto Motore,Slot.it CH114
+2,11,Evo2,DTM,Corona,Slot.it GI23-BZ
+2,11,Evo2,DTM,Corona,Slot.it GI24-BZ
+2,11,Evo2,DTM,Corona,Slot.it GI25-BZ
+2,11,Evo2,DTM,Corona,Slot.it GI26-BZ
+2,11,Evo2,DTM,Corona,Slot.it GI27-BZ
+2,11,Evo2,DTM,Corona,Slot.it GI28-BZ
+2,11,Evo2,DTM,Corona,Slot.it GI29-BZ
+2,11,Evo2,DTM,Corona,Slot.it GI30-BZ
+2,11,Evo2,DTM,Corona,Slot.it GI23-AL
+2,11,Evo2,DTM,Corona,Slot.it GI24-AL
+2,11,Evo2,DTM,Corona,Slot.it GI25-AL
+2,11,Evo2,DTM,Corona,Slot.it GI26-AL
+2,11,Evo2,DTM,Corona,Slot.it GI27-AL
+2,11,Evo2,DTM,Corona,Slot.it GI28-AL
+2,11,Evo2,DTM,Corona,Slot.it GI29-AL
+2,11,Evo2,DTM,Corona,Slot.it GI30-AL
+2,11,Evo2,DTM,Corona,Slot.it GM23i
+2,11,Evo2,DTM,Corona,Slot.it GM24i
+2,11,Evo2,DTM,Corona,Slot.it GM25i
+2,11,Evo2,DTM,Corona,Slot.it GM26i
+2,11,Evo2,DTM,Corona,Slot.it GM27i
+2,11,Evo2,DTM,Corona,Slot.it GM28i
+2,11,Evo2,DTM,Corona,Slot.it GM29i
+2,11,Evo2,DTM,Corona,Slot.it GM30i
+2,11,Evo2,DTM,Corona,Slot.it GM23O
+2,11,Evo2,DTM,Corona,Slot.it GM24O
+2,11,Evo2,DTM,Corona,Slot.it GM25O
+2,11,Evo2,DTM,Corona,Slot.it GM26O
+2,11,Evo2,DTM,Corona,Slot.it GM27O
+2,11,Evo2,DTM,Corona,Slot.it GMF55
+2,11,Evo2,DTM,Pignoni,Slot.it PI09
+2,11,Evo2,DTM,Pignoni,Slot.it PI10
+2,11,Evo2,DTM,Assale Anteriore,Slot.it PA01-45
+2,11,Evo2,DTM,Assale Anteriore,Slot.it PA01-48
+2,11,Evo2,DTM,Assale Anteriore,Slot.it PA01-51
+2,11,Evo2,DTM,Assale Anteriore,Slot.it PA01-54
+2,11,Evo2,DTM,Assale Anteriore,Slot.it PA01-48R1
+2,11,Evo2,DTM,Assale Anteriore,Slot.it PA01-51R1
+2,11,Evo2,DTM,Assale Anteriore,Slot.it PA01-54R1
+2,11,Evo2,DTM,Assale Anteriore,Slot.it PA01-51H
+2,11,Evo2,DTM,Assale Anteriore,Slot.it PA01-54H
+2,11,Evo2,DTM,Assale Anteriore,Slot.it PA01-58H
+2,11,Evo2,DTM,Assale Anteriore,Slot.it PA01-50
+2,11,Evo2,DTM,Assale Anteriore,Slot.it PA01-52
+2,11,Evo2,DTM,Assale Anteriore,Slot.it PA01-55
+2,11,Evo2,DTM,Assale Anteriore,Slot.it PA39
+2,11,Evo2,DTM,Assale Posteriore,Slot.it PA01-45
+2,11,Evo2,DTM,Assale Posteriore,Slot.it PA01-48
+2,11,Evo2,DTM,Assale Posteriore,Slot.it PA01-51
+2,11,Evo2,DTM,Assale Posteriore,Slot.it PA01-54
+2,11,Evo2,DTM,Assale Posteriore,Slot.it PA01-48R1
+2,11,Evo2,DTM,Assale Posteriore,Slot.it PA01-51R1
+2,11,Evo2,DTM,Assale Posteriore,Slot.it PA01-54R1
+2,11,Evo2,DTM,Assale Posteriore,Slot.it PA01-51H
+2,11,Evo2,DTM,Assale Posteriore,Slot.it PA01-54H
+2,11,Evo2,DTM,Assale Posteriore,Slot.it PA01-58H
+2,11,Evo2,DTM,Assale Posteriore,Slot.it PA01-50
+2,11,Evo2,DTM,Assale Posteriore,Slot.it PA01-52
+2,11,Evo2,DTM,Assale Posteriore,Slot.it PA01-55
+2,11,Evo2,DTM,Cerchi Anteriori,Slot.it W15808215P
+2,11,Evo2,DTM,Cerchi Anteriori,Slot.it W15808225P
+2,11,Evo2,DTM,Cerchi Anteriori,Slot.it W15808215-3D
+2,11,Evo2,DTM,Cerchi Anteriori,Slot.it W15808215A
+2,11,Evo2,DTM,Cerchi Anteriori,Slot.it W15808225A
+2,11,Evo2,DTM,Cerchi Anteriori,Slot.it W15808215Ma
+2,11,Evo2,DTM,Cerchi Anteriori,Slot.it W15808225M
+2,11,Evo2,DTM,Cerchi Posteriori,Slot.it W15810215A
+2,11,Evo2,DTM,Cerchi Posteriori,Slot.it W15810215AH
+2,11,Evo2,DTM,Cerchi Posteriori,Slot.it W15810215M
+2,11,Evo2,DTM,Cerchi Posteriori,Slot.it W15810215MA
+2,11,Evo2,DTM,Pickup,Slot.it CH06
+2,11,Evo2,DTM,Pickup,Slot.it CH07
+2,11,Evo2,DTM,Pickup,Slot.it CH10
+2,11,Evo2,DTM,Pickup,Slot.it CH26
+2,11,Evo2,DTM,Pickup,Slot.it CH66
+2,11,Evo2,DTM,Pickup,Slot.it CH85
+2,11,Evo2,DTM,Pickup,Slot.it CH85d
+2,11,Evo2,DTM,Pickup,Slot.it CH88B
+2,11,Evo2,DTM,Viti Carrozzeria,Viti Metriche Slot.it
+2,11,Evo2,DTM,Viti Metriche Sospensioni,Slot.it CH72
+2,11,Evo2,DTM,Viti Metriche Sospensioni,Slot.it CH127
+2,11,Evo2,DTM,Sospensioni,Slot.it CH47c
+2,11,Evo2,DTM,Sospensioni,Slot.it CH68
+2,11,Evo2,DTM,Sospensioni,Slot.it CH69
+2,11,Evo2,DTM,Sospensioni,Slot.it CH67
+2,11,Evo2,DTM,Sospensioni,Slot.it CH65
+2,11,Evo2,DTM,Sospensioni,Slot.it CH115
+2,11,Evo2,DTM,Sospensioni,Slot.it CH118b2
+2,11,Evo2,DTM,Sospensioni,Slot.it CH61
+2,11,Evo2,DTM,Sospensioni,Slot.it CH60c1
+2,11,Evo2,DTM,Sospensioni,Slot.it CH82c1
+2,11,Evo2,DTM,Sospensioni,Slot.it CH123
+2,11,Evo2,DTM,Sospensioni,Slot.it CH119b2
+2,11,Evo2,DTM,Sospensioni,Slot.it CH130b2
+2,11,Evo2,DTM,Sospensioni,Slot.it CH131b2
+2,11,Evo2,DTM,Sospensioni,Slot.it CH117c1
+2,11,Evo2,DTM,Sospensioni,Slot.it CH118c
+2,11,Evo2,DTM,Sospensioni,Slot.it CH119c1
+2,11,Evo2,DTM,Sospensioni,Slot.it CH124c1
+2,11,Evo2,DTM,Sospensioni,Slot.it CH82b2
+2,11,Evo2,DTM,Sospensioni,Slot.it CH76
+2,11,Evo2,DTM,Sospensioni,Slot.it CH75
+2,11,Evo2,DTM,Sospensioni,Slot.it CH74
+2,11,Evo2,DTM,Dettaglio_Supporto,Slot.it PA02
+2,11,Evo2,DTM,Dettaglio_Supporto,Slot.it PA32
+2,11,Evo2,DTM,Dettaglio_Supporto,Slot.it CH56B
+2,11,Evo2,DTM,Dettaglio_Supporto,Boccole in plastica
+2,11,Evo2,DTM,Tipo_Sospensione,Molle
+2,11,Evo2,DTM,Tipo_Sospensione,Magneti (sospensioni magnetiche)
+2,11,Evo2,DTM,Stopper,Slot.it PA25
+2,11,Evo2,DTM,Stopper,Slot.it PA57
+2,11,Evo2,DTM,Gomme Anteriori,Slot.it PT15
+2,11,Evo2,DTM,Gomme Anteriori,Slot.it PT19
+2,11,Evo2,DTM,Gomme Anteriori,Slot.it PT1214S2
+2,11,Evo2,DTM,Gomme Posteriori,Slot.it PT1207F22
+2,11,Evo2,DTM,Gomme Posteriori,Slot.it PT1207P6B
+2,11,Evo2,DTM,Gomme Posteriori,Slot.it PT1207G25
+2,12,P1,Hypercar,Motore,Slot.it MN13CH
+2,12,P1,Hypercar,Supporto Motore,Tutti i supporti anglewinder Slot.it
+2,12,P1,Hypercar,Corona,Tutti gli ingranaggi angolari GA16xx (plastica o ergal)
+2,12,P1,Hypercar,Pignoni,Slot.it PS10
+2,12,P1,Hypercar,Pignoni,Slot.it PS11
+2,12,P1,Hypercar,Pignoni,Slot.it PS12
+2,12,P1,Hypercar,Pignoni,Slot.it PS13
+2,12,P1,Hypercar,Pignoni,Slot.it PI6510E
+2,12,P1,Hypercar,Pignoni,Slot.it PI6511E
+2,12,P1,Hypercar,Pignoni,Slot.it PI6512E
+2,12,P1,Hypercar,Pignoni,Slot.it PI7012E
+2,12,P1,Hypercar,Pignoni,Slot.it PI7013E
+2,12,P1,Hypercar,Pignoni,Slot.it PI7014E
+2,12,P1,Hypercar,Assale Anteriore,Tutti gli assali Slot.it
+2,12,P1,Hypercar,Assale Anteriore,Slot.it PA39
+2,12,P1,Hypercar,Assale Posteriore,Tutti gli assali Slot.it
+2,12,P1,Hypercar,Cerchi Anteriori,Tutte le ruote Slot.it diam. >=16.5mm
+2,12,P1,Hypercar,Cerchi Anteriori,Slot.it W16508215-3D
+2,12,P1,Hypercar,Cerchi Posteriori,Tutte le ruote Slot.it diam. >=16.5mm
+2,12,P1,Hypercar,Pickup,Slot.it CH26
+2,12,P1,Hypercar,Pickup,Slot.it CH66
+2,12,P1,Hypercar,Pickup,Slot.it CH85
+2,12,P1,Hypercar,Pickup,Slot.it CH85d
+2,12,P1,Hypercar,Pickup,Slot.it CH88B
+2,12,P1,Hypercar,Pickup,Slot.it CH111
+2,12,P1,Hypercar,Viti Carrozzeria,Viti Metriche Slot.it
+2,12,P1,Hypercar,Viti Metriche Sospensioni,Slot.it CH72
+2,12,P1,Hypercar,Viti Metriche Sospensioni,Slot.it CH127
+2,12,P1,Hypercar,Sospensioni,Slot.it CH47c
+2,12,P1,Hypercar,Sospensioni,Tutti i componenti sospensioni Slot.it
+2,12,P1,Hypercar,Dettaglio_Supporto,Boccole in plastica
+2,12,P1,Hypercar,Dettaglio_Supporto,Slot.it PA02
+2,12,P1,Hypercar,Dettaglio_Supporto,Slot.it PA32
+2,12,P1,Hypercar,Dettaglio_Supporto,Slot.it CH56B
+2,12,P1,Hypercar,Tipo_Sospensione,Molle
+2,12,P1,Hypercar,Tipo_Sospensione,Magneti (sospensioni magnetiche)
+2,12,P1,Hypercar,Stopper,Slot.it PA25
+2,12,P1,Hypercar,Stopper,Slot.it PA57
+2,12,P1,Hypercar,Gomme Anteriori,Slot.it PT15
+2,12,P1,Hypercar,Gomme Anteriori,Slot.it PT19
+2,12,P1,Hypercar,Gomme Posteriori,Slot.it PT1171F22
+2,12,P1,Hypercar,Gomme Posteriori,Slot.it PT1171G25
+2,12,P2,Hypercar,Motore,Slot.it MN09CH
+2,12,P2,Hypercar,Supporto Motore,Slot.it CH74
+2,12,P2,Hypercar,Corona,Slot.it GA1626-LPL
+2,12,P2,Hypercar,Corona,Slot.it GA1626E
+2,12,P2,Hypercar,Pignoni,Slot.it PS11
+2,12,P2,Hypercar,Pignoni,Slot.it PI6511E
+2,12,P2,Hypercar,Assale Anteriore,Tutti gli assali Slot.it
+2,12,P2,Hypercar,Assale Anteriore,Slot.it PA39
+2,12,P2,Hypercar,Assale Posteriore,Tutti gli assali Slot.it
+2,12,P2,Hypercar,Cerchi Anteriori,Tutte le ruote Slot.it 17.3x8.2mm
+2,12,P2,Hypercar,Cerchi Anteriori,Slot.it W17308215-3D
+2,12,P2,Hypercar,Cerchi Posteriori,Tutte le ruote Slot.it diam. >=17.3mm
+2,12,P2,Hypercar,Pickup,Slot.it CH26
+2,12,P2,Hypercar,Pickup,Slot.it CH66
+2,12,P2,Hypercar,Pickup,Slot.it CH85
+2,12,P2,Hypercar,Pickup,Slot.it CH85d
+2,12,P2,Hypercar,Viti Carrozzeria,Viti Metriche Slot.it
+2,12,P2,Hypercar,Viti Metriche Sospensioni,Slot.it CH72
+2,12,P2,Hypercar,Viti Metriche Sospensioni,Slot.it CH127
+2,12,P2,Hypercar,Dettaglio_Supporto,Boccole in plastica
+2,12,P2,Hypercar,Dettaglio_Supporto,Slot.it PA02
+2,12,P2,Hypercar,Dettaglio_Supporto,Slot.it PA32
+2,12,P2,Hypercar,Dettaglio_Supporto,Slot.it CH56B
+2,12,P2,Hypercar,Stopper,Slot.it PA25
+2,12,P2,Hypercar,Stopper,Slot.it PA57
+2,12,P2,Hypercar,Gomme Anteriori,Slot.it PT15
+2,12,P2,Hypercar,Gomme Posteriori,Slot.it PT1171F22
+2,12,P2,Hypercar,Gomme Posteriori,Slot.it PT1171G25
+2,8,Box Stock,Gruppo C,Motore,Slot.it MX16
+2,8,Box Stock,Gruppo C,Supporto Motore,Slot.it CH110
+2,8,Box Stock,Gruppo C,Corona,Slot.it GI23-BZ
+2,8,Box Stock,Gruppo C,Corona,Slot.it GI24-BZ
+2,8,Box Stock,Gruppo C,Corona,Slot.it GI25-BZ
+2,8,Box Stock,Gruppo C,Corona,Slot.it GI26-BZ
+2,8,Box Stock,Gruppo C,Corona,Slot.it GI27-BZ
+2,8,Box Stock,Gruppo C,Corona,Slot.it GI28-BZ
+2,8,Box Stock,Gruppo C,Corona,Slot.it GI29-BZ
+2,8,Box Stock,Gruppo C,Corona,Slot.it GI30-BZ
+2,8,Box Stock,Gruppo C,Pignoni,Slot.it PI09
+2,8,Box Stock,Gruppo C,Assale Anteriore,Tutti gli assali Slot.it
+2,8,Box Stock,Gruppo C,Assale Posteriore,Tutti gli assali Slot.it
+2,8,Box Stock,Gruppo C,Cerchi Anteriori,Slot.it W15808215P
+2,8,Box Stock,Gruppo C,Cerchi Posteriori,Slot.it W16508215A
+2,8,Box Stock,Gruppo C,Pickup,Slot.it CH06
+2,8,Box Stock,Gruppo C,Pickup,Slot.it CH07
+2,8,Box Stock,Gruppo C,Pickup,Slot.it CH10
+2,8,Box Stock,Gruppo C,Pickup,Slot.it CH26
+2,8,Box Stock,Gruppo C,Pickup,Slot.it CH66
+2,8,Box Stock,Gruppo C,Pickup,Slot.it CH85
+2,8,Box Stock,Gruppo C,Pickup,Slot.it CH85d
+2,8,Box Stock,Gruppo C,Viti Carrozzeria,Viti Metriche Slot.it
+2,8,Box Stock,Gruppo C,Gomme Anteriori,Slot.it PT15
+2,8,Box Stock,Gruppo C,Gomme Anteriori,Slot.it PT19
+2,8,Box Stock,Gruppo C,Gomme Anteriori,Slot.it PT1214S2
+2,8,Box Stock,Gruppo C,Gomme Posteriori,Slot.it PT1207F22
+2,8,Box Stock,Gruppo C,Gomme Posteriori,Slot.it PT1207P6B
+2,8,Box Stock,Gruppo C,Gomme Posteriori,Slot.it PT1207G25
+2,8,Evo,Gruppo C,Motore,Slot.it MX16
+2,8,Evo,Gruppo C,Supporto Motore,Slot.it CH110
+2,8,Evo,Gruppo C,Corona,Slot.it GI23-BZ
+2,8,Evo,Gruppo C,Corona,Slot.it GI24-BZ
+2,8,Evo,Gruppo C,Corona,Slot.it GI25-BZ
+2,8,Evo,Gruppo C,Corona,Slot.it GI26-BZ
+2,8,Evo,Gruppo C,Corona,Slot.it GI27-BZ
+2,8,Evo,Gruppo C,Corona,Slot.it GI28-BZ
+2,8,Evo,Gruppo C,Corona,Slot.it GI29-BZ
+2,8,Evo,Gruppo C,Corona,Slot.it GI30-BZ
+2,8,Evo,Gruppo C,Corona,Slot.it GI23-AL
+2,8,Evo,Gruppo C,Corona,Slot.it GI24-AL
+2,8,Evo,Gruppo C,Corona,Slot.it GI25-AL
+2,8,Evo,Gruppo C,Corona,Slot.it GI26-AL
+2,8,Evo,Gruppo C,Corona,Slot.it GI27-AL
+2,8,Evo,Gruppo C,Corona,Slot.it GI28-AL
+2,8,Evo,Gruppo C,Corona,Slot.it GI29-AL
+2,8,Evo,Gruppo C,Corona,Slot.it GI30-AL
+2,8,Evo,Gruppo C,Corona,Slot.it GM23i
+2,8,Evo,Gruppo C,Corona,Slot.it GM24i
+2,8,Evo,Gruppo C,Corona,Slot.it GM25i
+2,8,Evo,Gruppo C,Corona,Slot.it GM26i
+2,8,Evo,Gruppo C,Corona,Slot.it GM27i
+2,8,Evo,Gruppo C,Corona,Slot.it GM28i
+2,8,Evo,Gruppo C,Corona,Slot.it GM29i
+2,8,Evo,Gruppo C,Corona,Slot.it GM30i
+2,8,Evo,Gruppo C,Corona,Slot.it GM23O
+2,8,Evo,Gruppo C,Corona,Slot.it GM24O
+2,8,Evo,Gruppo C,Corona,Slot.it GM25O
+2,8,Evo,Gruppo C,Corona,Slot.it GM26O
+2,8,Evo,Gruppo C,Corona,Slot.it GM27O
+2,8,Evo,Gruppo C,Corona,Slot.it GMF55
+2,8,Evo,Gruppo C,Pignoni,Slot.it PI09
+2,8,Evo,Gruppo C,Pignoni,Slot.it PI10
+2,8,Evo,Gruppo C,Assale Anteriore,Tutti gli assali Slot.it
+2,8,Evo,Gruppo C,Assale Anteriore,Slot.it PA39
+2,8,Evo,Gruppo C,Assale Posteriore,Tutti gli assali Slot.it
+2,8,Evo,Gruppo C,Cerchi Anteriori,Slot.it W15808215P
+2,8,Evo,Gruppo C,Cerchi Anteriori,Slot.it W15808225P
+2,8,Evo,Gruppo C,Cerchi Anteriori,Slot.it W15808215-3D
+2,8,Evo,Gruppo C,Cerchi Anteriori,Slot.it W15808215A
+2,8,Evo,Gruppo C,Cerchi Anteriori,Slot.it W15808225A
+2,8,Evo,Gruppo C,Cerchi Anteriori,Slot.it W15808215Ma
+2,8,Evo,Gruppo C,Cerchi Anteriori,Slot.it W15808225M
+2,8,Evo,Gruppo C,Cerchi Posteriori,Slot.it W16508215A
+2,8,Evo,Gruppo C,Cerchi Posteriori,Slot.it W16508215MA
+2,8,Evo,Gruppo C,Pickup,Slot.it CH06
+2,8,Evo,Gruppo C,Pickup,Slot.it CH07
+2,8,Evo,Gruppo C,Pickup,Slot.it CH10
+2,8,Evo,Gruppo C,Pickup,Slot.it CH26
+2,8,Evo,Gruppo C,Pickup,Slot.it CH66
+2,8,Evo,Gruppo C,Pickup,Slot.it CH85
+2,8,Evo,Gruppo C,Pickup,Slot.it CH85d
+2,8,Evo,Gruppo C,Pickup,Slot.it CH88B
+2,8,Evo,Gruppo C,Viti Carrozzeria,Viti Metriche Slot.it
+2,8,Evo,Gruppo C,Viti Metriche Sospensioni,Slot.it CH72
+2,8,Evo,Gruppo C,Viti Metriche Sospensioni,Slot.it CH127
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH47c
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH68
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH69
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH67
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH65
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH115
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH118b2
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH61
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH60c1
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH82c1
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH123
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH119b2
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH130b2
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH131b2
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH117c1
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH118c
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH119c1
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH124c1
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH82b2
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH76
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH75
+2,8,Evo,Gruppo C,Sospensioni,Slot.it CH74
+2,8,Evo,Gruppo C,Dettaglio_Supporto,Slot.it PA02
+2,8,Evo,Gruppo C,Dettaglio_Supporto,Slot.it PA32
+2,8,Evo,Gruppo C,Dettaglio_Supporto,Slot.it CH56B
+2,8,Evo,Gruppo C,Dettaglio_Supporto,Boccole in plastica
+2,8,Evo,Gruppo C,Tipo_Sospensione,Molle
+2,8,Evo,Gruppo C,Tipo_Sospensione,Magneti (sospensioni magnetiche)
+2,8,Evo,Gruppo C,Stopper,Slot.it PA25
+2,8,Evo,Gruppo C,Stopper,Slot.it PA57
+2,8,Evo,Gruppo C,Gomme Anteriori,Slot.it PT15
+2,8,Evo,Gruppo C,Gomme Anteriori,Slot.it PT19
+2,8,Evo,Gruppo C,Gomme Anteriori,Slot.it PT1214S2
+2,8,Evo,Gruppo C,Gomme Posteriori,Slot.it PT1207F22
+2,8,Evo,Gruppo C,Gomme Posteriori,Slot.it PT1207P6B
+2,8,Evo,Gruppo C,Gomme Posteriori,Slot.it PT1207G25
+2,8,Evo/F,Gruppo C,Motore,Slot.it MN09CH
+2,8,Evo/F,Gruppo C,Motore,Slot.it MN13CH
+2,8,Evo/F,Gruppo C,Supporto Motore,Slot.it CH110
+2,8,Evo/F,Gruppo C,Supporto Motore,Slot.it CH114
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI23-BZ
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI24-BZ
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI25-BZ
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI26-BZ
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI27-BZ
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI28-BZ
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI29-BZ
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI30-BZ
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI23-AL
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI24-AL
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI25-AL
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI26-AL
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI27-AL
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI28-AL
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI29-AL
+2,8,Evo/F,Gruppo C,Corona,Slot.it GI30-AL
+2,8,Evo/F,Gruppo C,Corona,Slot.it GM23i
+2,8,Evo/F,Gruppo C,Corona,Slot.it GM24i
+2,8,Evo/F,Gruppo C,Corona,Slot.it GM25i
+2,8,Evo/F,Gruppo C,Corona,Slot.it GM26i
+2,8,Evo/F,Gruppo C,Corona,Slot.it GM27i
+2,8,Evo/F,Gruppo C,Corona,Slot.it GM28i
+2,8,Evo/F,Gruppo C,Corona,Slot.it GM29i
+2,8,Evo/F,Gruppo C,Corona,Slot.it GM30i
+2,8,Evo/F,Gruppo C,Corona,Slot.it GM23O
+2,8,Evo/F,Gruppo C,Corona,Slot.it GM24O
+2,8,Evo/F,Gruppo C,Corona,Slot.it GM25O
+2,8,Evo/F,Gruppo C,Corona,Slot.it GM26O
+2,8,Evo/F,Gruppo C,Corona,Slot.it GM27O
+2,8,Evo/F,Gruppo C,Corona,Slot.it GMF55
+2,8,Evo/F,Gruppo C,Pignoni,Slot.it PI09
+2,8,Evo/F,Gruppo C,Pignoni,Slot.it PI10
+2,8,Evo/F,Gruppo C,Assale Anteriore,Tutti gli assali Slot.it
+2,8,Evo/F,Gruppo C,Assale Anteriore,Slot.it PA39
+2,8,Evo/F,Gruppo C,Assale Posteriore,Tutti gli assali Slot.it
+2,8,Evo/F,Gruppo C,Cerchi Anteriori,Slot.it W15808215P
+2,8,Evo/F,Gruppo C,Cerchi Anteriori,Slot.it W15808225P
+2,8,Evo/F,Gruppo C,Cerchi Anteriori,Slot.it W15808215-3D
+2,8,Evo/F,Gruppo C,Cerchi Anteriori,Slot.it W15808215A
+2,8,Evo/F,Gruppo C,Cerchi Anteriori,Slot.it W15808225A
+2,8,Evo/F,Gruppo C,Cerchi Anteriori,Slot.it W15808215Ma
+2,8,Evo/F,Gruppo C,Cerchi Anteriori,Slot.it W15808225M
+2,8,Evo/F,Gruppo C,Cerchi Posteriori,Slot.it W16508215A
+2,8,Evo/F,Gruppo C,Cerchi Posteriori,Slot.it W16508215MA
+2,8,Evo/F,Gruppo C,Pickup,Slot.it CH06
+2,8,Evo/F,Gruppo C,Pickup,Slot.it CH07
+2,8,Evo/F,Gruppo C,Pickup,Slot.it CH10
+2,8,Evo/F,Gruppo C,Pickup,Slot.it CH26
+2,8,Evo/F,Gruppo C,Pickup,Slot.it CH66
+2,8,Evo/F,Gruppo C,Pickup,Slot.it CH85
+2,8,Evo/F,Gruppo C,Pickup,Slot.it CH85d
+2,8,Evo/F,Gruppo C,Pickup,Slot.it CH88B
+2,8,Evo/F,Gruppo C,Viti Carrozzeria,Viti Metriche Slot.it
+2,8,Evo/F,Gruppo C,Viti Metriche Sospensioni,Slot.it CH72
+2,8,Evo/F,Gruppo C,Viti Metriche Sospensioni,Slot.it CH127
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH47c
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH68
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH69
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH67
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH65
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH115
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH118b2
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH61
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH60c1
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH82c1
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH123
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH119b2
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH130b2
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH131b2
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH117c1
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH118c
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH119c1
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH124c1
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH82b2
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH76
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH75
+2,8,Evo/F,Gruppo C,Sospensioni,Slot.it CH74
+2,8,Evo/F,Gruppo C,Dettaglio_Supporto,Slot.it PA02
+2,8,Evo/F,Gruppo C,Dettaglio_Supporto,Slot.it PA32
+2,8,Evo/F,Gruppo C,Dettaglio_Supporto,Slot.it CH56B
+2,8,Evo/F,Gruppo C,Dettaglio_Supporto,Boccole in plastica
+2,8,Evo/F,Gruppo C,Tipo_Sospensione,Molle
+2,8,Evo/F,Gruppo C,Tipo_Sospensione,Magneti (sospensioni magnetiche)
+2,8,Evo/F,Gruppo C,Stopper,Slot.it PA25
+2,8,Evo/F,Gruppo C,Stopper,Slot.it PA57
+2,8,Evo/F,Gruppo C,Gomme Anteriori,Slot.it PT15
+2,8,Evo/F,Gruppo C,Gomme Anteriori,Slot.it PT19
+2,8,Evo/F,Gruppo C,Gomme Anteriori,Slot.it PT1214S2
+2,8,Evo/F,Gruppo C,Gomme Posteriori,Slot.it PT1207F22
+2,8,Evo/F,Gruppo C,Gomme Posteriori,Slot.it PT1207P6B
+2,8,Evo/F,Gruppo C,Gomme Posteriori,Slot.it PT1207G25
+2,10,Prototipi,Classic,Motore,Slot.it MX16-m
+2,10,Prototipi,Classic,Supporto Motore,Slot.it CH67
+2,10,Prototipi,Classic,Supporto Motore,Slot.it CH68
+2,10,Prototipi,Classic,Supporto Motore,Slot.it CH69
+2,10,Prototipi,Classic,Corona,Slot.it GS17030-LPL
+2,10,Prototipi,Classic,Corona,Slot.it GS17032-LPL
+2,10,Prototipi,Classic,Corona,Slot.it GS17034-LPL
+2,10,Prototipi,Classic,Corona,Slot.it GS17531-LPL
+2,10,Prototipi,Classic,Corona,Slot.it GS17533-LPL
+2,10,Prototipi,Classic,Corona,Slot.it GS17535-LPL
+2,10,Prototipi,Classic,Corona,Slot.it GS1831-LPL
+2,10,Prototipi,Classic,Corona,Slot.it GS1832-LPL
+2,10,Prototipi,Classic,Corona,Slot.it GS1833-LPL
+2,10,Prototipi,Classic,Corona,Slot.it GS1834-LPL
+2,10,Prototipi,Classic,Corona,Slot.it GS1835-LPL
+2,10,Prototipi,Classic,Corona,Slot.it GS1836-LPL
+2,10,Prototipi,Classic,Corona,Slot.it GS1831
+2,10,Prototipi,Classic,Corona,Slot.it GS1832
+2,10,Prototipi,Classic,Corona,Slot.it GS1833
+2,10,Prototipi,Classic,Corona,Slot.it GS1834
+2,10,Prototipi,Classic,Corona,Slot.it GS1835
+2,10,Prototipi,Classic,Corona,Slot.it GS1836
+2,10,Prototipi,Classic,Pignoni,Slot.it PS10
+2,10,Prototipi,Classic,Pignoni,Slot.it PS11
+2,10,Prototipi,Classic,Pignoni,Slot.it PS12
+2,10,Prototipi,Classic,Pignoni,Slot.it PS13
+2,10,Prototipi,Classic,Pignoni,Slot.it PI6510E
+2,10,Prototipi,Classic,Pignoni,Slot.it PI6511E
+2,10,Prototipi,Classic,Pignoni,Slot.it PI6512E
+2,10,Prototipi,Classic,Pignoni,Slot.it PI7012E
+2,10,Prototipi,Classic,Pignoni,Slot.it PI7013E
+2,10,Prototipi,Classic,Pignoni,Slot.it PI7014E
+2,10,Prototipi,Classic,Pignoni,Slot.it PI7513E
+2,10,Prototipi,Classic,Pignoni,Slot.it PI7514E
+2,10,Prototipi,Classic,Pignoni,Slot.it PI7515E
+2,10,Prototipi,Classic,Assale Anteriore,Tutti gli assali Slot.it
+2,10,Prototipi,Classic,Assale Anteriore,Slot.it PA39
+2,10,Prototipi,Classic,Assale Posteriore,Tutti gli assali Slot.it
+2,10,Prototipi,Classic,Cerchi Anteriori,Tutte le ruote Slot.it 14.3x8.2mm
+2,10,Prototipi,Classic,Cerchi Posteriori,Tutte le ruote Slot.it 15.8x8.2mm
+2,10,Prototipi,Classic,Pickup,Slot.it CH06
+2,10,Prototipi,Classic,Pickup,Slot.it CH07
+2,10,Prototipi,Classic,Pickup,Slot.it CH10
+2,10,Prototipi,Classic,Pickup,Slot.it CH26
+2,10,Prototipi,Classic,Pickup,Slot.it CH66
+2,10,Prototipi,Classic,Pickup,Slot.it CH85
+2,10,Prototipi,Classic,Pickup,Slot.it CH85d
+2,10,Prototipi,Classic,Pickup,Slot.it CH88B
+2,10,Prototipi,Classic,Viti Carrozzeria,Viti Metriche Slot.it
+2,10,Prototipi,Classic,Viti Metriche Sospensioni,Slot.it CH72
+2,10,Prototipi,Classic,Viti Metriche Sospensioni,Slot.it CH127
+2,10,Prototipi,Classic,Dettaglio_Supporto,Slot.it PA02
+2,10,Prototipi,Classic,Dettaglio_Supporto,Slot.it PA32
+2,10,Prototipi,Classic,Dettaglio_Supporto,Slot.it CH56B
+2,10,Prototipi,Classic,Dettaglio_Supporto,Boccole in plastica
+2,10,Prototipi,Classic,Stopper,Slot.it PA25
+2,10,Prototipi,Classic,Stopper,Slot.it PA57
+2,10,Prototipi,Classic,Gomme Anteriori,Slot.it PT15
+2,10,Prototipi,Classic,Gomme Anteriori,Slot.it PT19
+2,10,Prototipi,Classic,Gomme Posteriori,Slot.it PT1207F22
+2,10,Sport,Classic,Motore,Slot.it MX16-m
+2,10,Sport,Classic,Supporto Motore,Slot.it CH67
+2,10,Sport,Classic,Corona,Slot.it GS17531-LPL
+2,10,Sport,Classic,Corona,Slot.it GS17533-LPL
+2,10,Sport,Classic,Corona,Slot.it GS17535-LPL
+2,10,Sport,Classic,Corona,Slot.it GS1831-LPL
+2,10,Sport,Classic,Corona,Slot.it GS1832-LPL
+2,10,Sport,Classic,Corona,Slot.it GS1833-LPL
+2,10,Sport,Classic,Corona,Slot.it GS1834-LPL
+2,10,Sport,Classic,Corona,Slot.it GS1835-LPL
+2,10,Sport,Classic,Corona,Slot.it GS1836-LPL
+2,10,Sport,Classic,Corona,Slot.it GS1831
+2,10,Sport,Classic,Corona,Slot.it GS1832
+2,10,Sport,Classic,Corona,Slot.it GS1833
+2,10,Sport,Classic,Corona,Slot.it GS1834
+2,10,Sport,Classic,Corona,Slot.it GS1835
+2,10,Sport,Classic,Corona,Slot.it GS1836
+2,10,Sport,Classic,Pignoni,Slot.it PS10
+2,10,Sport,Classic,Pignoni,Slot.it PS11
+2,10,Sport,Classic,Pignoni,Slot.it PS12
+2,10,Sport,Classic,Pignoni,Slot.it PS13
+2,10,Sport,Classic,Pignoni,Slot.it PI6510E
+2,10,Sport,Classic,Pignoni,Slot.it PI6511E
+2,10,Sport,Classic,Pignoni,Slot.it PI6512E
+2,10,Sport,Classic,Pignoni,Slot.it PI7012E
+2,10,Sport,Classic,Pignoni,Slot.it PI7013E
+2,10,Sport,Classic,Pignoni,Slot.it PI7014E
+2,10,Sport,Classic,Assale Anteriore,Tutti gli assali Slot.it
+2,10,Sport,Classic,Assale Anteriore,Slot.it PA39
+2,10,Sport,Classic,Assale Posteriore,Tutti gli assali Slot.it
+2,10,Sport,Classic,Cerchi Anteriori,Tutte le ruote Slot.it 15.8x8.2mm
+2,10,Sport,Classic,Cerchi Posteriori,Tutte le ruote Slot.it 15.8x8.2mm
+2,10,Sport,Classic,Pickup,Slot.it CH06
+2,10,Sport,Classic,Pickup,Slot.it CH07
+2,10,Sport,Classic,Pickup,Slot.it CH10
+2,10,Sport,Classic,Pickup,Slot.it CH26
+2,10,Sport,Classic,Pickup,Slot.it CH66
+2,10,Sport,Classic,Pickup,Slot.it CH85
+2,10,Sport,Classic,Pickup,Slot.it CH85d
+2,10,Sport,Classic,Pickup,Slot.it CH88B
+2,10,Sport,Classic,Viti Carrozzeria,Viti Metriche Slot.it
+2,10,Sport,Classic,Viti Metriche Sospensioni,Slot.it CH72
+2,10,Sport,Classic,Viti Metriche Sospensioni,Slot.it CH127
+2,10,Sport,Classic,Dettaglio_Supporto,Slot.it PA02
+2,10,Sport,Classic,Dettaglio_Supporto,Slot.it PA32
+2,10,Sport,Classic,Dettaglio_Supporto,Slot.it CH56B
+2,10,Sport,Classic,Dettaglio_Supporto,Boccole in plastica
+2,10,Sport,Classic,Stopper,Slot.it PA25
+2,10,Sport,Classic,Stopper,Slot.it PA57
+2,10,Sport,Classic,Gomme Anteriori,Slot.it PT15
+2,10,Sport,Classic,Gomme Anteriori,Slot.it PT19
+2,10,Sport,Classic,Gomme Posteriori,Slot.it PT1207F22
+2,14,Box Stock,GT3,Motore,MX16-m
+2,14,Box Stock,GT3,Supporto Motore,CH65
+2,14,Box Stock,GT3,Supporto Motore,CH115b
+2,14,Box Stock,GT3,Corona,GS1831
+2,14,Box Stock,GT3,Corona,GS1832
+2,14,Box Stock,GT3,Corona,GS1833
+2,14,Box Stock,GT3,Corona,GS1834
+2,14,Box Stock,GT3,Corona,GS1835
+2,14,Box Stock,GT3,Corona,GS1836
+2,14,Box Stock,GT3,Corona,GS1831-LPL
+2,14,Box Stock,GT3,Corona,GS1832-LPL
+2,14,Box Stock,GT3,Corona,GS1833-LPL
+2,14,Box Stock,GT3,Corona,GS1834-LPL
+2,14,Box Stock,GT3,Corona,GS1835-LPL
+2,14,Box Stock,GT3,Corona,GS1836-LPL
+2,14,Box Stock,GT3,Pignoni,PS11
+2,14,Box Stock,GT3,Pignoni,PS12
+2,14,Box Stock,GT3,Pignoni,PI6511E
+2,14,Box Stock,GT3,Pignoni,PI6512E
+2,14,Box Stock,GT3,Cerchi Anteriori,W17308215P
+2,14,Box Stock,GT3,Cerchi Anteriori,W17308225P
+2,14,Box Stock,GT3,Cerchi Posteriori,W17308215A
+2,14,Box Stock,GT3,Cerchi Posteriori,W17308225A
+2,14,Box Stock,GT3,Cerchi Posteriori,W17309715A
+2,14,Box Stock,GT3,Gomme Posteriori,PT1323
+2,14,Box Stock,GT3,Gomme Posteriori,PT1209SP30
+2,14,Box Stock,GT3,Gomme Anteriori,PT15
+2,14,Evo,GT3,Motore,MX16-m
+2,14,Evo,GT3,Supporto Motore,CH65
+2,14,Evo,GT3,Supporto Motore,CH115b
+2,14,Evo,GT3,Corona,GS1831
+2,14,Evo,GT3,Corona,GS1832
+2,14,Evo,GT3,Corona,GS1833
+2,14,Evo,GT3,Corona,GS1834
+2,14,Evo,GT3,Corona,GS1835
+2,14,Evo,GT3,Corona,GS1836
+2,14,Evo,GT3,Corona,GS1831-LPL
+2,14,Evo,GT3,Corona,GS1832-LPL
+2,14,Evo,GT3,Corona,GS1833-LPL
+2,14,Evo,GT3,Corona,GS1834-LPL
+2,14,Evo,GT3,Corona,GS1835-LPL
+2,14,Evo,GT3,Corona,GS1836-LPL
+2,14,Evo,GT3,Pignoni,PS11
+2,14,Evo,GT3,Pignoni,PS12
+2,14,Evo,GT3,Pignoni,PI6511E
+2,14,Evo,GT3,Pignoni,PI6512E
+2,14,Evo,GT3,Cerchi Anteriori,W17308215P
+2,14,Evo,GT3,Cerchi Anteriori,W17308225P
+2,14,Evo,GT3,Cerchi Anteriori,W17308215-3D
+2,14,Evo,GT3,Cerchi Anteriori,W17308215A
+2,14,Evo,GT3,Cerchi Anteriori,W17308225A
+2,14,Evo,GT3,Cerchi Anteriori,W17308215M
+2,14,Evo,GT3,Cerchi Anteriori,W17308225M
+2,14,Evo,GT3,Cerchi Posteriori,W17308215A
+2,14,Evo,GT3,Cerchi Posteriori,W17308225A
+2,14,Evo,GT3,Cerchi Posteriori,W17309715A
+2,14,Evo,GT3,Cerchi Posteriori,W17308215M
+2,14,Evo,GT3,Cerchi Posteriori,W17309715M
+2,14,Evo,GT3,Cerchi Posteriori,W17308225M
+2,14,Evo,GT3,Gomme Posteriori,PT1323
+2,14,Evo,GT3,Gomme Posteriori,PT1209SP30
+2,14,Evo,GT3,Gomme Anteriori,PT15
+2,14,Evo2,GT3,Motore,MN09CH
+2,14,Evo2,GT3,Motore,MN13CH
+2,14,Evo2,GT3,Motore,MN08CH
+2,14,Evo2,GT3,Supporto Motore,CH74
+2,14,Evo2,GT3,Supporto Motore,CH82b
+2,14,Evo2,GT3,Supporto Motore,CH119b
+2,14,Evo2,GT3,Corona,GA1626
+2,14,Evo2,GT3,Corona,GA1627
+2,14,Evo2,GT3,Corona,GA1628
+2,14,Evo2,GT3,Corona,GA1629
+2,14,Evo2,GT3,Corona,GA1630
+2,14,Evo2,GT3,Corona,GA1631
+2,14,Evo2,GT3,Corona,GA1632
+2,14,Evo2,GT3,Corona,GA1633
+2,14,Evo2,GT3,Corona,GA1634
+2,14,Evo2,GT3,Corona,GA1635
+2,14,Evo2,GT3,Corona,GA1636
+2,14,Evo2,GT3,Corona,GA1626-LPL
+2,14,Evo2,GT3,Corona,GA1627-LPL
+2,14,Evo2,GT3,Corona,GA1628-LPL
+2,14,Evo2,GT3,Corona,GA1629-LPL
+2,14,Evo2,GT3,Corona,GA1630-LPL
+2,14,Evo2,GT3,Pignoni,PS11
+2,14,Evo2,GT3,Pignoni,PS12
+2,14,Evo2,GT3,Pignoni,PI6511E
+2,14,Evo2,GT3,Pignoni,PI6512E
+2,14,Evo2,GT3,Cerchi Anteriori,W16508215P
+2,14,Evo2,GT3,Cerchi Anteriori,W16508225P
+2,14,Evo2,GT3,Cerchi Anteriori,W16508215-3D
+2,14,Evo2,GT3,Cerchi Anteriori,W16508215A
+2,14,Evo2,GT3,Cerchi Anteriori,W16508225A
+2,14,Evo2,GT3,Cerchi Anteriori,W16508215M
+2,14,Evo2,GT3,Cerchi Anteriori,W16508225M
+2,14,Evo2,GT3,Cerchi Posteriori,W17308215A
+2,14,Evo2,GT3,Cerchi Posteriori,W17308225A
+2,14,Evo2,GT3,Cerchi Posteriori,W17309715A
+2,14,Evo2,GT3,Cerchi Posteriori,W17308215M
+2,14,Evo2,GT3,Cerchi Posteriori,W17309715M
+2,14,Evo2,GT3,Cerchi Posteriori,W17308225M
+2,14,Evo2,GT3,Gomme Posteriori,PT1323
+2,14,Evo2,GT3,Gomme Posteriori,PT1209SP30
+2,14,Evo2,GT3,Gomme Anteriori,PT15
