@@ -107,8 +107,6 @@ def sg_seconds(value):
         return None
 
 # ===== CACHE DATI PERSONALI OTTIMIZZATA =====
-# Le cache personali sono parametrizzate per user_id: il login/logout non
-# deve cancellare la cache globale di Produttori/Categorie/Modelli/Catalogo.
 @st.cache_data(ttl=300, show_spinner=False)
 def _sg_load_garage_cached(user_id):
     if not user_id:
@@ -886,6 +884,88 @@ def get_catalogo_componenti():
   return get_data("CatalogoComponenti")
 
 
+# ============================================================
+# INDICIZZAZIONE GLOBALE DEL CATALOGO (disponibile anche per utenti anonimi)
+# ============================================================
+def sg_ensure_catalog_indexed():
+    """Carica e indicizza il catalogo componenti una sola volta, per tutti gli utenti."""
+    if st.session_state.get("_catalog_indexed", False):
+        return
+
+    global catalogo_componenti
+    if not catalogo_componenti:
+        catalogo_componenti = get_catalogo_componenti()
+
+    indice_codici = {}
+    indice_tipo = {}
+    indice_prodotto = {}
+    catalogo_per_produttore = {}
+    catalogo_per_prod_cat = {}
+    catalogo_senza_categoria = {}
+
+    for componente in catalogo_componenti or []:
+        if not componente:
+            continue
+
+        # Indice per codice prodotto
+        codice = componente.get("Codice_Prodotto") or componente.get("codice_prodotto")
+        if codice is not None:
+            codice_norm = str(codice).strip().casefold()
+            if codice_norm.endswith(".0") and codice_norm[:-2].isdigit():
+                codice_norm = codice_norm[:-2]
+            if codice_norm and codice_norm not in indice_codici:
+                indice_codici[codice_norm] = componente
+
+        # Indici per tipo e prodotto (utili per filtri rapidi)
+        tipo = str(componente.get("Tipo") or "").strip().casefold()
+        prodotto = str(componente.get("Prodotto") or "").strip().casefold()
+        if tipo:
+            indice_tipo.setdefault(tipo, []).append(componente)
+        if prodotto:
+            indice_prodotto.setdefault(prodotto, []).append(componente)
+
+        # Raggruppamento per produttore
+        prod_key = str(componente.get("id_Produttori"))
+        catalogo_per_produttore.setdefault(prod_key, []).append(componente)
+
+        # Raggruppamento per produttore + categoria
+        cat_componente = (
+            componente.get("category_id")
+            if componente.get("category_id") is not None
+            else (
+                componente.get("id_Categorie")
+                if componente.get("id_Categorie") is not None
+                else componente.get("categoria")
+            )
+        )
+
+        if cat_componente is None:
+            catalogo_senza_categoria.setdefault(prod_key, []).append(componente)
+        else:
+            cat_key = str(cat_componente)
+            catalogo_per_prod_cat.setdefault(
+                (prod_key, cat_key), []
+            ).append(componente)
+
+    # Unione dei componenti senza categoria a quelli della categoria selezionata
+    catalogo_per_prod_cat_finale = {}
+    for (prod_key, cat_key), lista_cat in catalogo_per_prod_cat.items():
+        base = catalogo_senza_categoria.get(prod_key, [])
+        catalogo_per_prod_cat_finale[(prod_key, cat_key)] = base + lista_cat
+
+    # Salvataggio in session_state
+    st.session_state["_catalogo_per_produttore_bootstrap"] = catalogo_per_produttore
+    st.session_state["_catalogo_per_prod_cat_bootstrap"] = catalogo_per_prod_cat_finale
+    st.session_state["_catalogo_senza_categoria_bootstrap"] = catalogo_senza_categoria
+    st.session_state["_indice_codici_bootstrap"] = indice_codici
+    st.session_state["_indice_tipo_bootstrap"] = indice_tipo
+    st.session_state["_indice_prodotto_bootstrap"] = indice_prodotto
+    st.session_state["_catalog_indexed"] = True
+
+# Chiamata all'avvio per indicizzare il catalogo per tutti (utenti anonimi inclusi)
+sg_ensure_catalog_indexed()
+
+
 def trova_telaio_catalogo_id(telaio):
     global catalogo_componenti
     if not catalogo_componenti:
@@ -935,11 +1015,8 @@ if "configura_regolamento_target" not in st.session_state:
   st.session_state.configura_regolamento_target = None
 
 # ============================================================
-# PRECARICAMENTO POST-LOGIN - 0% -> 100%
+# PRECARICAMENTO POST-LOGIN - ora solo dati utente, il catalogo è già indicizzato globalmente
 # ============================================================
-# Il caricamento è reale: ogni avanzamento avviene dopo che l'operazione
-# corrispondente è terminata. La configurazione viene mostrata solo dopo
-# il completamento del bootstrap.
 def sg_bootstrap_post_login():
   user = st.session_state.get("user")
   if not user:
@@ -972,96 +1049,10 @@ def sg_bootstrap_post_login():
     run_step(10, "Caricamento produttori...", lambda: produttori)
     run_step(20, "Caricamento categorie...", lambda: categorie)
     run_step(30, "Caricamento modelli...", lambda: modelli)
-
-    def load_catalogo():
-      global catalogo_componenti
-      if not catalogo_componenti:
-        catalogo_componenti = get_catalogo_componenti()
-      return catalogo_componenti
-
-    catalogo = run_step(50, "Caricamento catalogo componenti...", load_catalogo)
-
-    def build_catalog_indexes():
-      indice_codici = {}
-      indice_tipo = {}
-      indice_prodotto = {}
-
-      # Nuovi indici reali usati dalla configurazione:
-      # invece di riscorrere tutto CatalogoComponenti ogni volta che
-      # l'utente seleziona un modello, prepariamo in anticipo le liste
-      # per produttore e produttore+categoria.
-      catalogo_per_produttore = {}
-      catalogo_per_prod_cat = {}
-      catalogo_senza_categoria = {}
-
-      for componente in catalogo or []:
-        if not componente:
-          continue
-
-        codice = componente.get("Codice_Prodotto")
-        if codice is None:
-          codice = componente.get("codice_prodotto")
-        if codice is not None:
-          codice_norm = str(codice).strip().casefold()
-          if codice_norm.endswith(".0") and codice_norm[:-2].isdigit():
-            codice_norm = codice_norm[:-2]
-          if codice_norm and codice_norm not in indice_codici:
-            indice_codici[codice_norm] = componente
-
-        tipo = str(componente.get("Tipo") or "").strip().casefold()
-        prodotto = str(componente.get("Prodotto") or "").strip().casefold()
-        if tipo:
-          indice_tipo.setdefault(tipo, []).append(componente)
-        if prodotto:
-          indice_prodotto.setdefault(prodotto, []).append(componente)
-
-        prod_key = str(componente.get("id_Produttori"))
-        catalogo_per_produttore.setdefault(prod_key, []).append(componente)
-
-        cat_componente = (
-            componente.get("category_id")
-            if componente.get("category_id") is not None
-            else (
-                componente.get("id_Categorie")
-                if componente.get("id_Categorie") is not None
-                else componente.get("categoria")
-            )
-        )
-
-        if cat_componente is None:
-          catalogo_senza_categoria.setdefault(prod_key, []).append(componente)
-        else:
-          cat_key = str(cat_componente)
-          catalogo_per_prod_cat.setdefault(
-              (prod_key, cat_key), []
-          ).append(componente)
-
-      # La configurazione originale include i componenti senza categoria
-      # insieme a quelli della categoria selezionata. Prepariamo quindi
-      # esattamente quella stessa lista in anticipo.
-      catalogo_per_prod_cat_finale = {}
-      for (prod_key, cat_key), lista_cat in catalogo_per_prod_cat.items():
-        base = catalogo_senza_categoria.get(prod_key, [])
-        if base:
-          catalogo_per_prod_cat_finale[(prod_key, cat_key)] = base + lista_cat
-        else:
-          catalogo_per_prod_cat_finale[(prod_key, cat_key)] = lista_cat
-
-      # Memorizziamo anche i produttori senza categoria: servono quando
-      # category_id è "Tutte".
-      st.session_state["_catalogo_per_produttore_bootstrap"] = catalogo_per_produttore
-      st.session_state["_catalogo_per_prod_cat_bootstrap"] = catalogo_per_prod_cat_finale
-      st.session_state["_catalogo_senza_categoria_bootstrap"] = catalogo_senza_categoria
-
-      st.session_state["_indice_codici_bootstrap"] = indice_codici
-      st.session_state["_indice_tipo_bootstrap"] = indice_tipo
-      st.session_state["_indice_prodotto_bootstrap"] = indice_prodotto
-      return indice_codici
-
-    run_step(65, "Preparazione liste componenti per produttore e categoria...", build_catalog_indexes)
-    run_step(82, "Caricamento configurazioni Garage...", sg_load_garage)
-    run_step(92, "Preparazione dati componenti personali...", sg_load_telemetry_components)
-    run_step(97, "Preparazione configurazioni pulsanti...", sg_load_pulsanti)
+    # Il catalogo è già indicizzato globalmente da sg_ensure_catalog_indexed()
+    run_step(60, "Caricamento configurazioni Garage...", sg_load_garage)
+    run_step(80, "Preparazione dati componenti personali...", sg_load_telemetry_components)
+    run_step(95, "Preparazione configurazioni pulsanti...", sg_load_pulsanti)
 
     total_elapsed = time.perf_counter() - total_start
     progress.progress(100)
@@ -1071,8 +1062,6 @@ def sg_bootstrap_post_login():
     st.session_state.bootstrap_done = True
     st.session_state.bootstrap_user_id = user_id
 
-    # Il rerun finale ripulisce la schermata di caricamento e lascia l'app
-    # nella normale interfaccia, con i dati già caldi in cache.
     if not st.session_state.get("bootstrap_clean_rerun"):
       st.session_state.bootstrap_clean_rerun = True
       st.rerun()
@@ -1885,7 +1874,6 @@ def _carica_regole_semplici(prod_id, cat_id, sotto_categoria=None, categoria_nom
             return {}
         
         regole_per_campo = {}
-        # Costruito una sola volta per l'intero CSV, non una volta per riga.
         indice_codici = _indicizza_catalogo_per_codice()
         mappa_campi = {
             "motore": "Motore",
@@ -1954,18 +1942,6 @@ def _carica_regole_semplici(prod_id, cat_id, sotto_categoria=None, categoria_nom
 # ============================================================
 # FUNZIONE PER CONTROLLARE ARCHIVIO COMPONENTI
 # ============================================================
-# ============================================================
-# ARCHIVIO COMPONENTI - FIX PRIMO CARICAMENTO
-# ============================================================
-# Prima della correzione ogni opzione mostrata nei selectbox poteva
-# generare una query Supabase separata (una query per componente).
-# Questo rendeva lentissimo SOLO il primo caricamento di una specifica
-# configurazione; le aperture successive erano veloci perché la cache
-# aveva già memorizzato i risultati.
-#
-# Ora facciamo UNA SOLA query per utente e teniamo in memoria i nomi
-# dell'archivio. I controlli successivi sono O(1)/in-memory e non
-# modificano il risultato logico del controllo "nome contenuto in nome".
 @st.cache_data(ttl=300, show_spinner=False)
 def _sg_load_archivio_componenti_nomi_cached(user_id):
     if not user_id:
@@ -2005,8 +1981,6 @@ def componente_in_archivio(nome_componente):
     if not user_id or not nome_componente:
         return False
 
-    # Piccola cache per il rerun corrente: evita anche di ripetere la
-    # scansione dell'elenco dei nomi quando lo stesso valore compare più volte.
     memo = st.session_state.setdefault("_archivio_componenti_check_memo", {})
     key = str(nome_componente).strip().casefold()
     if key in memo:
@@ -2147,7 +2121,6 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
       if selected_prod_name != "Tutti":
         st.write(f"### ⚙️ Setup Avanzato - {selected_prod_name}")
 
-        # Il memo è specifico della pagina/configurazione corrente.
         _archivio_memo_key = (
             str(prod_id_selezionato),
             str(category_id),
@@ -2177,17 +2150,12 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             if _slotit_cat_direct:
                 st.session_state[f"slotit_categoria_{model_safe_key}"] = _slotit_cat_direct
 
-
-        # Le liste vengono preparate durante il bootstrap post-login.
-        # Qui facciamo solo un accesso O(1), senza riscorrere tutto il catalogo.
         _cat_idx = st.session_state.get("_catalogo_per_prod_cat_bootstrap", {})
         _prod_idx = st.session_state.get("_catalogo_per_produttore_bootstrap", {})
 
         _prod_key = str(prod_id_selezionato)
         _cat_key = str(category_id)
 
-        # Una sola query al primo accesso alla configurazione.
-        # Prima il programma faceva una query per OGNI opzione del selectbox.
         if st.session_state.get("_archivio_nomi_loaded_for_user") != sg_current_user_id():
             with st.spinner("Preparazione archivio componenti..."):
                 _sg_load_archivio_componenti_nomi_cached(sg_current_user_id())
@@ -3416,11 +3384,12 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             )
             scelte_utente["Distanziali_Pickup"] = dist_pick_attive
             if dist_pick_attive == "Sì":
-              lista_dist_pick = [
-                  p for p in pezzi
-                  if p and p.get("Prodotto") and p.get("Prodotto").strip().lower() == "distanziale pickup"
-              ]
-              scelte_utente["Distanziale_Pickup"] = render_select_componente("Distanziale_Pickup", lista_dist_pick, "sel_dist_pick")
+                target_norm = _normalizza_testo_filtro("distanziale pickup")
+                lista_dist_pick = [
+                    p for p in pezzi
+                    if p and p.get("Prodotto") and _normalizza_testo_filtro(p.get("Prodotto")) == target_norm
+                ]
+                scelte_utente["Distanziale_Pickup"] = render_select_componente("Distanziale_Pickup", lista_dist_pick, "sel_dist_pick")
         else:
           st.write("### 📏 Distanziali")
           col_d1, col_d2, col_d3 = st.columns(3)
@@ -3449,11 +3418,12 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
             )
             scelte_utente["Distanziali_Pickup"] = dist_pick_attive
             if dist_pick_attive == "Sì":
-              lista_dist_pick = [
-                  p for p in pezzi
-                  if p and p.get("Prodotto") and p.get("Prodotto").strip().lower() == "distanziale pickup"
-              ]
-              scelte_utente["Distanziale_Pickup"] = render_select_componente("Distanziale_Pickup", lista_dist_pick, "sel_dist_pick")
+                target_norm = _normalizza_testo_filtro("distanziale pickup")
+                lista_dist_pick = [
+                    p for p in pezzi
+                    if p and p.get("Prodotto") and _normalizza_testo_filtro(p.get("Prodotto")) == target_norm
+                ]
+                scelte_utente["Distanziale_Pickup"] = render_select_componente("Distanziale_Pickup", lista_dist_pick, "sel_dist_pick")
 
         st.divider()
 
@@ -3714,9 +3684,8 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
     except Exception as e:
         st.warning(f"Impossibile caricare statistiche: {e}")
 
-  # IMPORTA JSON (MODIFICATO)
+  # IMPORTA JSON
   if st.session_state.user:
-    # Inizializza lo stato di importazione nella sessione
     if 'import_json_data' not in st.session_state:
         st.session_state.import_json_data = None
     if 'import_json_valid' not in st.session_state:
@@ -3727,33 +3696,27 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
         st.session_state.import_counter = 0
 
     with st.expander("📥 Importa configurazione da JSON"):
-        # Chiave dinamica per resettare l'uploader dopo l'import
         uploader_key = f"import_json_uploader_{st.session_state.import_counter}"
         uploaded_file = st.file_uploader("Seleziona file JSON", type=["json"], key=uploader_key)
 
-        # Elabora il file solo se presente e se non siamo già in anteprima
         if uploaded_file is not None and not st.session_state.import_json_preview:
             try:
                 data = json.load(uploaded_file)
                 if not isinstance(data, dict):
                     raise ValueError("Il file JSON non contiene una configurazione SlotGarage valida.")
-                # Controlli minimi sui campi obbligatori
                 if "nome_configurazione" not in data or "modello_nome" not in data:
                     raise ValueError("Il file JSON deve contenere 'nome_configurazione' e 'modello_nome'.")
                 if "dettagli_setup" not in data:
                     raise ValueError("Il file JSON deve contenere 'dettagli_setup'.")
-                # Memorizza i dati validi
                 st.session_state.import_json_data = data
                 st.session_state.import_json_valid = True
                 st.session_state.import_json_preview = True
             except Exception as e:
                 st.error(f"❌ Errore durante la lettura del file JSON: {e}")
-                # Resetta lo stato in caso di errore
                 st.session_state.import_json_data = None
                 st.session_state.import_json_valid = False
                 st.session_state.import_json_preview = False
 
-        # Mostra l'anteprima se i dati sono validi e non ancora importati
         if st.session_state.import_json_valid and st.session_state.import_json_preview:
             data = st.session_state.import_json_data
             nome_import = str(data.get("nome_configurazione") or "Importata").strip()
@@ -3770,7 +3733,6 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
             with col3:
                 st.metric("Componenti", num_componenti)
 
-            # Mostra alcuni dettagli in formato espandibile
             if isinstance(dettagli_import, dict) and dettagli_import:
                 with st.expander("Visualizza dettagli"):
                     for k, v in list(dettagli_import.items())[:10]:
@@ -3778,7 +3740,6 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
                     if len(dettagli_import) > 10:
                         st.write(f"... e altri {len(dettagli_import)-10} componenti")
 
-            # Pulsante per salvare
             if st.button("💾 Salva nel mio Garage", key="import_save_btn"):
                 try:
                     record = {
@@ -3791,7 +3752,6 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
                     supabase.table("IlMioGarage").insert(record).execute()
                     sg_invalidate_user_caches(st.session_state.user.id)
                     st.success("✅ Configurazione importata con successo!")
-                    # Resetta lo stato e incrementa il contatore per pulire l'uploader
                     st.session_state.import_json_data = None
                     st.session_state.import_json_valid = False
                     st.session_state.import_json_preview = False
@@ -3800,18 +3760,12 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
                 except Exception as e:
                     st.error(f"❌ Errore durante il salvataggio: {e}")
 
-            # Pulsante per annullare l'import
             if st.button("Annulla", key="import_cancel_btn"):
                 st.session_state.import_json_data = None
                 st.session_state.import_json_valid = False
                 st.session_state.import_json_preview = False
                 st.session_state.import_counter += 1
                 st.rerun()
-
-        # Se l'anteprima è stata chiusa, non mostrare nulla
-        elif st.session_state.import_json_valid and not st.session_state.import_json_preview:
-            # Caso residuo (dopo un import riuscito) – non serve fare nulla
-            pass
 
   if not st.session_state.user:
     st.info("Accedi o registrati per visualizzare e gestire il tuo garage personale.")
@@ -3916,10 +3870,6 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
                 st.error(f"Errore durante l'eliminazione: {e}")
 
           with col_btn_export:
-            # JSON portatile per condividere una configurazione con un altro
-            # utente SlotGarage che possiede lo stesso CatalogoComponenti.
-            # Manteniamo le chiavi già usate dall'importatore e aggiungiamo
-            # metadati utili senza legare il file all'account che lo ha creato.
             export_data = {
                 "slotgarage_version": 1,
                 "nome_configurazione": conf_nome,
@@ -3930,7 +3880,6 @@ elif st.session_state.active_tab == "🚗 Il Mio Garage":
                 "telaio_catalogo_id": s.get("telaio_catalogo_id"),
             }
 
-            # Ricava la categoria dal modello, quando disponibile.
             _export_model_obj = st.session_state._idx_modelli_by_name.get(conf_modello)
             if _export_model_obj:
                 _export_cat_obj = st.session_state._idx_categorie_by_id.get(
