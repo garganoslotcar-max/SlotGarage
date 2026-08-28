@@ -848,8 +848,24 @@ def get_data(table_name):
   if not supabase:
     return []
   try:
-    response = supabase.table(table_name).select("*").execute()
-    return response.data if response and response.data else []
+    # Paginazione per CatalogoComponenti per recuperare tutte le righe
+    if table_name == "CatalogoComponenti":
+      all_data = []
+      offset = 0
+      limit = 1000
+      while True:
+        response = supabase.table(table_name).select("*").range(offset, offset + limit - 1).execute()
+        data = response.data if response and response.data else []
+        if not data:
+          break
+        all_data.extend(data)
+        if len(data) < limit:
+          break
+        offset += limit
+      return all_data
+    else:
+      response = supabase.table(table_name).select("*").execute()
+      return response.data if response and response.data else []
   except Exception:
     return []
 
@@ -884,12 +900,30 @@ def get_catalogo_componenti():
   return get_data("CatalogoComponenti")
 
 
+def _normalizza_codice_prodotto(valore):
+    if valore is None:
+        return ""
+    testo = str(valore).strip().casefold()
+    if testo.endswith(".0"):
+        parte_numerica = testo[:-2]
+        if parte_numerica.isdigit():
+            testo = parte_numerica
+    return "".join(testo.split())
+
 # ============================================================
 # INDICIZZAZIONE GLOBALE DEL CATALOGO (disponibile anche per utenti anonimi)
 # ============================================================
 def sg_ensure_catalog_indexed():
-    """Carica e indicizza il catalogo componenti una sola volta, per tutti gli utenti."""
-    if st.session_state.get("_catalog_indexed", False):
+    """Costruisce UN SOLO indice coerente del CatalogoComponenti.
+
+    L'indice usa sia Codice_Prodotto sia Codice_Normalizzato. Le righe con lo
+    stesso codice NON sono considerate errori: possono essere varianti legittime.
+    """
+    INDEX_VERSION = 8
+    if (
+        st.session_state.get("_catalog_indexed", False)
+        and st.session_state.get("_catalog_index_version") == INDEX_VERSION
+    ):
         return
 
     global catalogo_componenti
@@ -897,74 +931,80 @@ def sg_ensure_catalog_indexed():
         catalogo_componenti = get_catalogo_componenti()
 
     indice_codici = {}
+    indice_codici_multipli = {}
+    indice_codici_produttore = {}
+    indice_prod_cat = {}
     indice_tipo = {}
     indice_prodotto = {}
     catalogo_per_produttore = {}
-    catalogo_per_prod_cat = {}
     catalogo_senza_categoria = {}
+    catalogo_per_prod_cat = {}
+
+    def add_index(d, key, row):
+        if key:
+            d.setdefault(key, []).append(row)
 
     for componente in catalogo_componenti or []:
         if not componente:
             continue
 
-        # Indice per codice prodotto
-        codice = componente.get("Codice_Prodotto") or componente.get("codice_prodotto")
-        if codice is not None:
-            codice_norm = str(codice).strip().casefold()
-            if codice_norm.endswith(".0") and codice_norm[:-2].isdigit():
-                codice_norm = codice_norm[:-2]
-            if codice_norm and codice_norm not in indice_codici:
-                indice_codici[codice_norm] = componente
+        codice_raw = componente.get("Codice_Normalizzato")
+        if codice_raw is None or str(codice_raw).strip() == "":
+            codice_raw = componente.get("Codice_Prodotto") or componente.get("codice_prodotto")
+        codice_norm = _normalizza_codice_prodotto(codice_raw)
+        if codice_norm:
+            add_index(indice_codici_multipli, codice_norm, componente)
 
-        # Indici per tipo e prodotto (utili per filtri rapidi)
+        prod_key = str(componente.get("id_Produttori") or "").strip()
+        if codice_norm and prod_key:
+            add_index(indice_codici_produttore, (prod_key, codice_norm), componente)
+
         tipo = str(componente.get("Tipo") or "").strip().casefold()
         prodotto = str(componente.get("Prodotto") or "").strip().casefold()
         if tipo:
-            indice_tipo.setdefault(tipo, []).append(componente)
+            add_index(indice_tipo, tipo, componente)
         if prodotto:
-            indice_prodotto.setdefault(prodotto, []).append(componente)
+            add_index(indice_prodotto, prodotto, componente)
 
-        # Raggruppamento per produttore
-        prod_key = str(componente.get("id_Produttori"))
         catalogo_per_produttore.setdefault(prod_key, []).append(componente)
-
-        # Raggruppamento per produttore + categoria
-        cat_componente = (
-            componente.get("category_id")
-            if componente.get("category_id") is not None
-            else (
-                componente.get("id_Categorie")
-                if componente.get("id_Categorie") is not None
-                else componente.get("categoria")
-            )
-        )
-
-        if cat_componente is None:
+        cat = componente.get("id_Categorie")
+        if cat is None:
+            cat = componente.get("category_id")
+        if cat is None:
+            cat = componente.get("categoria")
+        if cat is None or str(cat).strip() == "":
             catalogo_senza_categoria.setdefault(prod_key, []).append(componente)
         else:
-            cat_key = str(cat_componente)
-            catalogo_per_prod_cat.setdefault(
-                (prod_key, cat_key), []
-            ).append(componente)
+            cat_key = str(cat).strip()
+            catalogo_per_prod_cat.setdefault((prod_key, cat_key), []).append(componente)
 
-    # Unione dei componenti senza categoria a quelli della categoria selezionata
+    for key, rows in indice_codici_multipli.items():
+        indice_codici[key] = rows[0]
+
+    # Le righe senza categoria sono volutamente disponibili come fallback per
+    # qualsiasi categoria dello stesso produttore.
     catalogo_per_prod_cat_finale = {}
-    for (prod_key, cat_key), lista_cat in catalogo_per_prod_cat.items():
-        base = catalogo_senza_categoria.get(prod_key, [])
-        catalogo_per_prod_cat_finale[(prod_key, cat_key)] = base + lista_cat
+    for key, rows in catalogo_per_prod_cat.items():
+        prod_key, _cat_key = key
+        catalogo_per_prod_cat_finale[key] = (
+            list(catalogo_senza_categoria.get(prod_key, [])) + list(rows)
+        )
 
-    # Salvataggio in session_state
     st.session_state["_catalogo_per_produttore_bootstrap"] = catalogo_per_produttore
     st.session_state["_catalogo_per_prod_cat_bootstrap"] = catalogo_per_prod_cat_finale
     st.session_state["_catalogo_senza_categoria_bootstrap"] = catalogo_senza_categoria
     st.session_state["_indice_codici_bootstrap"] = indice_codici
+    st.session_state["_indice_codici_multipli_bootstrap"] = indice_codici_multipli
+    st.session_state["_indice_codici_produttore_bootstrap"] = indice_codici_produttore
+    st.session_state["_codici_duplicati_regolamento_bootstrap"] = set()
+    st.session_state["_codici_duplicati_regolamento"] = set()
     st.session_state["_indice_tipo_bootstrap"] = indice_tipo
     st.session_state["_indice_prodotto_bootstrap"] = indice_prodotto
     st.session_state["_catalog_indexed"] = True
+    st.session_state["_catalog_index_version"] = INDEX_VERSION
 
-# Chiamata all'avvio per indicizzare il catalogo per tutti (utenti anonimi inclusi)
+# Indicizzazione unica all'avvio.
 sg_ensure_catalog_indexed()
-
 
 def trova_telaio_catalogo_id(telaio):
     global catalogo_componenti
@@ -997,6 +1037,9 @@ if not produttori and not modelli:
   if st.button("🔄 Riprova Connessione"):
     get_data.clear()
     _indicizza_catalogo_per_codice.clear()
+    st.session_state.pop("_indice_codici_bootstrap", None)
+    st.session_state.pop("_indice_codici_multipli_bootstrap", None)
+    st.session_state.pop("_indice_codici_produttore_bootstrap", None)
     st.rerun()
 
 if "modifying_config_id" not in st.session_state:
@@ -1279,14 +1322,15 @@ def _boxstock_target(produttore, categoria, campo):
     ("nsr", "gt3", "motore"): "King - Evo3 - 21.400 rpm - Standard",
     ("nsr", "gt3", "supporto motore"): "Anglewinder - Evo - Extra Hard (Rosso)",
     ("nsr", "gt3", "corona"): "Anglewinder Alluminio - 31 denti 17.5mm",
-    ("nsr", "gt3", "pignoni"): "Anglewinder - 13 denti - 7.5m",
+    ("nsr", "gt3", "pignoni"): "Anglewinder - Ottone - 13 denti - 7.5m",
     ("nsr", "gt3", "assale anteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
     ("nsr", "gt3", "assale posteriore"): '3/32" - Standard - Acciaio Rettificato - 55mm',
-    ("nsr", "gt3", "cerchi anteriori"): "Cerchi Anteriori Grandi No Air System da 17.25x8.2mm",
-    ("nsr", "gt3", "cerchi posteriori"): "Posteriori - Alluminio - No Air System - Standard - 17x8mm",
+    ("nsr", "gt3", "cerchi anteriori"): "Cerchi Anteriori Grandi No Air System da 17x.8mm",
+    ("nsr", "gt3", "cerchi posteriori"): "Posteriori - Alluminio - No Air System - Standard - 17x10mm",
     ("nsr", "gt3", "forcella"): "1234",
-    ("nsr", "gt3", "gomme anteriori"): "NSR 5200 16x8",
-    ("nsr", "gt3", "gomme posteriori"): "NSR 5279Z 19.5x11",
+    ("nsr", "gt3", "gomme anteriori"): "Gomme Anteriori 18x8mm No Friction",
+    ("nsr", "gt3", "gomme posteriori"): "Gomme Posteriori 20.5x11mm Supergrip Evo",
+    ("nsr", "gt3", "pickup"): "Standard- Lama lunga/Racing",
 
     ("nsr", "hypercar", "motore"): "King - Evo3 - 21.400 rpm - Standard",
     ("nsr", "hypercar", "supporto motore"): "NSR HYPERCAR - ExtraHard Rosso Sidewinder Offset - 1M",
@@ -1494,6 +1538,25 @@ def validate_image_url(url):
 
 @st.cache_data(ttl=900, show_spinner=False)
 def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_nome=""):
+  # Funzione helper per sanitizzare il testo per il PDF (rimuove caratteri Unicode non supportati da Helvetica)
+  def sanitize_pdf_text(txt):
+      if not txt:
+          return ""
+      s = str(txt)
+      # Sostituisce i caratteri problematici con equivalenti ASCII
+      s = s.replace("⚠", "[!]")
+      s = s.replace("✅", "[OK]")
+      s = s.replace("✔", "[v]")
+      s = s.replace("❌", "[x]")
+      s = s.replace("—", "-")
+      s = s.replace("–", "-")
+      s = s.replace("’", "'")
+      # Rimuove eventuali altri caratteri non ASCII (lasciando solo stampabili)
+      s = re.sub(r'[^\x00-\x7F]+', ' ', s)  # sostituisce con spazio
+      # Rimuove spazi multipli
+      s = re.sub(r'\s+', ' ', s).strip()
+      return s
+
   pdf = FPDF(orientation="L", unit="mm", format="A4")
   pdf.add_page()
 
@@ -1514,7 +1577,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
   pdf.set_font("Helvetica", "B", 10)
 
   pdf.set_xy(10, 4.5)
-  pdf.cell(150, 7, f"SLOTGARAGE  |  SCHEDA: {config_name.upper()}", ln=0)
+  pdf.cell(150, 7, sanitize_pdf_text(f"SLOTGARAGE  |  SCHEDA: {config_name.upper()}"), ln=0)
 
   pdf.set_font("Helvetica", "I", 9)
   pdf.set_xy(140, 4.5)
@@ -1527,7 +1590,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
   pdf.set_text_color(*text_dark)
   pdf.set_font("Helvetica", "B", 10)
   pdf.set_xy(left_x, current_y)
-  pdf.cell(left_w, 6, f"Modello: {modello_nome}", ln=True)
+  pdf.cell(left_w, 6, sanitize_pdf_text(f"Modello: {modello_nome}"), ln=True)
   current_y += 7
 
   if foto_url:
@@ -1604,7 +1667,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
     pdf.set_text_color(*text_light)
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_xy(x, y)
-    pdf.cell(w, 6, f"   {title}", ln=True, fill=True)
+    pdf.cell(w, 6, sanitize_pdf_text(f"   {title}"), ln=True, fill=True)
 
     item_y = y + 7.5
     value_x = x + 3 + label_width + label_gap
@@ -1632,7 +1695,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
       k_str = str(k).strip()
       k_norm = "_".join(k_str.lower().replace("-", " ").split())
       k_clean = label_aliases.get(k_norm, k_str.replace("_", " "))
-      v_clean = str(v)
+      v_clean = sanitize_pdf_text(v)
 
       pdf.set_xy(x + 3, item_y)
       pdf.cell(label_width, 4.8, f"{k_clean}:", 0, 0)
@@ -1681,7 +1744,7 @@ def generate_pdf(config_name, modello_nome, dettagli, foto_url=None, produttore_
     pdf.set_text_color(*text_dark)
     pdf.set_font("Helvetica", "", 8.5)
     pdf.set_xy(col1_x + 3, next_y + 5.5)
-    pdf.multi_cell(183, 4, str(note_val))
+    pdf.multi_cell(183, 4, sanitize_pdf_text(note_val))
 
   pdf_data = pdf.output(dest="S")
   if isinstance(pdf_data, str):
@@ -1747,16 +1810,6 @@ def _norm_regola(valore):
     testo = testo.replace("–", "-").replace("—", "-").replace("_", " ")
     return " ".join(testo.split())
 
-def _normalizza_codice_prodotto(valore):
-    if valore is None:
-        return ""
-    testo = str(valore).strip().casefold()
-    if testo.endswith(".0"):
-        parte_numerica = testo[:-2]
-        if parte_numerica.isdigit():
-            testo = parte_numerica
-    return "".join(testo.split())
-
 def _descrizione_catalogo_per_regolamento(componente):
     if not componente:
         return ""
@@ -1778,166 +1831,1198 @@ def _descrizione_catalogo_per_regolamento(componente):
 
     return " - ".join(parti)
 
-@st.cache_data(ttl=300, show_spinner=False)
 def _indicizza_catalogo_per_codice():
-    indice_bootstrap = st.session_state.get("_indice_codici_bootstrap")
-    if isinstance(indice_bootstrap, dict) and indice_bootstrap:
-        return indice_bootstrap
+    """Restituisce l'indice unico già costruito da sg_ensure_catalog_indexed()."""
+    sg_ensure_catalog_indexed()
+    return st.session_state.get("_indice_codici_bootstrap", {})
 
-    indice = {}
-    for componente in catalogo_componenti or []:
-        if not componente:
-            continue
-        codice = componente.get("Codice_Prodotto")
-        if codice is None:
-            codice = componente.get("codice_prodotto")
-        codice_norm = _normalizza_codice_prodotto(codice)
-        if not codice_norm:
-            continue
-        if codice_norm not in indice:
-            indice[codice_norm] = componente
-    return indice
 
-def _risolvi_regola_con_catalogo(valore, indice_codici):
-    valore_originale = "" if valore is None else str(valore).strip()
-    codice_norm = _normalizza_codice_prodotto(valore_originale)
+def _catalogo_componenti_per_codice(codice_norm, prod_id=None):
+    """Restituisce TUTTE le righe per codice, con priorità al produttore."""
+    sg_ensure_catalog_indexed()
+    codice_norm = _normalizza_codice_prodotto(codice_norm)
     if not codice_norm:
-        return valore_originale
+        return []
 
-    componente = indice_codici.get(codice_norm)
+    if prod_id is not None and str(prod_id).strip():
+        key = (str(prod_id).strip(), codice_norm)
+        righe = st.session_state.get("_indice_codici_produttore_bootstrap", {}).get(key)
+        if righe:
+            return list(righe)
+        # Non fare fallback all'indice globale: per questo produttore il codice non esiste.
+        return []
+
+    # Se non viene richiesto un produttore specifico, usa l'indice globale.
+    righe = st.session_state.get("_indice_codici_multipli_bootstrap", {}).get(codice_norm)
+    return list(righe or [])
+
+
+def _testo_componente_catalogo(componente):
     if not componente:
+        return ""
+    return " ".join(
+        str(componente.get(k) or "")
+        for k in ("Prodotto", "Materiale", "Misure", "Tipo")
+    ).strip().casefold()
+
+
+def _token_campo_regolamento(campo):
+    c = _norm_reg_filtro_nome(campo)
+    if c == "motore": return ("motore",)
+    if c == "supporto motore": return ("supporto motore",)
+    if c == "corona": return ("corona",)
+    if c == "pignoni": return ("pignone", "pignoni")
+    if c == "telaio": return ("telaio",)
+    if c in {"assale", "assale anteriore", "assale posteriore"}: return ("assale",)
+    if c in {"cerchi anteriori", "cerchi posteriori"}: return ("cerchi",)
+    if c == "pickup": return ("pickup", "guida")
+    if c == "forcella": return ("forcella",)
+    if c in {"gomme anteriori", "gomme posteriori"}: return ("gomma", "pneumatic", "tyre", "tire")
+    if c == "viti carrozzeria": return ("vite", "viti")
+    return ()
+
+
+def _riga_corrisponde_campo(componente, campo):
+    tokens = _token_campo_regolamento(campo)
+    if not tokens:
+        return True
+    testo = _testo_componente_catalogo(componente)
+    return any(t in testo for t in tokens) if testo else True
+
+
+def _riga_corrisponde_posizione(componente, campo):
+    c = _norm_reg_filtro_nome(campo)
+    if c not in {"cerchi anteriori", "cerchi posteriori", "gomme anteriori", "gomme posteriori", "assale anteriore", "assale posteriore"}:
+        return True
+    testo = _testo_componente_catalogo(componente)
+    if "anteriore" in c:
+        return "anterior" in testo or "front" in testo
+    if "posteriore" in c:
+        return "posterior" in testo or "rear" in testo
+    return True
+
+
+def _riga_corrisponde_livello(componente, sotto_categoria):
+    livello = _norm_reg_filtro_nome(sotto_categoria)
+    if not livello or livello in {"box stock", "standard", "stock"}:
+        return True
+    testo = _testo_componente_catalogo(componente)
+    if not testo:
+        return True
+    gruppi = {
+        "evo": (r"\bevo\b", r"\bevolution\b"),
+        "evo2": (r"\bevo2\b", r"\bevo\s*2\b", r"\bevolution\s*2\b"),
+        "evo f": (r"\bevo[/ -]?f\b", r"\bevof\b"),
+        "p1": (r"\bp1\b",), "p2": (r"\bp2\b",),
+        "prototipi": (r"\bprototipi\b", r"\bprototype\b"),
+        "sport": (r"\bsport\b",),
+    }
+    patterns = gruppi.get(livello)
+    if not patterns:
+        return True
+    testo_norm = testo.replace("-", " ").replace("/", " ")
+    return any(re.search(pattern, testo_norm) for pattern in patterns)
+
+
+def _filtra_righe_regolamento(righe, prod_id=None, cat_id=None, campo=None, sotto_categoria=None):
+    """Filtra progressivamente, ma non elimina un codice se il filtro non trova corrispondenze.
+
+    Le righe senza categoria restano valide come componenti generici del produttore.
+    """
+    if not righe:
+        return []
+    result = list(righe)
+
+    if prod_id is not None and str(prod_id).strip():
+        pk = str(prod_id).strip()
+        x = [r for r in result if str(r.get("id_Produttori") or "").strip() == pk]
+        if x:
+            result = x
+
+    if cat_id is not None and str(cat_id).strip():
+        ck = str(cat_id).strip()
+        exact = [r for r in result if str(r.get("id_Categorie") or r.get("category_id") or "").strip() == ck]
+        generic = [r for r in result if r.get("id_Categorie") is None and r.get("category_id") is None]
+        if exact:
+            result = exact + [r for r in generic if r not in exact]
+
+    if campo:
+        x = [r for r in result if _riga_corrisponde_campo(r, campo)]
+        if x:
+            result = x
+        x = [r for r in result if _riga_corrisponde_posizione(r, campo)]
+        if x:
+            result = x
+
+    if sotto_categoria:
+        x = [r for r in result if _riga_corrisponde_livello(r, sotto_categoria)]
+        if x:
+            result = x
+
+    return result
+
+
+def _risolvi_regola_con_catalogo(valore, indice_codici=None, prod_id=None, cat_id=None, campo=None, sotto_categoria=None):
+    """Risoluzione robusta codice -> catalogo usando il contesto della regola."""
+    valore_originale = "" if valore is None else str(valore).strip()
+    if not valore_originale:
+        return ""
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]*", valore_originale):
         return valore_originale
 
-    codice_db = componente.get("Codice_Prodotto")
-    if codice_db is None:
-        codice_db = componente.get("codice_prodotto")
-    codice_display = str(codice_db).strip() if codice_db is not None else valore_originale
-    descrizione = _descrizione_catalogo_per_regolamento(componente)
+    codice_norm = _normalizza_codice_prodotto(valore_originale)
+    righe = _catalogo_componenti_per_codice(codice_norm, prod_id=prod_id)
+    # Se prod_id è specificato e non abbiamo trovato nulla, non facciamo fallback globale.
+    if not righe and prod_id is not None:
+        return f"{valore_originale} - [!] DESCRIZIONE MANCANTE NEL CATALOGO"
+    if not righe:
+        righe = _catalogo_componenti_per_codice(codice_norm)  # fallback globale solo se prod_id non c'era
+    if not righe:
+        return f"{valore_originale} - [!] DESCRIZIONE MANCANTE NEL CATALOGO"
 
-    if descrizione:
-        return f"{codice_display} - {descrizione}"
-    return codice_display
+    filtrate = _filtra_righe_regolamento(
+        righe, prod_id=prod_id, cat_id=cat_id, campo=campo, sotto_categoria=sotto_categoria
+    )
+    # Se un filtro troppo restrittivo elimina tutto, il codice è comunque valido:
+    # mostriamo le varianti del catalogo anziché dichiararlo mancante.
+    finali = filtrate or righe
+
+    viste = set()
+    descrizioni = []
+    for r in finali:
+        marker = r.get("id")
+        if marker is None:
+            marker = tuple(str(r.get(k) or "") for k in (
+                "id_Produttori", "Prodotto", "Materiale", "Misure", "Tipo", "id_Categorie", "Codice_Prodotto"
+            ))
+        if marker in viste:
+            continue
+        viste.add(marker)
+        codice_db = r.get("Codice_Prodotto") or r.get("Codice_Normalizzato") or valore_originale
+        descr = _descrizione_catalogo_per_regolamento(r)
+        if descr:
+            descrizioni.append(f"{str(codice_db).strip()} - {descr}")
+
+    if not descrizioni:
+        return f"{valore_originale} - [!] DESCRIZIONE MANCANTE NEL CATALOGO"
+    return " / ".join(descrizioni)
+
+def _estrai_codici_regolamento_individuali(valore):
+    """
+    Utile quando una voce proveniente da un CSV contiene più codici
+    nella stessa cella, per esempio:
+        1257 / 1259 - descrizione generica
+
+    Restituisce:
+        ["1257", "1259"]
+
+    La descrizione generica NON viene propagata ai codici.
+    """
+    if valore is None:
+        return []
+
+    s = str(valore).replace("\\r", "\\n").strip()
+    if not s:
+        return []
+
+    codici = []
+    for riga in s.split("\\n"):
+        riga = riga.strip()
+        if not riga:
+            continue
+
+        for parte in riga.split("/"):
+            parte = parte.strip()
+            if not parte:
+                continue
+
+            # Prende soltanto il codice prima di un eventuale " - descrizione".
+            m = re.match(
+                r"^\\s*([A-Za-z0-9][A-Za-z0-9._-]*)\\s*(?:-|–|—)\\s*.*$",
+                parte,
+            )
+            candidato = m.group(1).strip() if m else parte
+
+            if re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]*$", candidato):
+                if _normalizza_codice_prodotto(candidato) not in {
+                    _normalizza_codice_prodotto(x) for x in codici
+                }:
+                    codici.append(candidato)
+
+    return codici
+
+
+def diagnostica_codici_regolamento(valori_regolamento, indice_codici=None, prod_id=None, cat_id=None, campo=None, sotto_categoria=None):
+    """Diagnostica i codici senza classificare le varianti legittime come duplicati."""
+    risultati=[]
+    for valore in valori_regolamento or []:
+        codici=_estrai_codici_regolamento_individuali(valore) or [str(valore).strip()]
+        for codice in codici:
+            righe=_catalogo_componenti_per_codice(_normalizza_codice_prodotto(codice), prod_id=prod_id)
+            if not righe:
+                risultati.append({"codice":codice,"stato":"MANCANTE","descrizione":"","nota":"Codice non presente nel CatalogoComponenti."})
+                continue
+            filtrate=_filtra_righe_regolamento(righe,prod_id=prod_id,cat_id=cat_id,campo=campo,sotto_categoria=sotto_categoria) or righe
+            descr=" | ".join(_descrizione_catalogo_per_regolamento(r) or "DESCRIZIONE MANCANTE" for r in filtrate)
+            risultati.append({"codice":codice,"stato":"TROVATO" if descr else "TROVATO_SENZA_DESCRIZIONE","descrizione":descr,"nota":"Più varianti valide" if len(filtrate)>1 else ""})
+    return risultati
+
+# ============================================================
+# REGOLAMENTI COMPONENTI - SORGENTE DIRETTA NEL CODICE
+# Generato dai dati del regolamento(3).csv fornito per il progetto.
+# Struttura: produttore_id -> categoria_id -> categoria_nome -> livello -> campo -> codici prodotto
+# Per Slot.it sono mantenuti Categoria + Livello; per gli altri produttori i campi sono
+# raggruppati per produttore + categoria. I codici sono lasciati esattamente come nel CSV.
+# ============================================================
+REGOLAMENTO_CODICI = {'1': {'1': {'__DEFAULT__': {'__DEFAULT__': {'Motore': ['3031'],
+                                             'Supporto Motore': ['1257', '1259' ],
+                                             'Forcella': ['1234'],
+                                             'Supporto Assale': ['4803', '4847'],
+                                             'Corona': ['6527', '6528', '6529', '6530', '6531', '6532', '6533', '6534', '6626', '6627', '6628', '6629', '6630', '6631', '6632', '6633'],
+					     'Pignoni': ['7113', '7313'],
+                                             'Assale Anteriore': ['4802', '4872'],
+                                             'Assale Posteriore': ['4802', '4872'],
+                                             'Cerchi Anteriori': ['5003', '5023'],
+                                             'Cerchi Posteriori': ['5004', '5003'],
+                                             'Pickup': ['4841', '4842', '4843', '4844', '4845'],
+                                             'Viti Carrozzeria': ['4833', '4834', '4836', '4839'],
+                                             'Gomme Anteriori': ['5200', '5201', '5226', '5202'],
+                                             'Gomme Posteriori': ['5279Z', '5230', '5206Z', '5231', '5271Z']}}},
+       '2': {'__DEFAULT__': {'__DEFAULT__': {'Motore': ['3041'],
+                                             'Supporto Motore': ['1270', '1272'],
+                                             'Supporto Assale': ['4805'],
+                                             'Corona': ['6030', '6031', '6032', '6033', '6034', '6035', '6036', '6037', '6430', '6431', '6432', '6433', '6434'],
+                                             'Pignoni': ['6911A', '6912'],
+                                             'Assale Anteriore': ['4801'],
+                                             'Assale Posteriore': ['4801'],
+                                             'Cerchi Anteriori': ['5001'],
+                                             'Cerchi Posteriori': ['5002', '5001'],
+                                             'Pickup': ['4841', '4842', '4843', '4844', '4845', '4859'],
+                                             'Viti Carrozzeria': ['4834', '4836', '4837', '4839', '4869'],
+                                             'Gomme Anteriori': ['5200', '5201', '5226', '5202'],
+                                             'Gomme Posteriori': ['5271WRE']}}},
+       '3': {'__DEFAULT__': {'__DEFAULT__': {'Motore': ['3023'],
+                                             'Supporto Motore': ['1329'],
+                                             'Corona': ['5928', '5929', '5930', '5931', '5932', '5933', '5934'],
+                                             'Pignoni': ['7113'],
+                                             'Assale Anteriore': ['4802', '4872', '4890'],
+                                             'Assale Posteriore': ['4802', '4872'],
+                                             'Cerchi Anteriori': ['5003', '5023'],
+                                             'Cerchi Posteriori': ['5004', '5003'],
+                                             'Pickup': ['4841', '4843', '4844', '4845', '4859'],
+                                             'Viti Carrozzeria': ['4834', '4836', '4839', '4869'],
+                                             'Gomme Anteriori': ['5200', '5233'],
+                                             'Gomme Posteriori': ['5266Z', '5230', '5231']}}},
+       '4': {'__DEFAULT__': {'__DEFAULT__': {'Motore': ['3023'],
+                                             'Supporto Motore': ['1283'],
+                                             'Corona': ['6324', '6325', '6326', '6327'],
+                                             'Pignoni': ['6810'],
+                                             'Assale Anteriore': ['4802', '4866', '4872'],
+                                             'Assale Posteriore': ['4802', '4866', '4872'],
+                                             'Cerchi Anteriori': ['5020', '5025'],
+                                             'Cerchi Posteriori': ['5021', '5022', '5026', '5027'],
+                                             'Pickup': ['4841', '4843', '4844', '4845', '4859'],
+                                             'Viti Carrozzeria': ['4833', '4834', '4836', '4839', '4869'],
+                                             'Gomme Anteriori': ['5238', '5291'],
+                                             'Gomme Posteriori': ['5287Z', '5294R', '5294', '5295N']}}},
+       '5': {'__DEFAULT__': {'__DEFAULT__': {'Motore': ['3023'],
+                                             'Supporto Motore': ['1288'],
+                                             'Corona': ['6324', '6325', '6326', '6327'],
+                                             'Pignoni': ['6710'],
+                                             'Assale Anteriore': ['4802', '4872'],
+                                             'Assale Posteriore': ['4802', '4872'],
+                                             'Cerchi Anteriori': ['5029', '5030'],
+                                             'Cerchi Posteriori': ['5031', '5032', '5033'],
+                                             'Pickup': ['4841', '4843', '4844', '4845', '4859'],
+                                             'Viti Carrozzeria': ['4833', '4834', '4836', '4839', '4869'],
+                                             'Gomme Anteriori': ['5296N'],
+                                             'Gomme Posteriori': ['5295N', '5294R']}}}},
+ '3': {'13': {'__DEFAULT__': {'__DEFAULT__': {'Motore': ['MTMACH21DS'],
+                                              'Supporto Motore': ['MS001B', 'MS001G', 'MS001S', 'MTS001G', 'MTS001S'],
+                                              'Corona': ['SW_Corona'],
+                                              'Pignoni': ['PN11PL'],
+                                              'Telaio': ['CHS001G',
+                                                         'CHS001B',
+                                                         'CHS001S',
+                                                         'CHS002G',
+                                                         'CHS002S',
+                                                         'CHS003G',
+                                                         'CHS003S',
+                                                         'CHS004G',
+                                                         'CHS004S'],
+                                              'Cerchi Anteriori': ['RMR003AL'],
+                                              'Cerchi Posteriori': ['RMR003AL'],
+                                              'Pickup': ['Tutti i Pick-up Thunderslot'],
+                                              'Viti Carrozzeria': ['SC2.5HEX'],
+                                              'Sospensioni': ['SUSK004', 'SUSK005-S', 'SUSK005-MS', 'SUSK005-H', 'SUSK003'],
+                                              'Dettaglio_Supporto': ['Bronzine/Cuscinetti Thunderslot'],
+                                              'Assale': ['3/32 Assale Thunderslot'],
+                                              'Gomme Anteriori': ['TYR003FR'],
+                                              'Gomme Posteriori': ['TYR004R']}}}},
+ '2': {'11': {'DTM': {'Box Stock': {'Motore': ['MX15'],
+                                    'Supporto Motore': ['CH110'],
+                                    'Corona': ['GI23-BZ', 'GI24-BZ', 'GI25-BZ', 'GI26-BZ', 'GI27-BZ', 'GI28-BZ', 'GI29-BZ', 'GI30-BZ'],
+                                    'Pignoni': ['PI09', 'PI10'],
+                                    'Assale Anteriore': ['PA01-45',
+                                                         'PA01-48',
+                                                         'PA01-51',
+                                                         'PA01-54',
+                                                         'PA01-48R1',
+                                                         'PA01-51R1',
+                                                         'PA01-54R1',
+                                                         'PA01-51H',
+                                                         'PA01-54H',
+                                                         'PA01-58H',
+                                                         'PA01-50',
+                                                         'PA01-52',
+                                                         'PA01-55'],
+                                    'Assale Posteriore': ['PA01-45',
+                                                          'PA01-48',
+                                                          'PA01-51',
+                                                          'PA01-54',
+                                                          'PA01-48R1',
+                                                          'PA01-51R1',
+                                                          'PA01-54R1',
+                                                          'PA01-51H',
+                                                          'PA01-54H',
+                                                          'PA01-58H',
+                                                          'PA01-50',
+                                                          'PA01-52',
+                                                          'PA01-55'],
+                                    'Cerchi Anteriori': ['W15808215P'],
+                                    'Cerchi Posteriori': ['W15810215A'],
+                                    'Pickup': ['CH06', 'CH07', 'CH10', 'CH26', 'CH66', 'CH85', 'CH85d', 'CH88B'],
+                                    'Viti Carrozzeria': ['Viti Metriche Slot.it'],
+                                    'Gomme Anteriori': ['PT15', 'PT19', 'PT1214S2'],
+                                    'Gomme Posteriori': ['PT1207F22', 'PT1207P6B', 'PT1207G25']},
+                      'Evo': {'Motore': ['MX15'],
+                              'Supporto Motore': ['CH110'],
+                              'Corona': ['GI23-BZ',
+                                         'GI24-BZ',
+                                         'GI25-BZ',
+                                         'GI26-BZ',
+                                         'GI27-BZ',
+                                         'GI28-BZ',
+                                         'GI29-BZ',
+                                         'GI30-BZ',
+                                         'GI23-AL',
+                                         'GI24-AL',
+                                         'GI25-AL',
+                                         'GI26-AL',
+                                         'GI27-AL',
+                                         'GI28-AL',
+                                         'GI29-AL',
+                                         'GI30-AL',
+                                         'GM23i',
+                                         'GM24i',
+                                         'GM25i',
+                                         'GM26i',
+                                         'GM27i',
+                                         'GM28i',
+                                         'GM29i',
+                                         'GM30i',
+                                         'GM23O',
+                                         'GM24O',
+                                         'GM25O',
+                                         'GM26O',
+                                         'GM27O',
+                                         'GMF55'],
+                              'Pignoni': ['PI09', 'PI10'],
+                              'Assale Anteriore': ['PA01-45',
+                                                   'PA01-48',
+                                                   'PA01-51',
+                                                   'PA01-54',
+                                                   'PA01-48R1',
+                                                   'PA01-51R1',
+                                                   'PA01-54R1',
+                                                   'PA01-51H',
+                                                   'PA01-54H',
+                                                   'PA01-58H',
+                                                   'PA01-50',
+                                                   'PA01-52',
+                                                   'PA01-55',
+                                                   'PA39'],
+                              'Assale Posteriore': ['PA01-45',
+                                                    'PA01-48',
+                                                    'PA01-51',
+                                                    'PA01-54',
+                                                    'PA01-48R1',
+                                                    'PA01-51R1',
+                                                    'PA01-54R1',
+                                                    'PA01-51H',
+                                                    'PA01-54H',
+                                                    'PA01-58H',
+                                                    'PA01-50',
+                                                    'PA01-52',
+                                                    'PA01-55'],
+                              'Cerchi Anteriori': ['W15808215P',
+                                                   'W15808225P',
+                                                   'W15808215-3D',
+                                                   'W15808215A',
+                                                   'W15808225A',
+                                                   'W15808215Ma',
+                                                   'W15808225M'],
+                              'Cerchi Posteriori': ['W15810215A', 'W15810215AH', 'W15810215M', 'W15810215MA'],
+                              'Pickup': ['CH06', 'CH07', 'CH10', 'CH26', 'CH66', 'CH85', 'CH85d', 'CH88B'],
+                              'Viti Carrozzeria': ['Viti Metriche Slot.it'],
+                              'Viti Metriche Sospensioni': ['CH72', 'CH127'],
+                              'Sospensioni': ['CH47c',
+                                              'CH68',
+                                              'CH69',
+                                              'CH67',
+                                              'CH65',
+                                              'CH115',
+                                              'CH118b2',
+                                              'CH61',
+                                              'CH60c1',
+                                              'CH82c1',
+                                              'CH123',
+                                              'CH119b2',
+                                              'CH130b2',
+                                              'CH131b2',
+                                              'CH117c1',
+                                              'CH118c',
+                                              'CH119c1',
+                                              'CH124c1',
+                                              'CH82b2',
+                                              'CH76',
+                                              'CH75',
+                                              'CH74'],
+                              'Dettaglio_Supporto': ['PA02', 'PA32', 'CH56B', 'Boccole in plastica'],
+                              'Tipo_Sospensione': ['Molle', 'Magneti (sospensioni magnetiche)'],
+                              'Stopper': ['PA25', 'PA57'],
+                              'Gomme Anteriori': ['PT15', 'PT19', 'PT1214S2'],
+                              'Gomme Posteriori': ['PT1207F22', 'PT1207P6B', 'PT1207G25']},
+                      'Evo2': {'Motore': ['MN09CH'],
+                               'Supporto Motore': ['CH110', 'CH114'],
+                               'Corona': ['GI23-BZ',
+                                          'GI24-BZ',
+                                          'GI25-BZ',
+                                          'GI26-BZ',
+                                          'GI27-BZ',
+                                          'GI28-BZ',
+                                          'GI29-BZ',
+                                          'GI30-BZ',
+                                          'GI23-AL',
+                                          'GI24-AL',
+                                          'GI25-AL',
+                                          'GI26-AL',
+                                          'GI27-AL',
+                                          'GI28-AL',
+                                          'GI29-AL',
+                                          'GI30-AL',
+                                          'GM23i',
+                                          'GM24i',
+                                          'GM25i',
+                                          'GM26i',
+                                          'GM27i',
+                                          'GM28i',
+                                          'GM29i',
+                                          'GM30i',
+                                          'GM23O',
+                                          'GM24O',
+                                          'GM25O',
+                                          'GM26O',
+                                          'GM27O',
+                                          'GMF55'],
+                               'Pignoni': ['PI09', 'PI10'],
+                               'Assale Anteriore': ['PA01-45',
+                                                    'PA01-48',
+                                                    'PA01-51',
+                                                    'PA01-54',
+                                                    'PA01-48R1',
+                                                    'PA01-51R1',
+                                                    'PA01-54R1',
+                                                    'PA01-51H',
+                                                    'PA01-54H',
+                                                    'PA01-58H',
+                                                    'PA01-50',
+                                                    'PA01-52',
+                                                    'PA01-55',
+                                                    'PA39'],
+                               'Assale Posteriore': ['PA01-45',
+                                                     'PA01-48',
+                                                     'PA01-51',
+                                                     'PA01-54',
+                                                     'PA01-48R1',
+                                                     'PA01-51R1',
+                                                     'PA01-54R1',
+                                                     'PA01-51H',
+                                                     'PA01-54H',
+                                                     'PA01-58H',
+                                                     'PA01-50',
+                                                     'PA01-52',
+                                                     'PA01-55'],
+                               'Cerchi Anteriori': ['W15808215P',
+                                                    'W15808225P',
+                                                    'W15808215-3D',
+                                                    'W15808215A',
+                                                    'W15808225A',
+                                                    'W15808215Ma',
+                                                    'W15808225M'],
+                               'Cerchi Posteriori': ['W15810215A', 'W15810215AH', 'W15810215M', 'W15810215MA'],
+                               'Pickup': ['CH06', 'CH07', 'CH10', 'CH26', 'CH66', 'CH85', 'CH85d', 'CH88B'],
+                               'Viti Carrozzeria': ['Viti Metriche Slot.it'],
+                               'Viti Metriche Sospensioni': ['CH72', 'CH127'],
+                               'Sospensioni': ['CH47c',
+                                               'CH68',
+                                               'CH69',
+                                               'CH67',
+                                               'CH65',
+                                               'CH115',
+                                               'CH118b2',
+                                               'CH61',
+                                               'CH60c1',
+                                               'CH82c1',
+                                               'CH123',
+                                               'CH119b2',
+                                               'CH130b2',
+                                               'CH131b2',
+                                               'CH117c1',
+                                               'CH118c',
+                                               'CH119c1',
+                                               'CH124c1',
+                                               'CH82b2',
+                                               'CH76',
+                                               'CH75',
+                                               'CH74'],
+                               'Dettaglio_Supporto': ['PA02', 'PA32', 'CH56B', 'Boccole in plastica'],
+                               'Tipo_Sospensione': ['Molle', 'Magneti (sospensioni magnetiche)'],
+                               'Stopper': ['PA25', 'PA57'],
+                               'Gomme Anteriori': ['PT15', 'PT19', 'PT1214S2'],
+                               'Gomme Posteriori': ['PT1207F22', 'PT1207P6B', 'PT1207G25']}}},
+       '12': {'Hypercar': {'P1': {'Motore': ['MN13CH'],
+                                  'Supporto Motore': ['Tutti i supporti anglewinder Slot.it'],
+                                  'Corona': ['Tutti gli ingranaggi angolari GA16xx (plastica o ergal)'],
+                                  'Pignoni': ['PS10',
+                                              'PS11',
+                                              'PS12',
+                                              'PS13',
+                                              'PI6510E',
+                                              'PI6511E',
+                                              'PI6512E',
+                                              'PI7012E',
+                                              'PI7013E',
+                                              'PI7014E'],
+                                  'Assale Anteriore': ['Tutti gli assali Slot.it', 'PA39'],
+                                  'Assale Posteriore': ['Tutti gli assali Slot.it'],
+                                  'Cerchi Anteriori': ['Tutte le ruote Slot.it diam. >=16.5mm', 'W16508215-3D'],
+                                  'Cerchi Posteriori': ['Tutte le ruote Slot.it diam. >=16.5mm'],
+                                  'Pickup': ['CH26', 'CH66', 'CH85', 'CH85d', 'CH88B', 'CH111'],
+                                  'Viti Carrozzeria': ['Viti Metriche Slot.it'],
+                                  'Viti Metriche Sospensioni': ['CH72', 'CH127'],
+                                  'Sospensioni': ['CH47c', 'Tutti i componenti sospensioni Slot.it'],
+                                  'Dettaglio_Supporto': ['Boccole in plastica', 'PA02', 'PA32', 'CH56B'],
+                                  'Tipo_Sospensione': ['Molle', 'Magneti (sospensioni magnetiche)'],
+                                  'Stopper': ['PA25', 'PA57'],
+                                  'Gomme Anteriori': ['PT15', 'PT19'],
+                                  'Gomme Posteriori': ['PT1171F22', 'PT1171G25']},
+                           'P2': {'Motore': ['MN09CH'],
+                                  'Supporto Motore': ['CH74'],
+                                  'Corona': ['GA1626-LPL', 'GA1626E'],
+                                  'Pignoni': ['PS11', 'PI6511E'],
+                                  'Assale Anteriore': ['Tutti gli assali Slot.it', 'PA39'],
+                                  'Assale Posteriore': ['Tutti gli assali Slot.it'],
+                                  'Cerchi Anteriori': ['Tutte le ruote Slot.it 17.3x8.2mm', 'W17308215-3D'],
+                                  'Cerchi Posteriori': ['Tutte le ruote Slot.it diam. >=17.3mm'],
+                                  'Pickup': ['CH26', 'CH66', 'CH85', 'CH85d'],
+                                  'Viti Carrozzeria': ['Viti Metriche Slot.it'],
+                                  'Viti Metriche Sospensioni': ['CH72', 'CH127'],
+                                  'Dettaglio_Supporto': ['Boccole in plastica', 'PA02', 'PA32', 'CH56B'],
+                                  'Stopper': ['PA25', 'PA57'],
+                                  'Gomme Anteriori': ['PT15'],
+                                  'Gomme Posteriori': ['PT1171F22', 'PT1171G25']}}},
+       '8': {'Gruppo C': {'Box Stock': {'Motore': ['MX16'],
+                                        'Supporto Motore': ['CH110'],
+                                        'Corona': ['GI23-BZ', 'GI24-BZ', 'GI25-BZ', 'GI26-BZ', 'GI27-BZ', 'GI28-BZ', 'GI29-BZ', 'GI30-BZ'],
+                                        'Pignoni': ['PI09'],
+                                        'Assale Anteriore': ['Tutti gli assali Slot.it'],
+                                        'Assale Posteriore': ['Tutti gli assali Slot.it'],
+                                        'Cerchi Anteriori': ['W15808215P'],
+                                        'Cerchi Posteriori': ['W16508215A'],
+                                        'Pickup': ['CH06', 'CH07', 'CH10', 'CH26', 'CH66', 'CH85', 'CH85d'],
+                                        'Viti Carrozzeria': ['Viti Metriche Slot.it'],
+                                        'Gomme Anteriori': ['PT15', 'PT19', 'PT1214S2'],
+                                        'Gomme Posteriori': ['PT1207F22', 'PT1207P6B', 'PT1207G25']},
+                          'Evo': {'Motore': ['MX16'],
+                                  'Supporto Motore': ['CH110'],
+                                  'Corona': ['GI23-BZ',
+                                             'GI24-BZ',
+                                             'GI25-BZ',
+                                             'GI26-BZ',
+                                             'GI27-BZ',
+                                             'GI28-BZ',
+                                             'GI29-BZ',
+                                             'GI30-BZ',
+                                             'GI23-AL',
+                                             'GI24-AL',
+                                             'GI25-AL',
+                                             'GI26-AL',
+                                             'GI27-AL',
+                                             'GI28-AL',
+                                             'GI29-AL',
+                                             'GI30-AL',
+                                             'GM23i',
+                                             'GM24i',
+                                             'GM25i',
+                                             'GM26i',
+                                             'GM27i',
+                                             'GM28i',
+                                             'GM29i',
+                                             'GM30i',
+                                             'GM23O',
+                                             'GM24O',
+                                             'GM25O',
+                                             'GM26O',
+                                             'GM27O',
+                                             'GMF55'],
+                                  'Pignoni': ['PI09', 'PI10'],
+                                  'Assale Anteriore': ['Tutti gli assali Slot.it', 'PA39'],
+                                  'Assale Posteriore': ['Tutti gli assali Slot.it'],
+                                  'Cerchi Anteriori': ['W15808215P',
+                                                       'W15808225P',
+                                                       'W15808215-3D',
+                                                       'W15808215A',
+                                                       'W15808225A',
+                                                       'W15808215Ma',
+                                                       'W15808225M'],
+                                  'Cerchi Posteriori': ['W16508215A', 'W16508215MA'],
+                                  'Pickup': ['CH06', 'CH07', 'CH10', 'CH26', 'CH66', 'CH85', 'CH85d', 'CH88B'],
+                                  'Viti Carrozzeria': ['Viti Metriche Slot.it'],
+                                  'Viti Metriche Sospensioni': ['CH72', 'CH127'],
+                                  'Sospensioni': ['CH47c',
+                                                  'CH68',
+                                                  'CH69',
+                                                  'CH67',
+                                                  'CH65',
+                                                  'CH115',
+                                                  'CH118b2',
+                                                  'CH61',
+                                                  'CH60c1',
+                                                  'CH82c1',
+                                                  'CH123',
+                                                  'CH119b2',
+                                                  'CH130b2',
+                                                  'CH131b2',
+                                                  'CH117c1',
+                                                  'CH118c',
+                                                  'CH119c1',
+                                                  'CH124c1',
+                                                  'CH82b2',
+                                                  'CH76',
+                                                  'CH75',
+                                                  'CH74'],
+                                  'Dettaglio_Supporto': ['PA02', 'PA32', 'CH56B', 'Boccole in plastica'],
+                                  'Tipo_Sospensione': ['Molle', 'Magneti (sospensioni magnetiche)'],
+                                  'Stopper': ['PA25', 'PA57'],
+                                  'Gomme Anteriori': ['PT15', 'PT19', 'PT1214S2'],
+                                  'Gomme Posteriori': ['PT1207F22', 'PT1207P6B', 'PT1207G25']},
+                          'Evo/F': {'Motore': ['MN09CH', 'MN13CH'],
+                                    'Supporto Motore': ['CH110', 'CH114'],
+                                    'Corona': ['GI23-BZ',
+                                               'GI24-BZ',
+                                               'GI25-BZ',
+                                               'GI26-BZ',
+                                               'GI27-BZ',
+                                               'GI28-BZ',
+                                               'GI29-BZ',
+                                               'GI30-BZ',
+                                               'GI23-AL',
+                                               'GI24-AL',
+                                               'GI25-AL',
+                                               'GI26-AL',
+                                               'GI27-AL',
+                                               'GI28-AL',
+                                               'GI29-AL',
+                                               'GI30-AL',
+                                               'GM23i',
+                                               'GM24i',
+                                               'GM25i',
+                                               'GM26i',
+                                               'GM27i',
+                                               'GM28i',
+                                               'GM29i',
+                                               'GM30i',
+                                               'GM23O',
+                                               'GM24O',
+                                               'GM25O',
+                                               'GM26O',
+                                               'GM27O',
+                                               'GMF55'],
+                                    'Pignoni': ['PI09', 'PI10'],
+                                    'Assale Anteriore': ['Tutti gli assali Slot.it', 'PA39'],
+                                    'Assale Posteriore': ['Tutti gli assali Slot.it'],
+                                    'Cerchi Anteriori': ['W15808215P',
+                                                         'W15808225P',
+                                                         'W15808215-3D',
+                                                         'W15808215A',
+                                                         'W15808225A',
+                                                         'W15808215Ma',
+                                                         'W15808225M'],
+                                    'Cerchi Posteriori': ['W16508215A', 'W16508215MA'],
+                                    'Pickup': ['CH06', 'CH07', 'CH10', 'CH26', 'CH66', 'CH85', 'CH85d', 'CH88B'],
+                                    'Viti Carrozzeria': ['Viti Metriche Slot.it'],
+                                    'Viti Metriche Sospensioni': ['CH72', 'CH127'],
+                                    'Sospensioni': ['CH47c',
+                                                    'CH68',
+                                                    'CH69',
+                                                    'CH67',
+                                                    'CH65',
+                                                    'CH115',
+                                                    'CH118b2',
+                                                    'CH61',
+                                                    'CH60c1',
+                                                    'CH82c1',
+                                                    'CH123',
+                                                    'CH119b2',
+                                                    'CH130b2',
+                                                    'CH131b2',
+                                                    'CH117c1',
+                                                    'CH118c',
+                                                    'CH119c1',
+                                                    'CH124c1',
+                                                    'CH82b2',
+                                                    'CH76',
+                                                    'CH75',
+                                                    'CH74'],
+                                    'Dettaglio_Supporto': ['PA02', 'PA32', 'CH56B', 'Boccole in plastica'],
+                                    'Tipo_Sospensione': ['Molle', 'Magneti (sospensioni magnetiche)'],
+                                    'Stopper': ['PA25', 'PA57'],
+                                    'Gomme Anteriori': ['PT15', 'PT19', 'PT1214S2'],
+                                    'Gomme Posteriori': ['PT1207F22', 'PT1207P6B', 'PT1207G25']}}},
+       '10': {'Classic': {'Prototipi': {'Motore': ['MX16-m'],
+                                        'Supporto Motore': ['CH67', 'CH68', 'CH69'],
+                                        'Corona': ['GS17030-LPL',
+                                                   'GS17032-LPL',
+                                                   'GS17034-LPL',
+                                                   'GS17531-LPL',
+                                                   'GS17533-LPL',
+                                                   'GS17535-LPL',
+                                                   'GS1831-LPL',
+                                                   'GS1832-LPL',
+                                                   'GS1833-LPL',
+                                                   'GS1834-LPL',
+                                                   'GS1835-LPL',
+                                                   'GS1836-LPL',
+                                                   'GS1831',
+                                                   'GS1832',
+                                                   'GS1833',
+                                                   'GS1834',
+                                                   'GS1835',
+                                                   'GS1836'],
+                                        'Pignoni': ['PS10',
+                                                    'PS11',
+                                                    'PS12',
+                                                    'PS13',
+                                                    'PI6510E',
+                                                    'PI6511E',
+                                                    'PI6512E',
+                                                    'PI7012E',
+                                                    'PI7013E',
+                                                    'PI7014E',
+                                                    'PI7513E',
+                                                    'PI7514E',
+                                                    'PI7515E'],
+                                        'Assale Anteriore': ['Tutti gli assali Slot.it', 'PA39'],
+                                        'Assale Posteriore': ['Tutti gli assali Slot.it'],
+                                        'Cerchi Anteriori': ['Tutte le ruote Slot.it 14.3x8.2mm'],
+                                        'Cerchi Posteriori': ['Tutte le ruote Slot.it 15.8x8.2mm'],
+                                        'Pickup': ['CH06', 'CH07', 'CH10', 'CH26', 'CH66', 'CH85', 'CH85d', 'CH88B'],
+                                        'Viti Carrozzeria': ['Viti Metriche Slot.it'],
+                                        'Viti Metriche Sospensioni': ['CH72', 'CH127'],
+                                        'Dettaglio_Supporto': ['PA02', 'PA32', 'CH56B', 'Boccole in plastica'],
+                                        'Stopper': ['PA25', 'PA57'],
+                                        'Gomme Anteriori': ['PT15', 'PT19'],
+                                        'Gomme Posteriori': ['PT1207F22']},
+                          'Sport': {'Motore': ['MX16-m'],
+                                    'Supporto Motore': ['CH67'],
+                                    'Corona': ['GS17531-LPL',
+                                               'GS17533-LPL',
+                                               'GS17535-LPL',
+                                               'GS1831-LPL',
+                                               'GS1832-LPL',
+                                               'GS1833-LPL',
+                                               'GS1834-LPL',
+                                               'GS1835-LPL',
+                                               'GS1836-LPL',
+                                               'GS1831',
+                                               'GS1832',
+                                               'GS1833',
+                                               'GS1834',
+                                               'GS1835',
+                                               'GS1836'],
+                                    'Pignoni': ['PS10',
+                                                'PS11',
+                                                'PS12',
+                                                'PS13',
+                                                'PI6510E',
+                                                'PI6511E',
+                                                'PI6512E',
+                                                'PI7012E',
+                                                'PI7013E',
+                                                'PI7014E'],
+                                    'Assale Anteriore': ['Tutti gli assali Slot.it', 'PA39'],
+                                    'Assale Posteriore': ['Tutti gli assali Slot.it'],
+                                    'Cerchi Anteriori': ['Tutte le ruote Slot.it 15.8x8.2mm'],
+                                    'Cerchi Posteriori': ['Tutte le ruote Slot.it 15.8x8.2mm'],
+                                    'Pickup': ['CH06', 'CH07', 'CH10', 'CH26', 'CH66', 'CH85', 'CH85d', 'CH88B'],
+                                    'Viti Carrozzeria': ['Viti Metriche Slot.it'],
+                                    'Viti Metriche Sospensioni': ['CH72', 'CH127'],
+                                    'Dettaglio_Supporto': ['PA02', 'PA32', 'CH56B', 'Boccole in plastica'],
+                                    'Stopper': ['PA25', 'PA57'],
+                                    'Gomme Anteriori': ['PT15', 'PT19'],
+                                    'Gomme Posteriori': ['PT1207F22']}}},
+       '9': {'GT3': {'Box Stock': {'Motore': ['MX16-m'],
+                                   'Supporto Motore': ['CH65', 'CH115b'],
+                                   'Corona': ['GS1831',
+                                              'GS1832',
+                                              'GS1833',
+                                              'GS1834',
+                                              'GS1835',
+                                              'GS1836',
+                                              'GS1831-LPL',
+                                              'GS1832-LPL',
+                                              'GS1833-LPL',
+                                              'GS1834-LPL',
+                                              'GS1835-LPL',
+                                              'GS1836-LPL'],
+                                   'Pignoni': ['PS11', 'PS12', 'PI6511E', 'PI6512E'],
+                                   'Cerchi Anteriori': ['W17308215P', 'W17308225P'],
+                                   'Cerchi Posteriori': ['W17308215A', 'W17308225A', 'W17309715A'],
+                                   'Gomme Posteriori': ['PT1323', 'PT1209SP30'],
+                                   'Gomme Anteriori': ['PT15']},
+                     'Evo': {'Motore': ['MX16-m'],
+                             'Supporto Motore': ['CH65', 'CH115b'],
+                             'Corona': ['GS1831',
+                                        'GS1832',
+                                        'GS1833',
+                                        'GS1834',
+                                        'GS1835',
+                                        'GS1836',
+                                        'GS1831-LPL',
+                                        'GS1832-LPL',
+                                        'GS1833-LPL',
+                                        'GS1834-LPL',
+                                        'GS1835-LPL',
+                                        'GS1836-LPL'],
+                             'Pignoni': ['PS11', 'PS12', 'PI6511E', 'PI6512E'],
+                             'Cerchi Anteriori': ['W17308215P',
+                                                  'W17308225P',
+                                                  'W17308215-3D',
+                                                  'W17308215A',
+                                                  'W17308225A',
+                                                  'W17308215M',
+                                                  'W17308225M'],
+                             'Cerchi Posteriori': ['W17308215A', 'W17308225A', 'W17309715A', 'W17308215M', 'W17309715M', 'W17308225M'],
+                             'Gomme Posteriori': ['PT1323', 'PT1209SP30'],
+                             'Gomme Anteriori': ['PT15']},
+                     'Evo2': {'Motore': ['MN09CH', 'MN13CH', 'MN08CH'],
+                              'Supporto Motore': ['CH74', 'CH82b', 'CH119b'],
+                              'Corona': ['GA1626',
+                                         'GA1627',
+                                         'GA1628',
+                                         'GA1629',
+                                         'GA1630',
+                                         'GA1631',
+                                         'GA1632',
+                                         'GA1633',
+                                         'GA1634',
+                                         'GA1635',
+                                         'GA1636',
+                                         'GA1626-LPL',
+                                         'GA1627-LPL',
+                                         'GA1628-LPL',
+                                         'GA1629-LPL',
+                                         'GA1630-LPL'],
+                              'Pignoni': ['PS11', 'PS12', 'PI6511E', 'PI6512E'],
+                              'Cerchi Anteriori': ['W16508215P',
+                                                   'W16508225P',
+                                                   'W16508215-3D',
+                                                   'W16508215A',
+                                                   'W16508225A',
+                                                   'W16508215M',
+                                                   'W16508225M'],
+                              'Cerchi Posteriori': ['W17308215A', 'W17308225A', 'W17309715A', 'W17308215M', 'W17309715M', 'W17308225M'],
+                              'Gomme Posteriori': ['PT1323', 'PT1209SP30'],
+                              'Gomme Anteriori': ['PT15']}}}}}
+
+
+# Mappa esplicita tra il NOME della categoria visualizzato nell'interfaccia
+# e l'ID CATEGORIA usato nella struttura del regolamento incorporato.
+# Questo evita di dipendere dagli ID della tabella Supabase Categorie.
+#
+# IMPORTANTE:
+# - NSR: nella struttura usata dal progetto:
+#       1=GT3, 2=Classic, 3=Hypercar, 4=F1 86/89,
+#       5=F1 2022, 6=Mosler, 7=Altri Modelli.
+# - Slot.it: gli ID del regolamento sono 8=Gruppo C, 9=GT3,
+#       10=Classic, 11=DTM, 12=Hypercar.
+# - Thunderslot: il regolamento fornito usa 13=Classic.
+# Gli ID Supabase delle Categorie NON vengono usati per scegliere il blocco
+# del regolamento quando il nome della categoria è disponibile.
+REGOLAMENTO_CATEGORIE_PER_NOME = {
+    "nsr": {
+        "gt3": "1",
+        "classic": "2",
+        "hypercar": "3",
+        "f1 86/89": "4",
+        "f1 86 89": "4",
+        "f1 2022": "5",
+        "f1 22": "5",
+        "f122": "5",
+        "mosler": "6",
+        "altri modelli": "7",
+        "altri_modelli": "7",
+    },
+    "slot.it": {
+        "gruppo c": "8",
+        "gruppoc": "8",
+        "gt3": "9",
+        "classic": "10",
+        "dtm": "11",
+        "hypercar": "12",
+        "hypercar lmp": "12",
+    },
+    "thunderslot": {
+        "classic": "13",
+    },
+}
+
+
+def _norm_reg_filtro_nome(value):
+    if value is None:
+        return ""
+    s = str(value).strip().casefold()
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    s = s.replace("_", " ").replace("-", " ").replace("/", " ")
+    return " ".join(s.split())
+
+
+def _nome_produttore_da_id(prod_id):
+    prod_key = str(prod_id).strip()
+    for p in produttori or []:
+        if str(p.get("id")).strip() == prod_key:
+            return str(p.get("name") or "").strip()
+    return ""
+
+
+def _categoria_regolamento_da_nome(prod_id, categoria_nome):
+    """Restituisce l'ID della categoria nel REGOLAMENTO_CODICI usando il nome.
+
+    Il parametro prod_id serve solo a identificare il produttore; NON viene
+    usato come ID della categoria Supabase. Se il nome non è riconosciuto,
+    viene restituito None e il chiamante può usare il vecchio fallback numerico.
+    """
+    produttore_nome = _norm_reg_filtro_nome(_nome_produttore_da_id(prod_id))
+    categoria_nome_norm = _norm_reg_filtro_nome(categoria_nome)
+    if not produttore_nome or not categoria_nome_norm:
+        return None
+
+    # Alias produttore.
+    if produttore_nome in {"slot it", "slotit"}:
+        produttore_nome = "slot.it"
+
+    mappa = REGOLAMENTO_CATEGORIE_PER_NOME.get(produttore_nome, {})
+    return mappa.get(categoria_nome_norm)
+
 
 def _carica_regole_semplici(prod_id, cat_id, sotto_categoria=None, categoria_nome=None):
+    """Carica TUTTI i valori ammessi dal regolamento incorporato nel codice.
+
+    La categoria del regolamento viene identificata dal NOME della categoria
+    visualizzato nell'interfaccia, non dall'ID numerico della tabella Supabase.
+    Questo è fondamentale perché gli ID delle categorie Supabase e gli ID
+    presenti nel CSV/regolamento possono essere diversi.
+
+    Ogni codice prodotto resta una scelta distinta. La descrizione viene
+    risolta in seguito tramite CatalogoComponenti.
+    """
     def _norm_reg_filtro(value):
-        if value is None:
-            return ""
-        import unicodedata
-        s = str(value).strip().casefold()
-        s = unicodedata.normalize("NFKD", s)
-        s = "".join(ch for ch in s if not unicodedata.combining(ch))
-        s = s.replace("_", " ").replace("-", " ").replace("/", " ")
-        return " ".join(s.split())
+        return _norm_reg_filtro_nome(value)
 
-    def _match_reg_categoria(csv_value, ui_value):
+    def _match_alias(csv_value, ui_value, aliases):
         a = _norm_reg_filtro(csv_value)
         b = _norm_reg_filtro(ui_value)
         if not b or a == b:
             return True
-        alias = {
-            "gruppo c": {"gruppo c", "gruppoc", "group c"},
-            "hypercar": {"hypercar", "hypercar lmp", "lmp"},
-            "gt3": {"gt3", "gt 3"},
-            "dtm": {"dtm", "dtm 2020", "dtm2020"},
-            "classic": {"classic", "classiche"},
-        }
         return any(
             (b == canon and a in vals) or (a == canon and b in vals)
-            for canon, vals in alias.items()
+            for canon, vals in aliases.items()
         )
 
-    def _match_reg_livello(csv_value, ui_value):
-        a = _norm_reg_filtro(csv_value)
-        b = _norm_reg_filtro(ui_value)
-        if not b or a == b:
-            return True
-        alias = {
-            "box stock": {"box stock", "boxstock", "standard", "stock"},
-            "evo": {"evo", "evolution"},
-            "evo f": {"evo f", "evo/f", "evo-f", "evof"},
-            "evo2": {"evo2", "evo 2", "evolution 2"},
-            "p1": {"p1", "p 1"},
-            "p2": {"p2", "p 2"},
-            "prototipi": {"prototipi", "prototypes"},
-            "sport": {"sport"},
-        }
-        return any(
-            (b == canon and a in vals) or (a == canon and b in vals)
-            for canon, vals in alias.items()
-        )
+    categoria_alias = {
+        "gruppo c": {"gruppo c", "gruppoc", "group c"},
+        "hypercar": {"hypercar", "hypercar lmp", "lmp"},
+        "gt3": {"gt3", "gt 3"},
+        "dtm": {"dtm", "dtm 2020", "dtm2020"},
+        "classic": {"classic", "classiche"},
+        "mosler": {"mosler"},
+        "f1 86 89": {"f1 86 89", "f1 86/89"},
+        "f1 2022": {"f1 2022", "f1 22", "f122"},
+    }
+    livello_alias = {
+        "box stock": {"box stock", "boxstock", "standard", "stock"},
+        "evo": {"evo", "evolution"},
+        "evo f": {"evo f", "evo/f", "evo-f", "evof"},
+        "evo2": {"evo2", "evo 2", "evolution 2"},
+        "p1": {"p1", "p 1"},
+        "p2": {"p2", "p 2"},
+        "prototipi": {"prototipi", "prototypes"},
+        "sport": {"sport"},
+    }
 
-    try:
-        csv_path = os.path.join(os.path.dirname(__file__), "regolamento.csv")
-        
-        if not os.path.exists(csv_path):
-            st.warning(f"⚠️ File regolamento.csv non trovato in {csv_path}.")
-            return {}
-        
-        regole_per_campo = {}
-        indice_codici = _indicizza_catalogo_per_codice()
-        mappa_campi = {
-            "motore": "Motore",
-            "supporto motore": "Supporto Motore",
-            "corona": "Corona",
-            "pignoni": "Pignoni",
-            "pignone": "Pignoni",
-            "assale anteriore": "Assale Anteriore",
-            "assale posteriore": "Assale Posteriore",
-            "cerchi anteriori": "Cerchi Anteriori",
-            "cerchi posteriori": "Cerchi Posteriori",
-            "pickup": "Pickup",
-            "forcella": "Forcella",
-            "gomme anteriori": "Gomme Anteriori",
-            "gomme posteriori": "Gomme Posteriori",
-            "viti carrozzeria": "Viti Carrozzeria",
-            "viti metriche sospensioni": "Viti Metriche Sospensioni",
-            "sospensioni": "Sospensioni",
-            "dettaglio supporto": "Dettaglio_Supporto",
-            "tipo sospensione": "Tipo_Sospensione",
-            "stopper": "Stopper",
-        }
-        
-        with open(csv_path, "r", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                if str(row.get("id_produttori")).strip() != str(prod_id).strip():
-                    continue
-                if str(selected_prod_name if "selected_prod_name" in locals() else "").strip().casefold() != "slot.it":
-                    if str(row.get("id_categorie")).strip() != str(cat_id).strip():
-                        continue
-                if (
-                    sotto_categoria is not None
-                    and not _match_reg_livello(row.get("sotto_categoria", ""), sotto_categoria)
-                ):
-                    continue
-                if (
-                    categoria_nome is not None
-                    and not _match_reg_categoria(row.get("categoria_nome", ""), categoria_nome)
-                ):
-                    continue
-                
-                campo = row.get("campo")
-                valore = row.get("valoreregola")
-                if campo and valore:
-                    campo_norm = campo.lower().strip()
-                    campo_originale = mappa_campi.get(campo_norm, campo)
-                    if campo_originale not in regole_per_campo:
-                        regole_per_campo[campo_originale] = []
-                    valore_mostrato = _risolvi_regola_con_catalogo(valore, indice_codici)
-                    if valore_mostrato not in regole_per_campo[campo_originale]:
-                        regole_per_campo[campo_originale].append(valore_mostrato)
-        
-        if regole_per_campo:
-            st.session_state.regolamento_dati = regole_per_campo
-            st.session_state.regolamento_attivo = True
-            st.success(f"✅ Caricate {sum(len(v) for v in regole_per_campo)} regole da CSV")
-        else:
-            st.warning(f"⚠️ Nessuna regola trovata per produttore {prod_id}, categoria {cat_id}")
-        
-        return regole_per_campo
-    except Exception as e:
-        st.error(f"❌ Errore durante il caricamento del CSV: {e}")
+    prod_key = str(prod_id).strip()
+    prod_data = REGOLAMENTO_CODICI.get(prod_key, {})
+    if not prod_data:
+        st.warning(f"⚠️ Nessun regolamento codificato per produttore {prod_key}.")
         return {}
+
+    # PRIMA SCELTA: nome categoria -> ID del regolamento.
+    # Questo è il fix principale: non usiamo l'ID Supabase come chiave del CSV.
+    reg_cat_key = _categoria_regolamento_da_nome(prod_id, categoria_nome)
+
+    # Fallback controllato: solo se non abbiamo un nome categoria riconoscibile.
+    if reg_cat_key is None:
+        reg_cat_key = str(cat_id).strip()
+
+    cat_data = prod_data.get(reg_cat_key, {})
+    if not cat_data:
+        st.warning(
+            f"⚠️ Nessun regolamento per {categoria_nome or cat_id} "
+            f"(produttore {prod_key})."
+        )
+        return {}
+
+    # Per Slot.it la struttura contiene direttamente il nome categoria.
+    # Per NSR/Thunderslot è __DEFAULT__ perché il nome è associato dalla mappa sopra.
+    categoria_block = None
+    requested_cat_name = _norm_reg_filtro(categoria_nome)
+
+    if requested_cat_name:
+        for saved_name, block in cat_data.items():
+            if saved_name == "__DEFAULT__":
+                continue
+            if _match_alias(saved_name, categoria_nome, categoria_alias):
+                categoria_block = block
+                break
+
+    if categoria_block is None:
+        categoria_block = cat_data.get("__DEFAULT__")
+    if categoria_block is None and len(cat_data) == 1:
+        categoria_block = next(iter(cat_data.values()))
+    if categoria_block is None:
+        st.warning(
+            f"⚠️ Nessuna sezione regolamento per "
+            f"{categoria_nome or reg_cat_key}."
+        )
+        return {}
+
+    # Livello: Slot.it usa Box Stock/Evo/Evo2/P1/P2/Prototipi/Sport.
+    livello_block = None
+    requested_level = _norm_reg_filtro(sotto_categoria)
+    if requested_level:
+        for saved_level, block in categoria_block.items():
+            if saved_level == "__DEFAULT__":
+                continue
+            if _match_alias(saved_level, sotto_categoria, livello_alias):
+                livello_block = block
+                break
+
+    if livello_block is None:
+        livello_block = categoria_block.get("__DEFAULT__")
+    if livello_block is None and len(categoria_block) == 1:
+        livello_block = next(iter(categoria_block.values()))
+    if livello_block is None:
+        st.warning(
+            f"⚠️ Nessun livello regolamento per "
+            f"{categoria_nome or reg_cat_key} / {sotto_categoria or 'default'}."
+        )
+        return {}
+
+    indice_codici = _indicizza_catalogo_per_codice()
+    regole_per_campo = {}
+
+    # Ogni codice è una scelta distinta. La deduplicazione avviene SOLO sul codice.
+    for campo, codici in livello_block.items():
+        if not isinstance(codici, list):
+            codici = [codici]
+
+        lista = []
+        codici_visti = set()
+        for codice in codici:
+            codice_raw = str(codice or "").strip()
+            codice_norm = _normalizza_codice_prodotto(codice_raw)
+            if not codice_norm or codice_norm in codici_visti:
+                continue
+            codici_visti.add(codice_norm)
+
+            # Regola speciale NSR GT3: il regolamento non elenca i codici
+            # delle corone, ma stabilisce che sono ammesse TUTTE le corone
+            # NSR Anglewinder in alluminio o plastica. In questo caso non
+            # inventiamo una lista: la ricaviamo esclusivamente dalle righe
+            # NSR presenti in CatalogoComponenti.
+            if codice_raw == "__ALL_NSR_GT3_ANGLEWINDER_CORONE__":
+                tutte_corone = []
+                for riga in catalogo_componenti or []:
+                    if not riga:
+                        continue
+                    if str(riga.get("id_Produttori") or "").strip() != prod_key:
+                        continue
+                    testo_riga = _testo_componente_catalogo(riga)
+                    if "corona" not in testo_riga or "anglewinder" not in testo_riga:
+                        continue
+                    # Il regolamento ammette alluminio o plastica.
+                    if "alluminio" not in testo_riga and "plastica" not in testo_riga:
+                        continue
+                    tutte_corone.append(riga)
+
+                # Mantieni un ordine stabile e rimuovi duplicati per id/codice.
+                viste_corone = set()
+                for riga in sorted(
+                    tutte_corone,
+                    key=lambda x: (
+                        _normalizza_codice_prodotto(x.get("Codice_Prodotto") or x.get("Codice_Normalizzato")),
+                        str(x.get("id") or "")
+                    )
+                ):
+                    marker = str(riga.get("id") or riga.get("Codice_Prodotto") or riga.get("Codice_Normalizzato") or "")
+                    if marker in viste_corone:
+                        continue
+                    viste_corone.add(marker)
+                    codice_db = str(riga.get("Codice_Prodotto") or riga.get("Codice_Normalizzato") or "").strip()
+                    descr = _descrizione_catalogo_per_regolamento(riga)
+                    if descr:
+                        lista.append(f"{codice_db} - {descr}" if codice_db else descr)
+                continue
+
+            # Il motore New King 19 non possiede un codice prodotto nel PDF.
+            # Non passarlo alla ricerca codice: il testo regolamentare deve
+            # rimanere direttamente visibile nella tendina.
+            if campo == "Motore" and codice_raw.startswith("New King 19 -"):
+                lista.append(codice_raw)
+                continue
+
+            lista.append(_risolvi_regola_con_catalogo(
+                codice_raw, indice_codici, prod_id=prod_key, cat_id=cat_id,
+                campo=campo, sotto_categoria=sotto_categoria
+            ))
+
+        if lista:
+            regole_per_campo[campo] = lista
+
+    if regole_per_campo:
+        st.session_state.regolamento_dati = regole_per_campo
+        st.session_state.regolamento_attivo = True
+        totale = sum(len(v) for v in regole_per_campo.values())
+        st.success(f"✅ Caricate {totale} regole dal regolamento incorporato nel codice")
+    else:
+        st.warning(
+            f"⚠️ Nessuna regola trovata per {categoria_nome or cat_id} "
+            f"(produttore {prod_key})."
+        )
+
+    return regole_per_campo
 
 # ============================================================
 # FUNZIONE PER CONTROLLARE ARCHIVIO COMPONENTI
@@ -2045,7 +3130,19 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                   if st.button("📖 Configura da Regolamento", key=f"config_reg_{model_safe_key}"):
                       st.session_state.configura_regolamento_target = _reg_target
                       sotto_cat = None
-                      cat_nome = None
+                      cat_nome = selected_cat_name
+                      # Ricarica il catalogo prima di risolvere i codici del regolamento.
+                      # Evita che una vecchia cache Supabase nasconda una correzione appena fatta.
+                      try:
+                          get_data.clear()
+                      except Exception:
+                          pass
+                      catalogo_componenti = get_catalogo_componenti()
+                      st.session_state.pop("_catalog_indexed", None)
+                      st.session_state.pop("_catalog_index_version", None)
+                      st.session_state.pop("_indice_codici_bootstrap", None)
+                      st.session_state.pop("_indice_codici_multipli_bootstrap", None)
+                      st.session_state.pop("_indice_codici_produttore_bootstrap", None)
                       _carica_regole_semplici(
                           prod_id_selezionato, category_id, sotto_cat, cat_nome
                       )
@@ -2438,29 +3535,57 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
 
             return risultato_assali
 
+          # MODIFICA: gestione cerchi per NSR con filtro su Prodotto == "Cerchi"
           if c in {"cerchi anteriori", "cerchi posteriori"}:
-            risultato = []
-            for p in pezzi:
-              if not p or not p.get("Prodotto"):
-                continue
-              testo_cerchio = " ".join(
-                  str(p.get(k) or "")
-                  for k in ("Prodotto", "Materiale", "Misure")
-              )
-              testo_cerchio = _normalizza_testo_filtro(testo_cerchio)
-
-              if "cerch" not in testo_cerchio:
-                continue
-
-              if c == "cerchi anteriori":
-                if "posteriore" in testo_cerchio or "posteriori" in testo_cerchio:
-                  continue
+              # Se il produttore è NSR, filtra esclusivamente per Prodotto == "Cerchi"
+              if selected_prod_name and selected_prod_name.lower() == "nsr":
+                  risultato = []
+                  for p in pezzi:
+                      if not p:
+                          continue
+                      prodotto = p.get("Prodotto")
+                      if not prodotto:
+                          continue
+                      if _normalizza_testo_filtro(prodotto) != "cerchi":
+                          continue
+                      # Distingue anteriori/posteriori basandosi su Materiale, Misure e Tipo
+                      testo_cerchio = " ".join(
+                          str(p.get(k) or "")
+                          for k in ("Prodotto", "Materiale", "Misure", "Tipo")
+                      )
+                      testo_cerchio = _normalizza_testo_filtro(testo_cerchio)
+                      if c == "cerchi anteriori":
+                          if "posteriore" in testo_cerchio or "posteriori" in testo_cerchio:
+                              continue
+                      else:  # cerchi posteriori
+                          if "anteriore" in testo_cerchio or "anteriori" in testo_cerchio:
+                              continue
+                      risultato.append(p)
+                  return risultato
               else:
-                if "anteriore" in testo_cerchio or "anteriori" in testo_cerchio:
-                  continue
+                  # Comportamento originale per tutti gli altri marchi
+                  risultato = []
+                  for p in pezzi:
+                      if not p or not p.get("Prodotto"):
+                          continue
+                      testo_cerchio = " ".join(
+                          str(p.get(k) or "")
+                          for k in ("Prodotto", "Materiale", "Misure")
+                      )
+                      testo_cerchio = _normalizza_testo_filtro(testo_cerchio)
 
-              risultato.append(p)
-            return risultato
+                      if "cerch" not in testo_cerchio:
+                          continue
+
+                      if c == "cerchi anteriori":
+                          if "posteriore" in testo_cerchio or "posteriori" in testo_cerchio:
+                              continue
+                      else:
+                          if "anteriore" in testo_cerchio or "anteriori" in testo_cerchio:
+                              continue
+
+                      risultato.append(p)
+                  return risultato
 
           if c == "pickup":
             risultato = []
@@ -2552,87 +3677,302 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               for k in ("Prodotto", "Materiale", "Misure", "Tipo")
           )
 
+        def _boxstock_value_for_field(campo):
+            """Restituisce il default Box Stock della configurazione attuale.
+
+            La sorgente del default resta ESCLUSIVAMENTE la tabella hard-coded
+            di _boxstock_target(). Il modello non viene usato per inventare
+            valori: il modello serve a isolare lo stato dei widget e a
+            garantire che, cambiando auto, la precedente selezione non venga
+            riutilizzata da Streamlit.
+            """
+            categoria_boxstock = selected_cat_name
+
+            # Slot.it possiede anche una propria categoria interna nel codice
+            # (Hypercar, Gruppo C, GT3, DTM, Classic). Quando presente,
+            # utilizziamo quella stessa categoria per la configurazione Box Stock.
+            if str(selected_prod_name or "").strip().casefold() == "slot.it":
+                categoria_boxstock = st.session_state.get(
+                    f"slotit_categoria_{model_safe_key}",
+                    selected_cat_name,
+                )
+                if _normalizza_testo_filtro(categoria_boxstock) == "hypercar":
+                    categoria_boxstock = "hypercar lmp"
+
+            return _boxstock_target(
+                selected_prod_name,
+                categoria_boxstock,
+                campo,
+            )
+
+        def _boxstock_option_text(componente):
+            """Costruisce esattamente il testo usato nelle tendine catalogo."""
+            prodotto = str(componente.get("Prodotto") or "").strip()
+            materiale = str(componente.get("Materiale") or "").strip()
+            misure = str(componente.get("Misure") or "").strip()
+
+            if materiale and materiale.casefold() != "none" and misure and misure.casefold() != "none":
+                return f"{materiale} - {misure}"
+            if materiale and materiale.casefold() != "none":
+                return materiale
+            if misure and misure.casefold() != "none":
+                return misure
+            return prodotto
+
+        def _boxstock_match_score(target, componente, campo):
+            """Punteggio deterministico per collegare il default Box Stock al catalogo.
+
+            Ordine di affidabilità:
+            1) codice prodotto esatto contenuto nel target;
+            2) testo completo del target uguale al testo catalogo;
+            3) tutti i token significativi del target presenti nel record.
+
+            Non viene mai usato un componente di un altro produttore.
+            """
+            target_norm = _boxstock_normalize(target)
+            if not target_norm or not componente:
+                return 0
+
+            testo = _boxstock_normalize(
+                " ".join(
+                    str(componente.get(k) or "")
+                    for k in ("Codice_Prodotto", "Codice_Normalizzato", "Prodotto", "Materiale", "Misure", "Tipo")
+                )
+            )
+            display = _boxstock_normalize(_boxstock_option_text(componente))
+            codice = _boxstock_normalize(componente.get("Codice_Prodotto") or componente.get("Codice_Normalizzato"))
+
+            # Caso codice: es. Slot.it MX16-m, PS11, CH65, PT15.
+            target_code = re.sub(r"[^a-z0-9]+", "", target_norm)
+            if codice and target_code and re.sub(r"[^a-z0-9]+", "", codice) == target_code:
+                return 100
+
+            # Se il target contiene un codice riconoscibile, prova ogni token
+            # alfanumerico lungo almeno 3 caratteri.
+            target_tokens = [
+                re.sub(r"[^a-z0-9]+", "", x)
+                for x in re.findall(r"[a-z0-9]+", target_norm)
+            ]
+            target_tokens = [x for x in target_tokens if len(x) >= 3]
+            if codice and any(x == re.sub(r"[^a-z0-9]+", "", codice) for x in target_tokens):
+                return 95
+
+            if display and display == target_norm:
+                return 90
+
+            if testo:
+                parole = [x for x in re.findall(r"[a-z0-9]+", target_norm) if len(x) >= 3]
+                if parole and all(x in testo for x in parole):
+                    return 70 + min(len(parole), 10)
+
+            # Ultimo caso: il target può essere una descrizione molto più lunga
+            # della rappresentazione della tendina (Materiale - Misure).
+            if display:
+                parole_display = [x for x in re.findall(r"[a-z0-9]+", display) if len(x) >= 3]
+                if parole_display and all(x in target_norm for x in parole_display):
+                    return 60 + min(len(parole_display), 10)
+
+            return 0
+
+        def _risolvi_boxstock_nel_catalogo(target, campo, lista_catalogo):
+            """Trova la riga CatalogoComponenti corrispondente al Box Stock.
+
+            Cerca prima nel sottoinsieme già filtrato per campo/materiale.
+            Se non la trova, cerca nello stesso produttore nel catalogo globale,
+            ma solo per il campo richiesto. Questo evita di perdere il default
+            soltanto perché il filtro precedente ha escluso la riga.
+            """
+            if not target:
+                return None
+
+            candidati = []
+            for p in lista_catalogo or []:
+                if not p:
+                    continue
+                if prod_id_selezionato is not None and str(p.get("id_Produttori") or "").strip() != str(prod_id_selezionato).strip():
+                    continue
+                score = _boxstock_match_score(target, p, campo)
+                if score:
+                    candidati.append((score, p))
+
+            if candidati:
+                candidati.sort(key=lambda x: (-x[0], str(x[1].get("id") or "")))
+                return candidati[0][1]
+
+            # Fallback controllato: catalogo dello stesso produttore.
+            for p in catalogo_componenti or []:
+                if not p:
+                    continue
+                if prod_id_selezionato is not None and str(p.get("id_Produttori") or "").strip() != str(prod_id_selezionato).strip():
+                    continue
+                if not _riga_corrisponde_campo(p, campo):
+                    continue
+                score = _boxstock_match_score(target, p, campo)
+                if score:
+                    candidati.append((score, p))
+
+            if candidati:
+                candidati.sort(key=lambda x: (-x[0], str(x[1].get("id") or "")))
+                return candidati[0][1]
+            return None
+
         def render_select_componente(campo, sub_pezzi_list, key_prefix):
+            # ------------------------------------------------------------
+            # MODALITÀ REGOLAMENTO: completamente separata dal Box Stock.
+            # ------------------------------------------------------------
+            if prod_id_selezionato is not None:
+                sub_pezzi_list = [
+                    p for p in sub_pezzi_list
+                    if p and str(p.get("id_Produttori", "")).strip() == str(prod_id_selezionato).strip()
+                ]
+
             if st.session_state.regolamento_attivo:
                 reg_campo = campo
-                if campo in ["Assale Anteriore", "Assale Posteriore"] and campo not in st.session_state.regolamento_dati and "Assale" in st.session_state.regolamento_dati:
+
+                # La UI chiama il campo interno "Dettaglio_Supporto" e lo
+                # alimenta con le righe catalogate come "Bronzine".
+                # Nel regolamento lo chiamiamo invece "Supporto Assale".
+                if (
+                    campo == "Dettaglio_Supporto"
+                    and "Supporto Assale" in st.session_state.regolamento_dati
+                ):
+                    reg_campo = "Supporto Assale"
+
+                if (
+                    campo in ["Assale Anteriore", "Assale Posteriore"]
+                    and campo not in st.session_state.regolamento_dati
+                    and "Assale" in st.session_state.regolamento_dati
+                ):
                     reg_campo = "Assale"
+
                 if reg_campo in st.session_state.regolamento_dati:
-                    opzioni = st.session_state.regolamento_dati[reg_campo]
+                    opzioni_reg = list(st.session_state.regolamento_dati[reg_campo] or [])
                     saved_val = edit_data.get(campo) if edit_data else None
-                    idx = 0
-                    if saved_val and saved_val in opzioni:
-                        idx = opzioni.index(saved_val)
+                    idx_reg = 0
+                    if saved_val:
+                        saved_norm = _boxstock_normalize(saved_val)
+                        for i, op in enumerate(opzioni_reg):
+                            if _boxstock_normalize(op) == saved_norm:
+                                idx_reg = i
+                                break
                     return st.selectbox(
                         campo,
-                        opzioni,
-                        index=idx,
+                        opzioni_reg or ["Nessuna opzione"],
+                        index=min(idx_reg, max(len(opzioni_reg) - 1, 0)),
                         key=f"reg_{campo}_{model_safe_key}",
                     )
-            
+
+            # ------------------------------------------------------------
+            # MODALITÀ BOX STOCK
+            # Il default viene determinato PRIMA delle altre opzioni.
+            # ------------------------------------------------------------
+            boxstock_val = _boxstock_value_for_field(campo)
+            boxstock_row = _risolvi_boxstock_nel_catalogo(
+                boxstock_val,
+                campo,
+                sub_pezzi_list,
+            )
+
+            # La lista visualizzata resta quella del catalogo filtrato.
+            # Se il Box Stock esiste nel catalogo ma il filtro lo aveva escluso,
+            # lo reinseriamo come prima scelta, senza cambiare il filtro delle
+            # alternative già presenti.
+            lista_per_tendina = list(sub_pezzi_list or [])
+            if boxstock_row is not None and not any(
+                str(p.get("id")) == str(boxstock_row.get("id"))
+                for p in lista_per_tendina
+                if p is not None
+            ):
+                lista_per_tendina.insert(0, boxstock_row)
+
             opzioni = []
-            match_values = []
-            boxstock_val = _boxstock_target(selected_prod_name, selected_cat_name, campo)
+            option_rows = []
+            option_norm_to_index = {}
 
-            for p in sub_pezzi_list:
-                prodotto = str(p.get("Prodotto") or "").strip()
-                mat = p.get("Materiale")
-                mis = p.get("Misure")
-                parte_mat = str(mat).strip() if mat and str(mat).lower() != "none" else ""
-                parte_mis = str(mis).strip() if mis and str(mis).lower() != "none" else ""
+            for p in lista_per_tendina:
+                if not p:
+                    continue
+                str_opt = _boxstock_option_text(p).strip()
+                if not str_opt:
+                    continue
 
-                if parte_mat and parte_mis:
-                    str_opt = f"{parte_mat} - {parte_mis}"
-                elif parte_mat or parte_mis:
-                    str_opt = parte_mat or parte_mis
+                # Deduplica per testo visualizzato, mantenendo la prima riga.
+                norm_opt = _boxstock_normalize(str_opt)
+                if not norm_opt or norm_opt in option_norm_to_index:
+                    continue
+
+                if componente_in_archivio(str_opt):
+                    str_opt_display = f"{str_opt} ✅"
                 else:
-                    str_opt = prodotto
+                    str_opt_display = str_opt
 
-                if str_opt and str_opt not in opzioni:
-                    in_archivio = componente_in_archivio(str_opt)
-                    if in_archivio:
-                        str_opt_display = f"{str_opt} ✅"
-                    else:
-                        str_opt_display = str_opt
-                    opzioni.append(str_opt_display)
-                    match_values.append((str_opt_display, prodotto, parte_mat, parte_mis))
+                option_norm_to_index[norm_opt] = len(opzioni)
+                opzioni.append(str_opt_display)
+                option_rows.append(p)
 
-            if not opzioni and boxstock_val:
-                saved_val = edit_data.get(campo) if edit_data else None
-                default_val = saved_val if saved_val else boxstock_val
-                in_archivio = componente_in_archivio(default_val)
-                display_val = f"{default_val} ✅" if in_archivio else default_val
-                return st.selectbox(
-                    campo,
-                    [display_val],
-                    index=0,
-                    key=f"{key_prefix}_{campo}_{model_safe_key}",
-                )
-            
-            saved_val = edit_data.get(campo) if edit_data else None
-            target_for_default = saved_val if saved_val else boxstock_val
-            
-            def_idx = 0
-            if target_for_default:
-                for i, opt in enumerate(opzioni):
-                    if target_for_default in opt:
-                        def_idx = i
-                        break
+            # Se il Box Stock è una descrizione/codice non presente nel catalogo,
+            # NON lo trasformiamo in una falsa riga: lo mostriamo comunque come
+            # valore dichiarato dal codice e lo selezioniamo.
+            boxstock_display = None
+            if boxstock_row is not None:
+                boxstock_display = _boxstock_option_text(boxstock_row).strip()
             elif boxstock_val:
+                boxstock_display = str(boxstock_val).strip()
+
+            default_idx = 0
+            if boxstock_display:
+                target_norm = _boxstock_normalize(boxstock_display)
+                found = None
                 for i, opt in enumerate(opzioni):
-                    if boxstock_val in opt:
-                        def_idx = i
+                    if _boxstock_normalize(opt) == target_norm:
+                        found = i
                         break
+
+                # Confronto robusto anche quando il Box Stock è un codice ma
+                # la tendina mostra Materiale - Misure.
+                if found is None:
+                    for i, row in enumerate(option_rows):
+                        if _boxstock_match_score(boxstock_val, row, campo) >= 70:
+                            found = i
+                            break
+
+                if found is None:
+                    opzioni.insert(0, boxstock_display)
+                    default_idx = 0
+                else:
+                    default_idx = found
+
+            # In modifica del Garage, il valore salvato deve prevalere sul
+            # default Box Stock: stiamo modificando una configurazione esistente.
+            saved_val = edit_data.get(campo) if edit_data else None
+            if saved_val:
+                saved_norm = _boxstock_normalize(saved_val)
+                saved_idx = None
+                for i, opt in enumerate(opzioni):
+                    if _boxstock_normalize(opt) == saved_norm:
+                        saved_idx = i
+                        break
+                if saved_idx is not None:
+                    default_idx = saved_idx
 
             if not opzioni:
-                opzioni = ["Nessuna opzione"]
-                def_idx = 0
+                opzioni = [boxstock_display or "Nessuna opzione"]
+                default_idx = 0
+
+            # Chiave separata per ogni produttore/categoria/modello/campo.
+            # Questo impedisce a Streamlit di riciclare la scelta di un altro
+            # modello, anche quando due modelli hanno lo stesso nome visualizzato
+            # in contesti diversi.
+            context_key = _normalizza_testo_filtro(
+                f"{selected_prod_name}|{selected_cat_name}|{selected_model_name}"
+            )
+            context_key = re.sub(r"[^a-z0-9]+", "_", context_key).strip("_") or "modello"
 
             return st.selectbox(
                 campo,
                 opzioni,
-                index=def_idx,
-                key=f"{key_prefix}_{campo}_{model_safe_key}",
+                index=min(default_idx, len(opzioni) - 1),
+                key=f"{key_prefix}_{campo}_{context_key}",
             )
 
         if _reg_attivo:
@@ -2640,7 +3980,7 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
               st.caption("Confronto configurazione: Box Stock vs Regolamento")
           
           confronto_campi = [
-              "Motore", "Supporto Motore", "Corona", "Pignoni",
+              "Motore", "Supporto Motore", "Supporto Assale", "Corona", "Pignoni",
               "Assale Anteriore", "Assale Posteriore",
               "Cerchi Anteriori", "Cerchi Posteriori", "Pickup", "Forcella",
               "Gomme Anteriori", "Gomme Posteriori"
@@ -2656,12 +3996,22 @@ if st.session_state.active_tab == "📋 Visualizza Modelli":
                 if str(_categoria_boxstock).strip().casefold() == "hypercar":
                     _categoria_boxstock = "hypercar lmp"
 
+            _campo_boxstock = (
+                "Dettaglio_Supporto"
+                if _campo_confronto == "Supporto Assale"
+                else _campo_confronto
+            )
             _stock = _boxstock_target(
-                selected_prod_name, _categoria_boxstock, _campo_confronto
+                selected_prod_name, _categoria_boxstock, _campo_boxstock
             )
             reg_text = "Nessuna regola"
-            if _campo_confronto in st.session_state.regolamento_dati:
-                reg_text = " / ".join(st.session_state.regolamento_dati[_campo_confronto])
+            _campo_regolamento = (
+                "Supporto Assale"
+                if _campo_confronto == "Supporto Assale"
+                else _campo_confronto
+            )
+            if _campo_regolamento in st.session_state.regolamento_dati:
+                reg_text = " / ".join(st.session_state.regolamento_dati[_campo_regolamento])
             righe_confronto.append({
                 "Componente": _campo_confronto,
                 "Box Stock": _stock or "—",
